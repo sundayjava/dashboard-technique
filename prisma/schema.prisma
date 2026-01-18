@@ -1,0 +1,410 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Example Models - Customize according to your needs
+
+model User {
+  id                         String            @id @default(cuid())
+  email                      String            @unique
+  emailVerified              Boolean           @default(false)
+  emailVerificationOTP       String?
+  emailVerificationOTPExpiry DateTime?
+  passwordResetToken         String?           @unique
+  passwordResetExpiry        DateTime?
+  name                       String?
+  password                   String
+  transactionPin             String
+  phoneNumber                String
+  countryCode                String
+  accountType                AccountType       @default(PERSONAL)
+  currency                   String
+  authorizationCode          String            @unique
+  avatar                     String?
+  dateOfBirth                DateTime?
+  address                    String?
+  profileCompleted           Boolean           @default(false)
+  role                       Role              @default(USER)
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+  sentMessages               Message[]         @relation("SentMessages")
+  receivedMessages           Message[]         @relation("ReceivedMessages")
+  notifications              Notification[]
+  loanApplications           Loan[]
+  cryptoDeposits             CryptoDeposit[]
+  cardApplications           CardApplication[]
+  accounts                   Account[]
+  transactions               Transaction[]
+  kycSubmission              KYC?
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum AccountType {
+  PERSONAL
+  BUSINESS
+  CORPORATE
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  published Boolean  @default(false)
+  authorId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("posts")
+}
+
+model FAQ {
+  id        String   @id @default(cuid())
+  category  String
+  question  String   @db.Text
+  answer    String   @db.Text
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@map("faqs")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  subject    String?
+  content    String   @db.Text
+  isRead     Boolean  @default(false)
+  senderId   String
+  receiverId String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  link      String?
+  isRead    Boolean          @default(false)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  MESSAGE
+  TRANSACTION
+  INVESTMENT
+  LOAN
+  CARD
+  SECURITY
+  SYSTEM
+  PROMOTION
+}
+
+model Loan {
+  id         String     @id @default(cuid())
+  userId     String
+  fromDate   DateTime
+  fullName   String
+  amount     Float
+  duration   Int // in months
+  loanType   LoanType
+  reason     String     @db.Text
+  status     LoanStatus @default(PENDING)
+  adminNotes String?    @db.Text
+  approvedBy String?
+  approvedAt DateTime?
+  rejectedAt DateTime?
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("loans")
+}
+
+enum LoanType {
+  PERSONAL
+  BUSINESS
+  AUTO
+  HOME
+  EDUCATION
+  MEDICAL
+  EMERGENCY
+}
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISBURSED
+  COMPLETED
+  CANCELLED
+}
+
+model CryptoToken {
+  id           String          @id @default(cuid())
+  name         String // Bitcoin, Ethereum, etc.
+  symbol       String // BTC, ETH, etc.
+  network      String // Bitcoin Network, Ethereum (ERC20), etc.
+  address      String // Deposit address
+  icon         String? // URL to token icon
+  isActive     Boolean         @default(true)
+  exchangeRate Float           @default(0) // Rate against USD
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deposits     CryptoDeposit[]
+
+  @@unique([symbol, network])
+  @@index([isActive])
+  @@map("crypto_tokens")
+}
+
+model CryptoDeposit {
+  id            String              @id @default(cuid())
+  userId        String
+  tokenId       String
+  amount        Float
+  transactionId String
+  status        CryptoDepositStatus @default(PENDING)
+  adminNotes    String?             @db.Text
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  rejectedAt    DateTime?
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token         CryptoToken         @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([tokenId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("crypto_deposits")
+}
+
+enum CryptoDepositStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  COMPLETED
+}
+
+model CardApplication {
+  id            String     @id @default(cuid())
+  userId        String
+  phoneNumber   String
+  accountNumber String
+  cardType      CardType
+  status        CardStatus @default(PENDING)
+  adminNotes    String?    @db.Text
+  approvedBy    String?
+  approvedAt    DateTime?
+  rejectedAt    DateTime?
+  deliveredAt   DateTime?
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("card_applications")
+}
+
+enum CardType {
+  DEBIT
+  CREDIT
+  VIRTUAL
+  PREPAID
+}
+
+enum CardStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ISSUED
+  DELIVERED
+  CANCELLED
+}
+
+model Account {
+  id              String        @id @default(cuid())
+  userId          String
+  accountNumber   String        @unique
+  accountName     String
+  accountType     AccountType   @default(PERSONAL)
+  currency        String        @default("USD")
+  balance         Float         @default(0)
+  availableBalance Float        @default(0)
+  status          AccountStatus @default(ACTIVE)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([accountNumber])
+  @@index([status])
+  @@map("accounts")
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  userId            String
+  accountId         String
+  transactionType   TransactionType
+  amount            Float
+  balanceAfter      Float
+  currency          String
+  description       String
+  reference         String            @unique
+  status            TransactionStatus @default(COMPLETED)
+  recipientName     String?
+  recipientAccount  String?
+  senderName        String?
+  senderAccount     String?
+  fee               Float             @default(0)
+  metadata          Json?
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account           Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([transactionType])
+  @@index([status])
+  @@index([createdAt])
+  @@index([reference])
+  @@map("transactions")
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER_IN
+  TRANSFER_OUT
+  PAYMENT
+  REFUND
+  FEE
+  INTEREST
+  LOAN_DISBURSEMENT
+  LOAN_REPAYMENT
+  CARD_PAYMENT
+  CARD_REFUND
+  CRYPTO_DEPOSIT
+  CRYPTO_WITHDRAWAL
+  INVESTMENT
+  DIVIDEND
+  BONUS
+  CHARGE
+  REVERSAL
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REVERSED
+}
+
+model KYC {
+  id                 String       @id @default(cuid())
+  userId             String       @unique
+  // Personal Information
+  fullName           String
+  dateOfBirth        DateTime
+  nationality        String
+  address            String       @db.Text
+  city               String
+  state              String
+  postalCode         String
+  country            String
+  // Identity Document
+  documentType       DocumentType
+  documentNumber     String
+  documentFrontImage String // URL to uploaded image
+  documentBackImage  String? // URL to uploaded image (optional for some documents)
+  // Selfie Verification
+  selfieImage        String // URL to uploaded selfie
+  // Additional Information
+  occupation         String?
+  employerName       String?
+  annualIncome       String?
+  sourceOfFunds      String?
+  // Verification Status
+  status             KYCStatus    @default(PENDING)
+  rejectionReason    String?      @db.Text
+  verifiedBy         String? // Admin ID who verified
+  verifiedAt         DateTime?
+  submittedAt        DateTime     @default(now())
+  // Relations
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("kyc_submissions")
+}
+
+enum DocumentType {
+  PASSPORT
+  NATIONAL_ID
+  DRIVERS_LICENSE
+  RESIDENCE_PERMIT
+}
+
+enum KYCStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  RESUBMIT_REQUIRED
+}
