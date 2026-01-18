@@ -28,6 +28,8 @@ export async function GET(request: Request) {
         currency: true,
         accountType: true,
         profileCompleted: true,
+        role: true,
+        authorizationCode: true,
         createdAt: true,
       },
     });

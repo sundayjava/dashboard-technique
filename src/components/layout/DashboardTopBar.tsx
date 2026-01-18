@@ -3,6 +3,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Avatar from '@/components/ui/Avatar';
+import { Bell, X } from 'lucide-react';
+import axios from 'axios';
+
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  link?: string;
+  isRead: boolean;
+  createdAt: string;
+}
 
 interface User {
   id: string;
@@ -24,8 +36,18 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
   const router = useRouter();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
+
+  // Fetch notifications on mount
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications();
+    }
+  }, [user]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -41,6 +63,96 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const fetchNotifications = async () => {
+    if (!user?.id) return;
+    
+    setLoadingNotifications(true);
+    try {
+      const response = await axios.get(`/api/notifications?userId=${user.id}`);
+      setNotifications(response.data.notifications);
+      setUnreadCount(response.data.unreadCount);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await axios.patch(`/api/notifications/${notificationId}`);
+      // Update local state
+      setNotifications(prev =>
+        prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await axios.post('/api/notifications/mark-all-read', { userId: user?.id });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.isRead) {
+      markAsRead(notification.id);
+    }
+    if (notification.link) {
+      router.push(notification.link);
+      setShowNotifications(false);
+    }
+  };
+
+  const deleteNotification = async (notificationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await axios.delete(`/api/notifications/${notificationId}`);
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      if (!notifications.find(n => n.id === notificationId)?.isRead) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'TRANSACTION':
+        return '💳';
+      case 'SECURITY':
+        return '🔒';
+      case 'LOAN':
+        return '💰';
+      case 'KYC':
+        return '✅';
+      case 'CARD':
+        return '💳';
+      default:
+        return '📢';
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -98,41 +210,107 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
             }}
             className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <Bell className="w-6 h-6 text-gray-600" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
-              <div className="px-4 py-2 border-b border-gray-200">
-                <h3 className="font-semibold text-gray-900">Notifications</h3>
+            <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden z-50">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-200 bg-linear-to-r from-[#c1ff72]/10 to-[#c1ff72]/5">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Bell className="w-5 h-5" />
+                    Notifications
+                    {unreadCount > 0 && (
+                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </h3>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-xs text-[#c1ff72] hover:text-[#b0ef62] font-medium"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Notifications List */}
               <div className="max-h-96 overflow-y-auto">
-                <div className="px-4 py-3 hover:bg-gray-50 cursor-pointer">
-                  <p className="text-sm font-medium text-gray-900">New transaction received</p>
-                  <p className="text-xs text-gray-500 mt-1">2 minutes ago</p>
-                </div>
-                <div className="px-4 py-3 hover:bg-gray-50 cursor-pointer">
-                  <p className="text-sm font-medium text-gray-900">Account verification complete</p>
-                  <p className="text-xs text-gray-500 mt-1">1 hour ago</p>
-                </div>
-                <div className="px-4 py-3 hover:bg-gray-50 cursor-pointer">
-                  <p className="text-sm font-medium text-gray-900">Security alert</p>
-                  <p className="text-xs text-gray-500 mt-1">3 hours ago</p>
-                </div>
+                {loadingNotifications ? (
+                  <div className="p-8 text-center">
+                    <div className="w-8 h-8 border-4 border-[#c1ff72] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p className="text-sm text-gray-500 mt-2">Loading notifications...</p>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Bell className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No notifications</p>
+                    <p className="text-xs text-gray-400 mt-1">You're all caught up!</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        onClick={() => handleNotificationClick(notification)}
+                        className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors relative ${
+                          !notification.isRead ? 'bg-blue-50/50' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl mt-1">{getNotificationIcon(notification.type)}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className={`text-sm font-medium text-gray-900 ${!notification.isRead ? 'font-semibold' : ''}`}>
+                                {notification.title}
+                              </p>
+                              <button
+                                onClick={(e) => deleteNotification(notification.id, e)}
+                                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                              >
+                                <X className="w-3 h-3 text-gray-400" />
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {formatTimeAgo(notification.createdAt)}
+                            </p>
+                          </div>
+                          {!notification.isRead && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full absolute top-4 right-2"></div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="px-4 py-2 border-t border-gray-200">
-                <button className="text-sm text-[#c1ff72] hover:underline font-medium">
-                  View all notifications
-                </button>
-              </div>
+
+              {/* Footer */}
+              {notifications.length > 0 && (
+                <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                  <button
+                    onClick={() => {
+                      router.push('/dashboard/notifications');
+                      setShowNotifications(false);
+                    }}
+                    className="text-sm text-[#c1ff72] hover:text-[#b0ef62] font-medium w-full text-center"
+                  >
+                    View all notifications
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

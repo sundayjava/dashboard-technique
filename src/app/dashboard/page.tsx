@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
-import { DashboardTopBar } from '@/components/layout/DashboardTopBar';
-import { sidebarItems } from '@/config/sidebar.config';
+import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
 
 interface User {
   id: string;
@@ -16,60 +14,21 @@ interface User {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
-    if (!userData) {
-      router.push('/login');
-      return;
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      
+      // Redirect admin to admin dashboard
+      if (parsedUser.role === 'ADMIN') {
+        router.push('/admin/dashboard');
+      }
     }
-
-    const parsedUser = JSON.parse(userData);
-    
-    // Redirect admin to admin dashboard
-    if (parsedUser.role === 'ADMIN') {
-      router.push('/admin/dashboard');
-      return;
-    }
-
-    setUser(parsedUser);
   }, [router]);
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#c1ff72]"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <DashboardSidebar 
-        items={sidebarItems}
-        userId={user.id}
-        onCollapseChange={setSidebarCollapsed}
-        isMobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
-
-      {/* Top Bar */}
-      <DashboardTopBar 
-        user={user} 
-        sidebarCollapsed={sidebarCollapsed}
-        onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
-      />
-
-      {/* Main Content */}
-      <main
-        className={`pt-24 pb-8 px-6 transition-all duration-300 ${
-          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
-        }`}
-      >
+    <DashboardLayoutWrapper>
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow p-6">
@@ -95,20 +54,6 @@ export default function DashboardPage() {
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Authorization Code</p>
-                <p className="text-lg font-mono font-bold text-gray-900">{user.authorizationCode}</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                 </svg>
               </div>
             </div>
@@ -175,7 +120,6 @@ export default function DashboardPage() {
             <p className="text-gray-500">No recent transactions</p>
           </div>
         </div>
-      </main>
-    </div>
+    </DashboardLayoutWrapper>
   );
 }

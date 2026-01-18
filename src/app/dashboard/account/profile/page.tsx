@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Camera, Save, Loader2 } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import { toast } from 'react-hot-toast';
-import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
-import { DashboardTopBar } from '@/components/layout/DashboardTopBar';
-import { sidebarItems } from '@/config/sidebar.config';
+import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
 import { COUNTRY_CODES } from '@/constants/countries';
 
 export default function ProfilePage() {
@@ -15,9 +13,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     phoneNumber: '',
@@ -61,7 +57,7 @@ export default function ProfilePage() {
       const data = await response.json();
 
       if (response.ok && data.user) {
-        setUser(data.user);
+        setProfileData(data.user);
         setFormData({
           name: data.user.name || '',
           phoneNumber: data.user.phoneNumber || '',
@@ -114,7 +110,7 @@ export default function ProfilePage() {
     try {
       if (!userId) {
         toast.error('Please log in to upload avatar');
-        setAvatarPreview(user?.avatar || null);
+        setAvatarPreview(profileData?.avatar || null);
         return;
       }
 
@@ -131,16 +127,23 @@ export default function ProfilePage() {
       const data = await response.json();
 
       if (response.ok) {
-        setUser({ ...user, avatar: data.avatarUrl });
+        setProfileData({ ...profileData, avatar: data.avatarUrl });
+        // Update localStorage
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          userData.avatar = data.avatarUrl;
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
         toast.success('Profile picture updated!');
       } else {
         toast.error(data.error || 'Failed to upload image');
-        setAvatarPreview(user?.avatar || null);
+        setAvatarPreview(profileData?.avatar || null);
       }
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast.error('Failed to upload image');
-      setAvatarPreview(user?.avatar || null);
+      setAvatarPreview(profileData?.avatar || null);
     } finally {
       setUploadingAvatar(false);
     }
@@ -173,7 +176,14 @@ export default function ProfilePage() {
       const data = await response.json();
 
       if (response.ok) {
-        setUser(data.user);
+        setProfileData(data.user);
+        // Update localStorage
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          Object.assign(userData, data.user);
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
         toast.success('Profile updated successfully!');
       } else {
         toast.error(data.error || 'Failed to update profile');
@@ -194,7 +204,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user) {
+  if (!profileData) {
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-gray-600">Unable to load profile. Please try again.</p>
@@ -203,39 +213,17 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Sidebar */}
-      <DashboardSidebar 
-        items={sidebarItems}
-        userId={user.id}
-        onCollapseChange={setSidebarCollapsed}
-        isMobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
-
-      {/* Top Bar */}
-      <DashboardTopBar 
-        user={user} 
-        sidebarCollapsed={sidebarCollapsed}
-        onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
-      />
-
-      {/* Main Content */}
-      <main
-        className={`pt-24 pb-8 px-4 md:px-6 transition-all duration-300 ${
-          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
-        }`}
-      >
-        <div className="max-w-5xl mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Profile Settings
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Manage your personal information
-            </p>
-          </div>
+    <DashboardLayoutWrapper>
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Profile Settings
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Manage your personal information
+          </p>
+        </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Avatar & Info */}
@@ -250,7 +238,7 @@ export default function ProfilePage() {
                     ) : (
                       <Avatar
                         src={avatarPreview}
-                        name={formData.name || user.name}
+                        name={formData.name || profileData.name}
                         size="xl"
                         className="w-32 h-32"
                       />
@@ -271,13 +259,13 @@ export default function ProfilePage() {
                     />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900 text-center mb-1">
-                    {user.name}
+                    {profileData.name}
                   </h2>
                   <p className="text-sm text-gray-600 text-center mb-3">
-                    {user.email}
+                    {profileData.email}
                   </p>
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                    {user.accountType === 'BUSINESS' ? 'Business Account' : 'Personal Account'}
+                    {profileData.accountType === 'BUSINESS' ? 'Business Account' : 'Personal Account'}
                   </span>
                 </div>
 
@@ -287,7 +275,7 @@ export default function ProfilePage() {
                       Account Created
                     </p>
                     <p className="text-sm font-medium text-gray-900">
-                      {new Date(user.createdAt).toLocaleDateString('en-US', {
+                      {new Date(profileData.createdAt).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -299,7 +287,7 @@ export default function ProfilePage() {
                       Profile Status
                     </p>
                     <p className="text-sm font-medium">
-                      {user.profileCompleted ? (
+                      {profileData.profileCompleted ? (
                         <span className="text-[#c1ff72]">Complete ✓</span>
                       ) : (
                         <span className="text-yellow-600">Incomplete</span>
@@ -339,7 +327,7 @@ export default function ProfilePage() {
                     </label>
                     <input
                       type="email"
-                      value={user.email}
+                      value={profileData.email}
                       disabled
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
@@ -431,7 +419,6 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </DashboardLayoutWrapper>
   );
 }

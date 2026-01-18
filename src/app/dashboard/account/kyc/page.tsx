@@ -76,7 +76,15 @@ export default function KYCPage() {
 
   const getUserId = () => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('userId');
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          return userData.id;
+        } catch (error) {
+          console.error('Error parsing stored user:', error);
+        }
+      }
     }
     return null;
   };

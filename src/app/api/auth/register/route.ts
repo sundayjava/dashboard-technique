@@ -4,6 +4,29 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
+// Generate unique 10-digit account number
+async function generateAccountNumber(): Promise<string> {
+  let accountNumber: string;
+  let isUnique = false;
+
+  while (!isUnique) {
+    // Generate 10-digit number starting with 10 (Acredis prefix)
+    accountNumber = '10' + Math.floor(10000000 + Math.random() * 90000000).toString();
+    
+    // Check if this account number already exists
+    const existing = await prisma.account.findUnique({
+      where: { accountNumber },
+    });
+    
+    if (!existing) {
+      isUnique = true;
+      return accountNumber;
+    }
+  }
+  
+  throw new Error('Failed to generate unique account number');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -69,21 +92,54 @@ export async function POST(request: NextRequest) {
     // OTP expires in 10 minutes
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        transactionPin: hashedTransactionPin,
-        phoneNumber,
-        countryCode,
-        accountType,
-        currency,
-        authorizationCode,
-        emailVerificationOTP: otp,
-        emailVerificationOTPExpiry: otpExpiry,
-        emailVerified: false,
-      },
+    // Generate account number
+    const accountNumber = await generateAccountNumber();
+
+    // Create user and account in a transaction
+    const result = await prisma.$transaction(async (tx: any) => {
+      // Create user
+      const user = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          transactionPin: hashedTransactionPin,
+          phoneNumber,
+          countryCode,
+          accountType,
+          currency,
+          authorizationCode,
+          emailVerificationOTP: otp,
+          emailVerificationOTPExpiry: otpExpiry,
+          emailVerified: false,
+        },
+      });
+
+      // Create default account
+      const account = await tx.account.create({
+        data: {
+          userId: user.id,
+          accountNumber: accountNumber,
+          accountName: email.split('@')[0], // Use email prefix as initial account name
+          accountType: accountType,
+          currency: currency,
+          balance: 0,
+          availableBalance: 0,
+          status: 'ACTIVE',
+        },
+      });
+
+      // Create welcome notification
+      await tx.notification.create({
+        data: {
+          userId: user.id,
+          type: 'SYSTEM',
+          title: 'Welcome to Acredis Finance!',
+          message: `Your account ${accountNumber} has been created successfully. Please verify your email to get started.`,
+          link: '/dashboard',
+        },
+      });
+
+      return { user, account };
     });
 
     // Send verification email
@@ -97,7 +153,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         message: 'Account created successfully. Please check your email to verify your account.',
-        userId: user.id,
+        userId: result.user.id,
+        accountNumber: accountNumber,
       },
       { status: 201 }
     );

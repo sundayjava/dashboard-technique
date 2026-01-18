@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         userId,
         title: 'Crypto Deposit Submitted',
         message: `Your ${deposit.token.name} deposit of ${amount} ${deposit.token.symbol} has been submitted for verification.`,
-        type: 'SUCCESS',
+        type: 'SYSTEM',
       },
     });
 

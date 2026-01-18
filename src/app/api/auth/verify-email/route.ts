@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     // Find user with this verification token
     const user = await prisma.user.findFirst({
       where: {
-        emailVerificationToken: token,
+        emailVerificationOTP: token,
         emailVerified: false,
       },
     });
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       where: { id: user.id },
       data: {
         emailVerified: true,
-        emailVerificationToken: null,
+        emailVerificationOTP: null,
       },
     });
 

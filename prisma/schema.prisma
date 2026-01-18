@@ -32,6 +32,11 @@ model User {
   address                    String?
   profileCompleted           Boolean           @default(false)
   role                       Role              @default(USER)
+  // Admin controls
+  canTransfer                Boolean           @default(true)
+  accountDisabled            Boolean           @default(false)
+  isVerified                 Boolean           @default(false)
+  requireOTPForInternational Boolean           @default(false)
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
   sentMessages               Message[]         @relation("SentMessages")
@@ -43,6 +48,7 @@ model User {
   accounts                   Account[]
   transactions               Transaction[]
   kycSubmission              KYC?
+  activityLogs               ActivityLog[]
 
   @@map("users")
 }
@@ -407,4 +413,118 @@ enum KYCStatus {
   APPROVED
   REJECTED
   RESUBMIT_REQUIRED
+}
+
+model ActivityLog {
+  id          String       @id @default(cuid())
+  userId      String
+  action      String       // e.g., "LOGIN", "PASSWORD_CHANGED", "PIN_CHANGED", "PROFILE_UPDATED"
+  description String       @db.Text
+  ipAddress   String?
+  userAgent   String?      @db.Text
+  metadata    Json?        // Additional data
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+  @@map("activity_logs")
+}
+
+model Beneficiary {
+  id            String   @id @default(cuid())
+  userId        String
+  accountName   String
+  accountNumber String
+  bankName      String
+  bankCode      String?
+  nickname      String?  // Optional friendly name for the beneficiary
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@unique([userId, accountNumber, bankName])
+  @@map("beneficiaries")
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String   @default("string") // string, number, boolean, json
+  category  String   @default("general") // general, fees, limits, notifications
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model TransferOTP {
+  id        String   @id @default(cuid())
+  userId    String
+  otp       String
+  type      String   // 'international_transfer' or 'domestic_transfer'
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type, verified])
+  @@map("transfer_otps")
+}
+
+model InternationalTransfer {
+  id                    String   @id @default(cuid())
+  userId                String
+  transactionId         String   @unique
+  // Sender details
+  senderAccountId       String
+  amount                Float
+  currency              String
+  fee                   Float
+  // Beneficiary details
+  beneficiaryName       String
+  beneficiaryEmail      String?
+  beneficiaryPhone      String?
+  beneficiaryAddress    String
+  beneficiaryCity       String?
+  beneficiaryState      String?
+  beneficiaryCountry    String
+  beneficiaryPostalCode String?
+  // Bank details
+  bankName              String
+  bankAddress           String
+  bankCity              String?
+  bankCountry           String
+  accountNumber         String
+  iban                  String?
+  swiftCode             String
+  routingNumber         String?
+  sortCode              String?
+  // Transfer details
+  purpose               String
+  narration             String?
+  status                String   @default("PENDING") // PENDING, COMPLETED, REJECTED
+  rejectionReason       String?
+  processedBy           String?
+  processedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([transactionId])
+  @@map("international_transfers")
+}
+
+model Bank {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("banks")
 }

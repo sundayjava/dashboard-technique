@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { TransactionType, TransactionStatus } from '@prisma/client';
 
 export async function POST(request: Request) {
   try {
@@ -39,7 +40,23 @@ export async function POST(request: Request) {
     });
 
     // Sample transaction types
-    const transactionData = [
+    const transactionData: Array<{
+      userId: string;
+      accountId: string;
+      transactionType: TransactionType;
+      amount: number;
+      balanceAfter: number;
+      currency: string;
+      description: string;
+      reference: string;
+      status: TransactionStatus;
+      fee: number;
+      createdAt: Date;
+      senderName?: string;
+      recipientName?: string;
+      recipientAccount?: string;
+      senderAccount?: string;
+    }> = [
       // Main Account transactions
       {
         userId,

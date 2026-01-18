@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
-import { DashboardTopBar } from '@/components/layout/DashboardTopBar';
-import { sidebarItems } from '@/config/sidebar.config';
+import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
+import { TransactionDetailModal } from '@/components/modals/TransactionDetailModal';
 import axios from 'axios';
+import { ArrowUpRight, ArrowDownLeft, Download, Printer } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -56,32 +56,26 @@ export default function StatementPage() {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [user, setUser] = useState<any>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchUser();
     fetchAccounts();
   }, []);
 
   const getUserId = (): string | null => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('userId');
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          return userData.id;
+        } catch (error) {
+          console.error('Error parsing stored user:', error);
+        }
+      }
     }
     return null;
-  };
-
-  const fetchUser = async () => {
-    const userId = getUserId();
-    if (!userId) return;
-
-    try {
-      const response = await axios.get(`/api/profile?userId=${userId}`);
-      setUser(response.data);
-    } catch (err: any) {
-      console.error('Error fetching user:', err);
-    }
   };
 
   useEffect(() => {
@@ -226,202 +220,183 @@ export default function StatementPage() {
     );
   };
 
+  const handleTransactionClick = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsModalOpen(true);
+  };
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Sidebar */}
-      <DashboardSidebar 
-        items={sidebarItems} 
-        userId={getUserId() || undefined}
-        onCollapseChange={setSidebarCollapsed}
-        isMobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
+    <DashboardLayoutWrapper>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8 flex flex-wrap justify-between items-start gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Account Statement</h1>
+            <p className="text-gray-600">View and filter your transaction history</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={exportToCSV}
+              disabled={transactions.length === 0}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            >
+              <Download className="w-5 h-5" />
+              Export CSV
+            </button>
+            <button
+              onClick={printStatement}
+              disabled={transactions.length === 0}
+              className="px-4 py-2 bg-[#c1ff72] text-black font-medium rounded-lg hover:bg-[#b0ef62] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            >
+              <Printer className="w-5 h-5" />
+              Print
+            </button>
+          </div>
+        </div>
 
-      {/* Top Bar */}
-      <DashboardTopBar 
-        user={user}
-        sidebarCollapsed={sidebarCollapsed}
-        onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
-      />
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
 
-      {/* Main Content */}
-      <main
-        className={`pt-24 pb-8 px-4 md:px-6 transition-all duration-300 ${
-          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8 flex flex-wrap justify-between items-start gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Account Statement</h1>
-              <p className="text-gray-600">View and filter your transaction history</p>
+        {/* Filters */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {/* Account Selection */}
+            <div className="min-w-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account
+              </label>
+              <select
+                value={selectedAccount}
+                onChange={(e) => setSelectedAccount(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.accountName} - {account.accountNumber}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={exportToCSV}
-                disabled={transactions.length === 0}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+
+            {/* Start Date */}
+            <div className="min-w-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
+              />
+            </div>
+
+            {/* End Date */}
+            <div className="min-w-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                End Date
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
+              />
+            </div>
+
+            {/* Transaction Type */}
+            <div className="min-w-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Type
+              </label>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export CSV
-              </button>
-              <button
-                onClick={printStatement}
-                disabled={transactions.length === 0}
-                className="px-4 py-2 bg-[#c1ff72] text-black font-medium rounded-lg hover:bg-[#b0ef62] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                <option value="">All Types</option>
+                <option value="DEPOSIT">Deposit</option>
+                <option value="WITHDRAWAL">Withdrawal</option>
+                <option value="TRANSFER_IN">Transfer In</option>
+                <option value="TRANSFER_OUT">Transfer Out</option>
+                <option value="PAYMENT">Payment</option>
+                <option value="REFUND">Refund</option>
+              </select>
+            </div>
+
+            {/* Status */}
+            <div className="min-w-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                Print
-              </button>
+                <option value="">All Statuses</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="PENDING">Pending</option>
+                <option value="PROCESSING">Processing</option>
+                <option value="FAILED">Failed</option>
+              </select>
             </div>
           </div>
+        </div>
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-              {error}
+        {/* Summary Cards */}
+        {summary && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              <p className="text-sm text-gray-600 mb-1">Total Transactions</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.totalTransactions}</p>
             </div>
-          )}
-
-          {/* Filters */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-              {/* Account Selection */}
-              <div className="min-w-0">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Account
-                </label>
-                <select
-                  value={selectedAccount}
-                  onChange={(e) => setSelectedAccount(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
-                >
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.accountName} - {account.accountNumber}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Start Date */}
-              <div className="min-w-0">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
-                />
-              </div>
-
-              {/* End Date */}
-              <div className="min-w-0">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
-                />
-              </div>
-
-              {/* Transaction Type */}
-              <div className="min-w-0">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type
-                </label>
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
-                >
-                  <option value="">All Types</option>
-                  <option value="DEPOSIT">Deposit</option>
-                  <option value="WITHDRAWAL">Withdrawal</option>
-                  <option value="TRANSFER_IN">Transfer In</option>
-                  <option value="TRANSFER_OUT">Transfer Out</option>
-                  <option value="PAYMENT">Payment</option>
-                  <option value="REFUND">Refund</option>
-                </select>
-              </div>
-
-              {/* Status */}
-              <div className="min-w-0">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="PROCESSING">Processing</option>
-                  <option value="FAILED">Failed</option>
-                </select>
-              </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              <p className="text-sm text-gray-600 mb-1">Total Deposits</p>
+              <p className="text-2xl font-bold text-green-600">
+                {formatCurrency(summary.totalDeposits, accounts.find(a => a.id === selectedAccount)?.currency || 'USD')}
+              </p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              <p className="text-sm text-gray-600 mb-1">Total Withdrawals</p>
+              <p className="text-2xl font-bold text-red-600">
+                {formatCurrency(summary.totalWithdrawals, accounts.find(a => a.id === selectedAccount)?.currency || 'USD')}
+              </p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              <p className="text-sm text-gray-600 mb-1">Total Fees</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(summary.totalFees, accounts.find(a => a.id === selectedAccount)?.currency || 'USD')}
+              </p>
             </div>
           </div>
+        )}
 
-          {/* Summary Cards */}
-          {summary && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                <p className="text-sm text-gray-600 mb-1">Total Transactions</p>
-                <p className="text-2xl font-bold text-gray-900">{summary.totalTransactions}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                <p className="text-sm text-gray-600 mb-1">Total Deposits</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(summary.totalDeposits, accounts.find(a => a.id === selectedAccount)?.currency || 'USD')}
-                </p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                <p className="text-sm text-gray-600 mb-1">Total Withdrawals</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {formatCurrency(summary.totalWithdrawals, accounts.find(a => a.id === selectedAccount)?.currency || 'USD')}
-                </p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                <p className="text-sm text-gray-600 mb-1">Total Fees</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(summary.totalFees, accounts.find(a => a.id === selectedAccount)?.currency || 'USD')}
-                </p>
-              </div>
+        {/* Transactions Table */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Transaction History</h2>
+          </div>
+          {loading ? (
+            <div className="p-12 text-center">
+              <p className="text-gray-500 text-lg">Loading your transaction history...</p>
             </div>
-          )}
-
-          {/* Transactions Table */}
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Transaction History</h2>
+          ) : transactions.length === 0 ? (
+            <div className="p-12 text-center">
+              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-gray-500 text-lg font-medium mb-2">No transactions found</p>
+              <p className="text-gray-400 text-sm">Try adjusting your filters or select a different account</p>
             </div>
-            {loading ? (
-              <div className="p-12 text-center">
-                <p className="text-gray-500 text-lg">Loading your transaction history...</p>
-              </div>
-            ) : transactions.length === 0 ? (
-              <div className="p-12 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-gray-500 text-lg font-medium mb-2">No transactions found</p>
-                <p className="text-gray-400 text-sm">Try adjusting your filters or select a different account</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
+          ) : (
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
@@ -432,19 +407,16 @@ export default function StatementPage() {
                         Description
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Reference
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Amount
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Balance
+                        Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
+                        Action
                       </th>
                     </tr>
                   </thead>
@@ -455,16 +427,13 @@ export default function StatementPage() {
                           {formatDate(transaction.createdAt)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          <div>{transaction.description}</div>
+                          <div className="font-medium">{transaction.description}</div>
                           {transaction.recipientName && (
                             <div className="text-xs text-gray-500">To: {transaction.recipientName}</div>
                           )}
                           {transaction.senderName && (
                             <div className="text-xs text-gray-500">From: {transaction.senderName}</div>
                           )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                          {transaction.reference}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className="font-medium">{transaction.transactionType.replace(/_/g, ' ')}</span>
@@ -473,21 +442,88 @@ export default function StatementPage() {
                           {getTransactionTypeSign(transaction.transactionType)}
                           {formatCurrency(transaction.amount, transaction.currency)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          {formatCurrency(transaction.balanceAfter, transaction.currency)}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {getStatusBadge(transaction.status)}
+                          <button
+                            onClick={() => handleTransactionClick(transaction)}
+                            className="text-[#c1ff72] hover:text-[#b0ef62] font-medium"
+                          >
+                            View Details
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
+
+              {/* Mobile Card View */}
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-4 p-4">
+                {transactions.map((transaction) => {
+                  const isDebit = transaction.transactionType.includes('OUT') || 
+                                  transaction.transactionType.includes('WITHDRAWAL') || 
+                                  transaction.amount < 0;
+                  
+                  return (
+                    <div
+                      key={transaction.id}
+                      onClick={() => handleTransactionClick(transaction)}
+                      className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${isDebit ? 'bg-red-50' : 'bg-green-50'}`}>
+                            {isDebit ? (
+                              <ArrowUpRight className={`w-5 h-5 ${isDebit ? 'text-red-600' : 'text-green-600'}`} />
+                            ) : (
+                              <ArrowDownLeft className="w-5 h-5 text-green-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{transaction.description}</p>
+                            <p className="text-xs text-gray-500">{formatDate(transaction.createdAt)}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-bold ${isDebit ? 'text-red-600' : 'text-green-600'}`}>
+                            {isDebit ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount), transaction.currency)}
+                          </p>
+                          {getStatusBadge(transaction.status)}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Type:</span>
+                          <span className="text-xs font-medium text-gray-700">
+                            {transaction.transactionType.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        {(transaction.recipientName || transaction.senderName) && (
+                          <div className="text-xs text-gray-500">
+                            {transaction.recipientName && `To: ${transaction.recipientName}`}
+                            {transaction.senderName && `From: ${transaction.senderName}`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
-      </main>
-    </div>
+
+        {/* Transaction Detail Modal */}
+        <TransactionDetailModal
+          transaction={selectedTransaction}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedTransaction(null);
+          }}
+        />
+      </div>
+    </DashboardLayoutWrapper>
   );
 }
