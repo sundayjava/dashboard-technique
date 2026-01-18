@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma';
 // GET - Fetch single currency
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const currency = await prisma.currency.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!currency) {
@@ -31,14 +32,15 @@ export async function GET(
 // PATCH - Update currency (admin only)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { code, name, symbol, isActive } = body;
 
     const currency = await prisma.currency.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(code && { code: code.toUpperCase() }),
         ...(name && { name }),
@@ -63,11 +65,12 @@ export async function PATCH(
 // DELETE - Delete currency (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await prisma.currency.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({
