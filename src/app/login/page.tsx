@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { LoginForm } from '@/components/forms/LoginForm';
 
-export default function LoginPage() {
+function VerifiedMessage() {
   const searchParams = useSearchParams();
   const [showVerifiedMessage, setShowVerifiedMessage] = useState(false);
 
@@ -15,19 +16,27 @@ export default function LoginPage() {
     }
   }, [searchParams]);
 
+  if (!showVerifiedMessage) return null;
+
+  return (
+    <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-3">
+      <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+      </svg>
+      <span className="font-medium">Email verified successfully! You can now log in.</span>
+    </div>
+  );
+}
+
+export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 bg-white">
         <div className="w-full max-w-md">
-          {showVerifiedMessage && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-3">
-              <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span className="font-medium">Email verified successfully! You can now log in.</span>
-            </div>
-          )}
+          <Suspense fallback={null}>
+            <VerifiedMessage />
+          </Suspense>
           
           <LoginForm />
         </div>

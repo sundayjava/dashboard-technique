@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 
-export default function VerifyPinPage() {
+function VerifyPinContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
@@ -174,5 +174,17 @@ export default function VerifyPinPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyPinPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    }>
+      <VerifyPinContent />
+    </Suspense>
   );
 }
