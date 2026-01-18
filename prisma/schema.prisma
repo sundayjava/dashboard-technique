@@ -49,6 +49,11 @@ model User {
   transactions               Transaction[]
   kycSubmission              KYC?
   activityLogs               ActivityLog[]
+  chequeDeposits             ChequeDeposit[]
+  processedChequeDeposits    ChequeDeposit[]    @relation("ProcessedCheques")
+  assignedBankAccounts       UserBankAccount[]
+  bankDeposits               BankDeposit[]
+  processedBankDeposits      BankDeposit[]      @relation("ProcessedBankDeposits")
 
   @@map("users")
 }
@@ -519,12 +524,107 @@ model InternationalTransfer {
 }
 
 model Bank {
+  id               String            @id @default(cuid())
+  code             String            @unique
+  name             String
+  isActive         Boolean           @default(true)
+  userBankAccounts UserBankAccount[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("banks")
+}
+
+model Currency {
   id        String   @id @default(cuid())
-  code      String   @unique
-  name      String
+  code      String   @unique // USD, EUR, GBP, etc.
+  name      String   // US Dollar, Euro, British Pound
+  symbol    String   // $, €, £
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("banks")
+  @@map("currencies")
+}
+
+model ChequeDeposit {
+  id            String              @id @default(cuid())
+  userId        String
+  accountId     String
+  amount        Float
+  chequeImage   String              // Path to uploaded cheque image
+  status        ChequeDepositStatus @default(PENDING)
+  submittedAt   DateTime            @default(now())
+  processedAt   DateTime?
+  processedBy   String?             // Admin user ID who processed it
+  adminNotes    String?
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  processorUser User?               @relation("ProcessedCheques", fields: [processedBy], references: [id])
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([status])
+  @@map("cheque_deposits")
+}
+
+enum ChequeDepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model UserBankAccount {
+  id            String        @id @default(cuid())
+  userId        String
+  bankId        String
+  accountName   String        // Name on the bank account
+  accountNumber String        // Bank account number to deposit to
+  bankBranch    String?       // Optional branch information
+  instructions  String?       @db.Text // Optional special instructions
+  isActive      Boolean       @default(true)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bank          Bank          @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  deposits      BankDeposit[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([userId, bankId]) // One bank account per bank per user
+  @@index([userId])
+  @@index([bankId])
+  @@index([isActive])
+  @@map("user_bank_accounts")
+}
+
+model BankDeposit {
+  id              String            @id @default(cuid())
+  userId          String
+  userBankAccountId String
+  accountId       String            // User's account to credit
+  amount          Float
+  referenceNumber String            // Transaction reference from user
+  proofImage      String?           // Optional proof of payment
+  status          BankDepositStatus @default(PENDING)
+  submittedAt     DateTime          @default(now())
+  processedAt     DateTime?
+  processedBy     String?           // Admin user ID
+  adminNotes      String?
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userBankAccount UserBankAccount   @relation(fields: [userBankAccountId], references: [id], onDelete: Cascade)
+  processorUser   User?             @relation("ProcessedBankDeposits", fields: [processedBy], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([userBankAccountId])
+  @@index([accountId])
+  @@index([status])
+  @@map("bank_deposits")
+}
+
+enum BankDepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

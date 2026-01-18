@@ -1,3 +1,5 @@
+import { JSX } from "react";
+
 export interface SidebarItem {
   label: string;
   href: string;
@@ -40,7 +42,6 @@ export const sidebarItems: SidebarItem[] = [
     subMenu: [
       { label: 'Acredis to Acredis', href: '/dashboard/transfer/acredis-to-acredis' },
       { label: 'Domestic Transfer', href: '/dashboard/transfer/domestic' },
-      { label: 'Check Deposit', href: '/dashboard/transfer/check-deposit' },
       { label: 'International Transfer', href: '/dashboard/transfer/international' },
       { label: 'History', href: '/dashboard/transfer/history' },
     ],
@@ -72,6 +73,8 @@ export const sidebarItems: SidebarItem[] = [
     ),
     subMenu: [
       { label: 'Digital Deposit', href: '/dashboard/monetary/digital-deposit' },
+      { label: 'Bank Deposit', href: '/dashboard/monetary/bank-deposit' },
+      { label: 'Cheque Deposit', href: '/dashboard/monetary/cheque-deposit' },
       { label: 'Cards', href: '/dashboard/monetary/cards' },
     ],
   },
