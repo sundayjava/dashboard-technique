@@ -145,12 +145,14 @@ export async function POST(request: NextRequest) {
 
         // Create transaction record
         const transactionRef = `INV-${Date.now()}`;
+        const newBalance = account.balance - investmentAmount;
         await tx.transaction.create({
           data: {
             userId,
             accountId: account.id,
-            type: 'INVESTMENT',
+            transactionType: 'INVESTMENT',
             amount: investmentAmount,
+            balanceAfter: newBalance,
             currency: account.currency,
             status: 'COMPLETED',
             description: `Investment in ${plan.planName}`,

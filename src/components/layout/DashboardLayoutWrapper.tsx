@@ -24,21 +24,8 @@ export function DashboardLayoutWrapper({ children }: DashboardLayoutWrapperProps
   const handleInvestmentClick = async () => {
     if (!user?.id) return;
 
-    try {
-      // Check if user already has access
-      const response = await axios.get(`/api/trade-key/check-access?userId=${user.id}`);
-      
-      if (response.data.hasAccess) {
-        // User already has access, redirect to investment dashboard
-        router.push('/investment/dashboard');
-      } else {
-        // Show trade key modal
-        setTradeKeyModalOpen(true);
-      }
-    } catch (error) {
-      console.error('Error checking investment access:', error);
-      toast.error('Failed to check investment access');
-    }
+    // Always show trade key modal when clicking Investment
+    setTradeKeyModalOpen(true);
   };
 
   const getUserId = () => {

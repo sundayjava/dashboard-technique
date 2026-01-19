@@ -18,8 +18,7 @@ interface Investment {
   createdAt: string;
   user: {
     id: string;
-    firstName: string;
-    lastName: string;
+    name: string;
     email: string;
   };
   plan: {
@@ -257,7 +256,7 @@ export default function AdminInvestmentsPage() {
                     <tr key={investment.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-4">
                         <div className="text-sm font-semibold text-gray-900">
-                          {investment.user.firstName} {investment.user.lastName}
+                          {investment.user.name || investment.user.email}
                         </div>
                         <div className="text-xs text-gray-500">{investment.user.email}</div>
                       </td>
@@ -326,7 +325,7 @@ export default function AdminInvestmentsPage() {
                   <div>
                     <p className="text-xs text-gray-600">User</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {selectedInvestment.user.firstName} {selectedInvestment.user.lastName}
+                      {selectedInvestment.user.name || selectedInvestment.user.email}
                     </p>
                   </div>
                   <div>

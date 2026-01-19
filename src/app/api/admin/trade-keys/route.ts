@@ -1,22 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET - Fetch user's trade keys
+// GET - Fetch trade keys (all for admin, or by userId)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
+    const where: any = userId ? { userId } : {};
 
     const tradeKeys = await prisma.tradeKey.findMany({
-      where: { userId },
+      where,
       include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        investmentAccess: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            accessedAt: 'desc',
+          },
+        },
         _count: {
           select: {
             investmentAccess: true,
@@ -94,6 +116,46 @@ export async function POST(request: NextRequest) {
     console.error('Error creating trade key:', error);
     return NextResponse.json(
       { error: 'Failed to create trade key' },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT - Update trade key (toggle active status)
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, isActive } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Trade key ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const tradeKey = await prisma.tradeKey.update({
+      where: { id },
+      data: { isActive },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      message: 'Trade key updated successfully',
+      tradeKey,
+    });
+  } catch (error) {
+    console.error('Error updating trade key:', error);
+    return NextResponse.json(
+      { error: 'Failed to update trade key' },
       { status: 500 }
     );
   }

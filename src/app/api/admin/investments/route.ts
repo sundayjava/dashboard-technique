@@ -22,8 +22,7 @@ export async function GET(request: NextRequest) {
         user: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true
           }
         },
@@ -147,12 +146,14 @@ export async function PUT(request: NextRequest) {
           });
 
           // Create transaction record
+          const newBalance = account.balance + amountToCredit;
           await tx.transaction.create({
             data: {
               userId: investment.userId,
               accountId: account.id,
-              type: status === 'COMPLETED' ? 'INVESTMENT_RETURN' : 'REFUND',
+              transactionType: status === 'COMPLETED' ? 'DIVIDEND' : 'REFUND',
               amount: amountToCredit,
+              balanceAfter: newBalance,
               currency: account.currency,
               status: 'COMPLETED',
               description: status === 'COMPLETED' 
@@ -180,7 +181,7 @@ export async function PUT(request: NextRequest) {
         data: {
           userId: investment.userId,
           action: `Investment ${status}`,
-          details: `Investment in ${investment.plan.planName} - Amount: $${investment.amount} - Status changed to ${status}`,
+          description: `Investment in ${investment.plan.planName} - Amount: $${investment.amount} - Status changed to ${status}`,
           ipAddress: '0.0.0.0'
         }
       });
@@ -193,8 +194,7 @@ export async function PUT(request: NextRequest) {
         user: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true
           }
         },
