@@ -30,6 +30,7 @@ export async function GET(request: Request) {
         profileCompleted: true,
         role: true,
         authorizationCode: true,
+        isPlusUser: true,
         createdAt: true,
       },
     });

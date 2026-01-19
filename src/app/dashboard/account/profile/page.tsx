@@ -264,12 +264,48 @@ export default function ProfilePage() {
                   <p className="text-sm text-gray-600 text-center mb-3">
                     {profileData.email}
                   </p>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                    {profileData.accountType === 'BUSINESS' ? 'Business Account' : 'Personal Account'}
-                  </span>
+                  <div className="flex flex-col items-center gap-2 mb-2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                      {profileData.accountType === 'BUSINESS' ? 'Business Account' : 'Personal Account'}
+                    </span>
+                    {profileData.isPlusUser && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-linear-to-r from-purple-600 to-purple-800 text-white shadow-md">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5zm0 18.5c-4.28-1.04-7-5.46-7-9.5V8.3l7-3.11v15.31z"/>
+                        </svg>
+                        Plus Member
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-200 space-y-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">
+                      Membership
+                    </p>
+                    {profileData.isPlusUser ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-purple-600">Acredis Plus</span>
+                        <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <span className="text-sm font-medium text-gray-700">Standard</span>
+                        <button
+                          onClick={() => router.push('/acredis-plus')}
+                          className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          Upgrade to Plus
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">
                       Account Created

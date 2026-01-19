@@ -323,7 +323,7 @@ export default function DomesticTransferPage() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          <div className="mb-6 p-4 bg-red-50 w-full overflow-x-hidden border border-red-200 text-red-700 rounded-lg">
             {error}
           </div>
         )}

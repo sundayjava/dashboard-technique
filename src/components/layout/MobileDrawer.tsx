@@ -18,6 +18,7 @@ interface MobileDrawerProps {
 
 export function MobileDrawer({ isOpen, onClose, navItems }: MobileDrawerProps) {
   const [expandedItem, setExpandedItem] = React.useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
 
   // Close on escape key
   React.useEffect(() => {
@@ -33,6 +34,12 @@ export function MobileDrawer({ isOpen, onClose, navItems }: MobileDrawerProps) {
       document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
+
+  // Check if user is logged in
+  React.useEffect(() => {
+    const userData = localStorage.getItem('user');
+    setIsLoggedIn(!!userData);
+  }, [isOpen]);
 
   return (
     <AnimatePresence>
@@ -161,28 +168,44 @@ export function MobileDrawer({ isOpen, onClose, navItems }: MobileDrawerProps) {
 
             {/* Auth Buttons */}
             <div className="p-4 pt-6 space-y-3 border-t border-white/10">
-              <motion.button
-                onClick={() => {
-                  onClose();
-                  window.location.href = "/login";
-                }}
-                className="w-full px-6 py-2.5 text-sm font-medium text-white border border-white/20 rounded-full hover:bg-white/5 transition-all cursor-pointer"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Login
-              </motion.button>
-              <motion.button
-                onClick={() => {
-                  onClose();
-                  window.location.href = "/create-account";
-                }}
-                className="w-full px-6 py-2.5 text-sm font-medium text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-primary/20"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Signup
-              </motion.button>
+              {isLoggedIn ? (
+                <motion.button
+                  onClick={() => {
+                    onClose();
+                    window.location.href = "/dashboard";
+                  }}
+                  className="w-full px-6 py-2.5 text-sm font-medium text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-primary/20"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Dashboard
+                </motion.button>
+              ) : (
+                <>
+                  <motion.button
+                    onClick={() => {
+                      onClose();
+                      window.location.href = "/login";
+                    }}
+                    className="w-full px-6 py-2.5 text-sm font-medium text-white border border-white/20 rounded-full hover:bg-white/5 transition-all cursor-pointer"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Login
+                  </motion.button>
+                  <motion.button
+                    onClick={() => {
+                      onClose();
+                      window.location.href = "/create-account";
+                    }}
+                    className="w-full px-6 py-2.5 text-sm font-medium text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-primary/20"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Signup
+                  </motion.button>
+                </>
+              )}
             </div>
           </motion.div>
         </>

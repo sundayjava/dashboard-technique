@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
 
@@ -10,15 +10,18 @@ interface User {
   name: string | null;
   role: string;
   authorizationCode: string;
+  isPlusUser?: boolean;
 }
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
       const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
       
       // Redirect admin to admin dashboard
       if (parsedUser.role === 'ADMIN') {

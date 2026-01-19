@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { DashboardTopBar } from '@/components/layout/DashboardTopBar';
+import { TradeKeyModal } from '@/components/modals/TradeKeyModal';
 import { sidebarItems } from '@/config/sidebar.config';
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
 
 interface DashboardLayoutWrapperProps {
   children: React.ReactNode;
@@ -16,6 +19,27 @@ export function DashboardLayoutWrapper({ children }: DashboardLayoutWrapperProps
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tradeKeyModalOpen, setTradeKeyModalOpen] = useState(false);
+
+  const handleInvestmentClick = async () => {
+    if (!user?.id) return;
+
+    try {
+      // Check if user already has access
+      const response = await axios.get(`/api/trade-key/check-access?userId=${user.id}`);
+      
+      if (response.data.hasAccess) {
+        // User already has access, redirect to investment dashboard
+        router.push('/investment/dashboard');
+      } else {
+        // Show trade key modal
+        setTradeKeyModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Error checking investment access:', error);
+      toast.error('Failed to check investment access');
+    }
+  };
 
   const getUserId = () => {
     if (typeof window !== 'undefined') {
@@ -96,6 +120,13 @@ export function DashboardLayoutWrapper({ children }: DashboardLayoutWrapperProps
         onCollapseChange={setSidebarCollapsed}
         isMobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
+        onInvestmentClick={handleInvestmentClick}
+      />
+      
+      <TradeKeyModal
+        isOpen={tradeKeyModalOpen}
+        onClose={() => setTradeKeyModalOpen(false)}
+        userId={user.id}
       />
       <DashboardTopBar 
         user={user}

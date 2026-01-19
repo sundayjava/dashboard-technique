@@ -31,6 +31,7 @@ export function Header1() {
   const [activeDropdown, setActiveDropdown] = React.useState<string | null>(null);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = React.useState(false);
   const [isScrolled, setIsScrolled] = React.useState(false);
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -45,6 +46,10 @@ export function Header1() {
     handleScroll(); // Check on mount
     window.addEventListener("scroll", handleScroll);
     window.addEventListener("resize", handleScroll);
+    
+    // Check if user is logged in
+    const userData = localStorage.getItem('user');
+    setIsLoggedIn(!!userData);
     
     return () => {
       window.removeEventListener("scroll", handleScroll);
@@ -225,24 +230,38 @@ export function Header1() {
                   transition={{ duration: 0.4 }}
                   style={{ overflow: "hidden" }}
                 >
-                  <motion.button
-                    onClick={() => window.location.href = "/login"}
-                    className="px-5 py-2 text-sm font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-full hover:bg-white/15 transition-all cursor-pointer whitespace-nowrap"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    Login
-                  </motion.button>
-                  <motion.button
-                    onClick={() => window.location.href = "/create-account"}
-                    className="px-5 py-2 text-sm ml-3 font-bold text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-[#c1ff72]/30 whitespace-nowrap"
-                    whileHover={{ scale: 1.02, boxShadow: "0 20px 40px -12px rgba(193, 255, 114, 0.5)" }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    Signup
-                  </motion.button>
+                  {isLoggedIn ? (
+                    <motion.button
+                      onClick={() => window.location.href = "/dashboard"}
+                      className="px-6 py-2 text-sm font-bold text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-[#c1ff72]/30 whitespace-nowrap"
+                      whileHover={{ scale: 1.02, boxShadow: "0 20px 40px -12px rgba(193, 255, 114, 0.5)" }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      Dashboard
+                    </motion.button>
+                  ) : (
+                    <>
+                      <motion.button
+                        onClick={() => window.location.href = "/login"}
+                        className="px-5 py-2 text-sm font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-full hover:bg-white/15 transition-all cursor-pointer whitespace-nowrap"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        Login
+                      </motion.button>
+                      <motion.button
+                        onClick={() => window.location.href = "/create-account"}
+                        className="px-5 py-2 text-sm ml-3 font-bold text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-[#c1ff72]/30 whitespace-nowrap"
+                        whileHover={{ scale: 1.02, boxShadow: "0 20px 40px -12px rgba(193, 255, 114, 0.5)" }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        Signup
+                      </motion.button>
+                    </>
+                  )}
                 </motion.div>
               </motion.div>
             </motion.div>
@@ -256,24 +275,38 @@ export function Header1() {
               }}
               transition={{ duration: 0.4 }}
             >
-              <motion.button
-                onClick={() => window.location.href = "/login"}
-                className="px-6 py-2.5 text-sm font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-full hover:bg-white/15 transition-all cursor-pointer"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ duration: 0.15 }}
-              >
-                Login
-              </motion.button>
-              <motion.button
-                onClick={() => window.location.href = "/create-account"}
-                className="px-6 py-2.5 text-sm font-bold text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-[#c1ff72]/30"
-                whileHover={{ scale: 1.02, boxShadow: "0 20px 40px -12px rgba(193, 255, 114, 0.5)" }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ duration: 0.15 }}
-              >
-                Signup
-              </motion.button>
+              {isLoggedIn ? (
+                <motion.button
+                  onClick={() => window.location.href = "/dashboard"}
+                  className="px-6 py-2.5 text-sm font-bold text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-[#c1ff72]/30"
+                  whileHover={{ scale: 1.02, boxShadow: "0 20px 40px -12px rgba(193, 255, 114, 0.5)" }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  Dashboard
+                </motion.button>
+              ) : (
+                <>
+                  <motion.button
+                    onClick={() => window.location.href = "/login"}
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-full hover:bg-white/15 transition-all cursor-pointer"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    Login
+                  </motion.button>
+                  <motion.button
+                    onClick={() => window.location.href = "/create-account"}
+                    className="px-6 py-2.5 text-sm font-bold text-[#0a0e1a] bg-[#c1ff72] rounded-full hover:bg-[#c1ff72]/90 transition-all cursor-pointer shadow-lg shadow-[#c1ff72]/30"
+                    whileHover={{ scale: 1.02, boxShadow: "0 20px 40px -12px rgba(193, 255, 114, 0.5)" }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    Signup
+                  </motion.button>
+                </>
+              )}
             </motion.div>
           </motion.div>
         </nav>

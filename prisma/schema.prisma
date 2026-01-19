@@ -32,6 +32,7 @@ model User {
   address                    String?
   profileCompleted           Boolean           @default(false)
   role                       Role              @default(USER)
+  isPlusUser                 Boolean           @default(false)
   // Admin controls
   canTransfer                Boolean           @default(true)
   accountDisabled            Boolean           @default(false)
@@ -54,6 +55,10 @@ model User {
   assignedBankAccounts       UserBankAccount[]
   bankDeposits               BankDeposit[]
   processedBankDeposits      BankDeposit[]      @relation("ProcessedBankDeposits")
+  ownedTradeKeys             TradeKey[]         @relation("OwnedTradeKeys")
+  createdTradeKeys           TradeKey[]         @relation("CreatedTradeKeys")
+  investmentAccess           InvestmentAccess[]
+  investments                Investment[]
 
   @@map("users")
 }
@@ -627,4 +632,94 @@ enum BankDepositStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+model TradeKey {
+  id               String             @id @default(cuid())
+  key              String             @unique // The actual trade/referral key
+  userId           String             // Owner of the key
+  createdBy        String?            // Admin who created it (if admin-created)
+  isActive         Boolean            @default(true)
+  maxUses          Int?               // Maximum number of times this key can be used (null = unlimited)
+  currentUses      Int                @default(0)
+  expiresAt        DateTime?          // Optional expiration date
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  user             User               @relation("OwnedTradeKeys", fields: [userId], references: [id], onDelete: Cascade)
+  creator          User?              @relation("CreatedTradeKeys", fields: [createdBy], references: [id])
+  investmentAccess InvestmentAccess[]
+
+  @@index([key])
+  @@index([userId])
+  @@index([isActive])
+  @@map("trade_keys")
+}
+
+model InvestmentAccess {
+  id          String    @id @default(cuid())
+  userId      String    // User who got access
+  tradeKeyId  String    // Trade key used to get access
+  accessedAt  DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradeKey    TradeKey  @relation(fields: [tradeKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tradeKeyId])
+  @@index([userId])
+  @@index([tradeKeyId])
+  @@map("investment_access")
+}
+
+model InvestmentPlan {
+  id                String           @id @default(cuid())
+  planName          String
+  minAmount         Float
+  maxAmount         Float
+  arkIIAllocation   Float            // Percentage allocated to ARK_II
+  duration          Int              // in days
+  profitPercentage  Float            // Expected profit percentage
+  cryptoAddress     String?          // Crypto payment address for this plan
+  isActive          Boolean          @default(true)
+  createdBy         String?          // Admin who created the plan
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  investments       Investment[]
+
+  @@index([isActive])
+  @@map("investment_plans")
+}
+
+model Investment {
+  id              String           @id @default(cuid())
+  userId          String
+  planId          String
+  amount          Float
+  paymentMethod   PaymentMethod
+  transactionRef  String?          // Reference for crypto payments
+  status          InvestmentStatus @default(PENDING)
+  startDate       DateTime?
+  endDate         DateTime?
+  profitEarned    Float            @default(0)
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            InvestmentPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@map("investments")
+}
+
+enum PaymentMethod {
+  BANK_WALLET
+  CRYPTO
+}
+
+enum InvestmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  FAILED
 }

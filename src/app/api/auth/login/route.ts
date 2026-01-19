@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         authorizationCode: true,
         accountType: true,
         currency: true,
+        isPlusUser: true,
       },
     });
 
