@@ -47,7 +47,13 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         amount: true,
-      transactionType: true,
+        transactionType: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    return NextResponse.json({
       totalUsers,
       totalBalance: accountsBalance._sum.balance || 0,
       totalTransactions,
