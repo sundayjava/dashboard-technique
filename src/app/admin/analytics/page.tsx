@@ -71,16 +71,25 @@ export default function AdminAnalytics() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading analytics...</p>
+        </div>
       </div>
     );
   }
 
   if (!analytics) {
     return (
-      <div className="p-6">
+      <div className="text-center py-12">
         <p className="text-red-600">Failed to load analytics data</p>
+        <button 
+          onClick={fetchAnalytics}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -96,7 +105,7 @@ export default function AdminAnalytics() {
   }));
 
   return (
-    <div className="p-6 max-w-400 mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
