@@ -530,64 +530,6 @@ export default function InvestmentDashboardPage() {
             </div>
           </div>
 
-          {/* Old Market Overview - Keep for reference */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-900">Detailed Market Overview</h2>
-              <div className="flex items-center text-sm text-gray-500">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-                Live
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {cryptoData.slice(0, 8).map((crypto, index) => (
-                <div key={index} className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-4 flex-1">
-                    <div className="w-10 h-10 bg-linear-to-br from-purple-800 to-indigo-900 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                      {crypto.icon}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{crypto.symbol}</p>
-                      <p className="text-xs text-gray-500">{crypto.name}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 max-w-30 h-10">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={crypto.priceHistory}>
-                        <Line 
-                          type="monotone" 
-                          dataKey="price" 
-                          stroke={crypto.change24h >= 0 ? '#10b981' : '#ef4444'} 
-                          strokeWidth={2}
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">
-                      ${crypto.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                    <p className={`text-sm flex items-center justify-end ${crypto.change24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {crypto.change24h >= 0 ? (
-                        <ArrowUpRight className="w-3 h-3 mr-1" />
-                      ) : (
-                        <ArrowDownRight className="w-3 h-3 mr-1" />
-                      )}
-                      {Math.abs(crypto.change24h).toFixed(2)}%
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Old Economic Calendar Section - Removed to avoid duplication */}
-          {/* Kept only in the 3-column grid above */}
-
           {/* Investment Tips */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Investment Tips</h2>
