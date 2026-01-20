@@ -35,7 +35,8 @@ export default function AdminSettingsPage() {
     try {
       setLoading(true);
       const response = await axios.get('/api/settings');
-      setSettings(response.data);
+      // API returns { settings: grouped }, so extract the settings object
+      setSettings(response.data.settings || {});
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to fetch settings');
     } finally {
@@ -88,6 +89,9 @@ export default function AdminSettingsPage() {
     Object.entries(settings).forEach(([category, items]) => {
       if (selectedCategory !== 'all' && category !== selectedCategory) return;
 
+      // Ensure items is an array before filtering
+      if (!Array.isArray(items)) return;
+
       const filteredItems = items.filter((setting) =>
         setting.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
         setting.description?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -105,7 +109,7 @@ export default function AdminSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-100">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading settings...</p>
@@ -115,15 +119,14 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">System Settings</h1>
-          <p className="mt-2 text-gray-600">
-            Manage application-wide settings and configurations
-          </p>
-        </div>
+    <>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">System Settings</h1>
+        <p className="mt-2 text-gray-600">
+          Manage application-wide settings and configurations
+        </p>
+      </div>
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -298,7 +301,6 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   );
 }

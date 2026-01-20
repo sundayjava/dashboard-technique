@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import ReCAPTCHA from "react-google-recaptcha";
 import { loginSchema, type LoginFormData } from "@/schemas/validation.schema";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { SliderCaptcha } from "@/components/ui/SliderCaptcha";
 import { toast } from "react-hot-toast";
 import axios from "axios";
 
@@ -18,8 +18,8 @@ export function LoginForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const [showCaptchaModal, setShowCaptchaModal] = useState(false);
+  const [pendingLoginData, setPendingLoginData] = useState<LoginFormData | null>(null);
 
   const {
     register,
@@ -30,28 +30,38 @@ export function LoginForm() {
     mode: 'onChange',
   });
 
-  const onRecaptchaChange = (token: string | null) => {
-    setRecaptchaToken(token);
+  const handleCaptchaSuccess = () => {
+    // Proceed with login after captcha success
+    if (pendingLoginData) {
+      performLogin(pendingLoginData);
+    }
+  };
+
+  const handleCaptchaFail = () => {
+    // Keep modal open for retry
   };
 
   const onSubmit = async (data: LoginFormData) => {
-    if (!recaptchaToken) {
-      toast.error('Please complete the reCAPTCHA verification');
-      return;
-    }
-    
+    // Store login data and show captcha modal
+    setPendingLoginData(data);
+    setShowCaptchaModal(true);
+  };
+
+  const performLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     
     try {
       const response = await axios.post('/api/auth/login', {
         email: data.email,
         password: data.password,
-        recaptchaToken,
       });
 
       const { user } = response.data;
       
       toast.success(`Welcome back${user.name ? ', ' + user.name : ''}!`);
+      
+      // Close modal
+      setShowCaptchaModal(false);
       
       // Role-based routing
       if (user.role === 'ADMIN') {
@@ -63,14 +73,26 @@ export function LoginForm() {
         router.push(`/verify-pin?email=${encodeURIComponent(user.email)}`);
       }
     } catch (error) {
+      setShowCaptchaModal(false);
       if (axios.isAxiosError(error)) {
-        const errorMessage = error.response?.data?.error || 'Login failed. Please try again.';
+        const errorData = error.response?.data;
+        
+        // Check if email verification is required
+        if (errorData?.requiresVerification && errorData?.email) {
+          toast.error(errorData.message || 'Please verify your email');
+          // Redirect to email verification page
+          router.push(`/verify-otp?email=${encodeURIComponent(errorData.email)}`);
+          return;
+        }
+        
+        const errorMessage = errorData?.error || 'Login failed. Please try again.';
         toast.error(errorMessage);
       } else {
         toast.error('An unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);
+      setPendingLoginData(null);
     }
   };
 
@@ -145,21 +167,12 @@ export function LoginForm() {
         </a>
       </div>
 
-      {/* reCAPTCHA */}
-      <div className="flex justify-center">
-        <ReCAPTCHA
-          ref={recaptchaRef}
-          sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
-          onChange={onRecaptchaChange}
-        />
-      </div>
-
       {/* Submit Button */}
       <Button
         type="submit"
         variant="primary"
         className="w-full"
-        disabled={isLoading || !recaptchaToken}
+        disabled={isLoading}
       >
         {isLoading ? 'Signing in...' : 'Sign In'}
       </Button>
@@ -173,6 +186,33 @@ export function LoginForm() {
           </a>
         </p>
       </div>
+
+      {/* Captcha Modal */}
+      {showCaptchaModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Security Verification</h3>
+              <p className="text-sm text-gray-600">Complete the puzzle to continue</p>
+            </div>
+            
+            <SliderCaptcha 
+              onSuccess={handleCaptchaSuccess}
+              onFail={handleCaptchaFail}
+            />
+
+            <button
+              onClick={() => {
+                setShowCaptchaModal(false);
+                setPendingLoginData(null);
+              }}
+              className="mt-4 w-full px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

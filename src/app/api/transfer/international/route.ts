@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         email: true,
         transactionPin: true,
         canTransfer: true,
+        transferDisabled: true,
         accountDisabled: true,
         isVerified: true,
         requireOTPForInternational: true,
@@ -91,6 +92,13 @@ export async function POST(request: NextRequest) {
     if (user.accountDisabled) {
       return NextResponse.json(
         { error: 'Your account has been disabled. Please contact support.' },
+        { status: 403 }
+      );
+    }
+
+    if (user.transferDisabled) {
+      return NextResponse.json(
+        { error: 'Transfers have been disabled for your account. Please contact support.' },
         { status: 403 }
       );
     }

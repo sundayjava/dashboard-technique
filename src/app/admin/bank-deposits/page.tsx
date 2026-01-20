@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
-import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
-import { sidebarItems } from '@/config/sidebar.config';
 import toast from "react-hot-toast";
 
 interface User {
@@ -50,8 +47,6 @@ interface BankDeposit {
 export default function AdminBankDepositsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
   const [filteredDeposits, setFilteredDeposits] = useState<BankDeposit[]>([]);
@@ -185,52 +180,35 @@ export default function AdminBankDepositsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DashboardSidebar
-        items={sidebarItems}
-        userId={user.id}
-        onCollapseChange={setSidebarCollapsed}
-        isMobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
-      <DashboardTopBar
-        user={user}
-        sidebarCollapsed={sidebarCollapsed}
-        onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
-      />
-
-      <main
-        className={`pt-16 transition-all duration-300 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"}`}
-      >
-        <div className="p-4 md:p-6 max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-[#c1ff72] rounded-full flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 md:w-6 md:h-6 text-black"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-lg md:text-2xl font-bold text-gray-900">
-                  Bank Deposits
-                </h1>
-                <p className="text-sm md:text-base text-gray-600">
-                  Review and process bank deposit requests
-                </p>
-              </div>
-            </div>
+    <>
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-[#c1ff72] rounded-full flex items-center justify-center">
+            <svg
+              className="w-5 h-5 md:w-6 md:h-6 text-black"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+              />
+            </svg>
           </div>
+          <div>
+            <h1 className="text-lg md:text-2xl font-bold text-gray-900">
+              Bank Deposits
+            </h1>
+            <p className="text-sm md:text-base text-gray-600">
+              Review and process bank deposit requests
+            </p>
+          </div>
+        </div>
+      </div>
 
           {/* Status Filters */}
           <div className="bg-white rounded-lg shadow-sm mb-6">
@@ -353,8 +331,6 @@ export default function AdminBankDepositsPage() {
               </div>
             )}
           </div>
-        </div>
-      </main>
 
       {/* View/Process Modal */}
       {selectedDeposit && (
@@ -531,6 +507,6 @@ export default function AdminBankDepositsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

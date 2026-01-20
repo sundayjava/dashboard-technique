@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
@@ -108,23 +107,22 @@ export default function CurrenciesPage() {
   };
 
   return (
-    <DashboardLayoutWrapper>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Currency Management</h1>
-            <p className="mt-2 text-gray-600">
-              Manage available currencies for international transfers
-            </p>
-          </div>
-          <button
-            onClick={openCreateModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            + Add Currency
-          </button>
+    <>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Currency Management</h1>
+          <p className="mt-2 text-gray-600">
+            Manage available currencies for international transfers
+          </p>
         </div>
+        <button
+          onClick={openCreateModal}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          + Add Currency
+        </button>
+      </div>
 
           {/* Currencies Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -202,7 +200,6 @@ export default function CurrenciesPage() {
               </div>
             )}
           </div>
-      </div>
 
       {/* Modal */}
       {showModal && (
@@ -279,6 +276,6 @@ export default function CurrenciesPage() {
           </div>
         </div>
       )}
-    </DashboardLayoutWrapper>
+    </>
   );
 }

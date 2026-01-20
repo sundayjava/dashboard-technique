@@ -53,6 +53,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if transfers are disabled for this user
+    if (sender.transferDisabled) {
+      return NextResponse.json(
+        { error: 'Transfers have been disabled for your account. Please contact support.' },
+        { status: 403 }
+      );
+    }
+
     // Get sender account
     const senderAccount = await prisma.account.findUnique({
       where: { id: senderAccountId },

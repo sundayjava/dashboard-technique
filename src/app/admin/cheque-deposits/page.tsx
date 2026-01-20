@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
-import { DashboardTopBar } from '@/components/layout/DashboardTopBar';
 import { FileCheck, Clock, CheckCircle, XCircle, Eye, User, Calendar } from 'lucide-react';
 
 interface ChequeDeposit {
@@ -37,8 +35,6 @@ interface User {
 export default function AdminChequeDepositsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [deposits, setDeposits] = useState<ChequeDeposit[]>([]);
   const [filteredDeposits, setFilteredDeposits] = useState<ChequeDeposit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,58 +173,13 @@ export default function AdminChequeDepositsPage() {
     );
   }
 
-  const sidebarItems = [
-    {
-      label: 'Dashboard',
-      href: '/admin/dashboard',
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
-    },
-    {
-      label: 'Users',
-      href: '/admin/users',
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
-    },
-    {
-      label: 'Cheque Deposits',
-      href: '/admin/cheque-deposits',
-      icon: <FileCheck className="w-5 h-5" />,
-      badge: deposits.filter(d => d.status === 'PENDING').length.toString(),
-    },
-    {
-      label: 'Settings',
-      href: '/admin/settings',
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
-    },
-    {
-      label: 'Currencies',
-      href: '/admin/currencies',
-      icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DashboardSidebar 
-        items={sidebarItems} 
-        isAdmin 
-        onCollapseChange={setSidebarCollapsed}
-        isMobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
-
-      <DashboardTopBar 
-        user={user} 
-        sidebarCollapsed={sidebarCollapsed}
-        onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
-      />
-
-      <main className={`pt-24 pb-8 px-6 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Cheque Deposits Management</h1>
-            <p className="text-gray-600 mt-2">Review and process user cheque deposits</p>
-          </div>
+    <>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Cheque Deposits Management</h1>
+        <p className="text-gray-600 mt-2">Review and process user cheque deposits</p>
+      </div>
 
           {/* Status Filter */}
           <div className="flex gap-4 mb-6">
@@ -318,8 +269,6 @@ export default function AdminChequeDepositsPage() {
               </div>
             )}
           </div>
-        </div>
-      </main>
 
       {/* Details Modal */}
       {showModal && selectedDeposit && (
@@ -430,6 +379,6 @@ export default function AdminChequeDepositsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

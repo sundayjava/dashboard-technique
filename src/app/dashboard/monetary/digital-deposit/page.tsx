@@ -17,14 +17,19 @@ interface User {
   authorizationCode: string;
 }
 
-interface CryptoToken {
+interface DepositAddress {
   id: string;
-  name: string;
-  symbol: string;
-  network: string;
-  address: string;
-  icon: string | null;
-  exchangeRate: number;
+  type: 'CRYPTO' | 'BANK';
+  tokenName: string | null;
+  address: string | null;
+  network: string | null;
+  bankName: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  swiftCode: string | null;
+  routingNumber: string | null;
+  country: string | null;
+  createdAt: string;
 }
 
 export default function DigitalDepositPage() {
@@ -32,8 +37,8 @@ export default function DigitalDepositPage() {
   const [user, setUser] = useState<User | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [tokens, setTokens] = useState<CryptoToken[]>([]);
-  const [selectedToken, setSelectedToken] = useState<CryptoToken | null>(null);
+  const [addresses, setAddresses] = useState<DepositAddress[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<DepositAddress | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [qrCode, setQrCode] = useState('');
@@ -63,25 +68,29 @@ export default function DigitalDepositPage() {
 
   useEffect(() => {
     if (user) {
-      fetchTokens();
+      fetchAddresses();
     }
   }, [user]);
 
   useEffect(() => {
-    if (selectedToken) {
-      generateQRCode(selectedToken.address);
+    if (selectedAddress && selectedAddress.address) {
+      generateQRCode(selectedAddress.address);
     }
-  }, [selectedToken]);
+  }, [selectedAddress]);
 
-  const fetchTokens = async () => {
+  const fetchAddresses = async () => {
     try {
-      const response = await axios.get('/api/crypto-tokens');
-      setTokens(response.data.tokens);
-      if (response.data.tokens.length > 0) {
-        setSelectedToken(response.data.tokens[0]);
+      const response = await axios.get(`/api/user-addresses?userId=${user?.id}`);
+      // Filter only CRYPTO addresses
+      const cryptoAddresses = response.data.addresses.filter(
+        (addr: DepositAddress) => addr.type === 'CRYPTO'
+      );
+      setAddresses(cryptoAddresses);
+      if (cryptoAddresses.length > 0) {
+        setSelectedAddress(cryptoAddresses[0]);
       }
     } catch (error) {
-      console.error('Error fetching tokens:', error);
+      console.error('Error fetching addresses:', error);
     } finally {
       setLoading(false);
     }
@@ -100,9 +109,9 @@ export default function DigitalDepositPage() {
   };
 
   const copyAddress = async () => {
-    if (selectedToken) {
+    if (selectedAddress && selectedAddress.address) {
       try {
-        await navigator.clipboard.writeText(selectedToken.address);
+        await navigator.clipboard.writeText(selectedAddress.address);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (error) {
@@ -111,19 +120,12 @@ export default function DigitalDepositPage() {
     }
   };
 
-  const calculateEquivalent = () => {
-    if (!amount || !selectedToken) return '0.00';
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum)) return '0.00';
-    return (amountNum * selectedToken.exchangeRate).toFixed(2);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    if (!selectedToken || !user) return;
+    if (!selectedAddress || !user) return;
 
     if (!amount || parseFloat(amount) <= 0) {
       setError('Please enter a valid amount');
@@ -140,7 +142,9 @@ export default function DigitalDepositPage() {
     try {
       await axios.post('/api/crypto-deposits', {
         userId: user.id,
-        tokenId: selectedToken.id,
+        depositAddressId: selectedAddress.id,
+        tokenName: selectedAddress.tokenName,
+        network: selectedAddress.network,
         amount: parseFloat(amount),
         transactionId: transactionId.trim(),
       });
@@ -200,50 +204,46 @@ export default function DigitalDepositPage() {
             </div>
           </div>
 
-          {tokens.length === 0 ? (
+          {addresses.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-8 md:p-12 text-center">
               <div className="w-16 h-16 md:w-20 md:h-20 mx-auto bg-yellow-100 rounded-full flex items-center justify-center mb-4">
                 <svg className="w-8 h-8 md:w-10 md:h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2">Pending Setup</h3>
+              <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2">No Deposit Addresses Assigned</h3>
               <p className="text-sm md:text-base text-gray-600 mb-4">
-                Your crypto deposit addresses are being configured by our admin team.
+                Your crypto deposit addresses have not been assigned yet.
               </p>
               <p className="text-sm text-gray-500">
-                Please check back later or contact support for assistance.
+                Please contact admin to get deposit addresses assigned to your account.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Side - Token Selection */}
+              {/* Left Side - Address Selection */}
               <div className="lg:col-span-1">
                 <div className="bg-white rounded-lg shadow-sm p-4">
-                  <h2 className="text-lg font-bold text-gray-900 mb-4">Select Token</h2>
+                  <h2 className="text-lg font-bold text-gray-900 mb-4">Select Crypto</h2>
                   <div className="space-y-2">
-                    {tokens.map((token) => (
+                    {addresses.map((address) => (
                       <button
-                        key={token.id}
-                        onClick={() => setSelectedToken(token)}
+                        key={address.id}
+                        onClick={() => setSelectedAddress(address)}
                         className={`w-full p-3 rounded-lg border-2 transition-all flex items-center gap-3 ${
-                          selectedToken?.id === token.id
+                          selectedAddress?.id === address.id
                             ? 'border-[#c1ff72] bg-[#c1ff72]/10'
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        {token.icon ? (
-                          <img src={token.icon} alt={token.name} className="w-8 h-8 rounded-full" />
-                        ) : (
-                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-bold text-gray-600">{token.symbol[0]}</span>
-                          </div>
-                        )}
-                        <div className="flex-1 text-left">
-                          <p className="font-semibold text-gray-900">{token.name}</p>
-                          <p className="text-xs text-gray-500">{token.symbol}</p>
+                        <div className="w-8 h-8 bg-gradient-to-br from-[#c1ff72] to-green-400 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-bold text-black">{address.tokenName?.[0] || 'C'}</span>
                         </div>
-                        <svg className={`w-5 h-5 ${selectedToken?.id === token.id ? 'text-[#c1ff72]' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                        <div className="flex-1 text-left">
+                          <p className="font-semibold text-gray-900">{address.tokenName || 'Crypto'}</p>
+                          <p className="text-xs text-gray-500">{address.network}</p>
+                        </div>
+                        <svg className={`w-5 h-5 ${selectedAddress?.id === address.id ? 'text-[#c1ff72]' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
                       </button>
@@ -254,19 +254,15 @@ export default function DigitalDepositPage() {
 
               {/* Right Side - Deposit Details */}
               <div className="lg:col-span-2">
-                {selectedToken && (
+                {selectedAddress && (
                   <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
                     <div className="flex items-center gap-3 mb-6">
-                      {selectedToken.icon ? (
-                        <img src={selectedToken.icon} alt={selectedToken.name} className="w-12 h-12 rounded-full" />
-                      ) : (
-                        <div className="w-12 h-12 bg-linear-to-br from-[#c1ff72] to-green-400 rounded-full flex items-center justify-center">
-                          <span className="text-xl font-bold text-black">{selectedToken.symbol[0]}</span>
-                        </div>
-                      )}
+                      <div className="w-12 h-12 bg-gradient-to-br from-[#c1ff72] to-green-400 rounded-full flex items-center justify-center">
+                        <span className="text-xl font-bold text-black">{selectedAddress.tokenName?.[0] || 'C'}</span>
+                      </div>
                       <div>
-                        <h2 className="text-xl font-bold text-gray-900">{selectedToken.name}</h2>
-                        <p className="text-sm text-gray-600">{selectedToken.network}</p>
+                        <h2 className="text-xl font-bold text-gray-900">{selectedAddress.tokenName || 'Cryptocurrency'}</h2>
+                        <p className="text-sm text-gray-600">{selectedAddress.network}</p>
                       </div>
                     </div>
 
@@ -291,7 +287,7 @@ export default function DigitalDepositPage() {
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          value={selectedToken.address}
+                          value={selectedAddress.address || ''}
                           readOnly
                           className="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-mono"
                         />
@@ -317,7 +313,7 @@ export default function DigitalDepositPage() {
                         </button>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        Network: {selectedToken.network}
+                        Network: {selectedAddress.network}
                       </p>
                     </div>
 
@@ -345,20 +341,15 @@ export default function DigitalDepositPage() {
                             step="0.00000001"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            placeholder={`Enter amount in ${selectedToken.symbol}`}
+                            placeholder={`Enter amount in ${selectedAddress.tokenName || 'crypto'}`}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent"
                             required
                             disabled={submitting}
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
-                            {selectedToken.symbol}
+                            {selectedAddress.tokenName || 'CRYPTO'}
                           </span>
                         </div>
-                        {amount && selectedToken.exchangeRate > 0 && (
-                          <p className="text-sm text-gray-600 mt-2">
-                            ≈ {user.currency} {calculateEquivalent()}
-                          </p>
-                        )}
                       </div>
 
                       <div>
@@ -387,8 +378,8 @@ export default function DigitalDepositPage() {
                           Important Instructions
                         </h4>
                         <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                          <li>Only send {selectedToken.name} to this address</li>
-                          <li>Ensure you're using the {selectedToken.network} network</li>
+                          <li>Only send {selectedAddress.tokenName || 'cryptocurrency'} to this address</li>
+                          <li>Ensure you're using the {selectedAddress.network} network</li>
                           <li>Minimum deposit may apply - check with support</li>
                           <li>Deposits are verified within 24 hours</li>
                         </ul>

@@ -11,10 +11,22 @@ export async function GET(request: NextRequest) {
         email: true,
         role: true,
         canTransfer: true,
+        transferDisabled: true,
         accountDisabled: true,
         isVerified: true,
         requireOTPForInternational: true,
+        phoneNumber: true,
+        authorizationCode: true,
         createdAt: true,
+        accounts: {
+          select: {
+            id: true,
+            accountNumber: true,
+            accountName: true,
+            balance: true,
+            currency: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

@@ -46,6 +46,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if transfers are disabled for this user
+    if (user.transferDisabled) {
+      return NextResponse.json(
+        { error: 'Transfers have been disabled for your account. Please contact support.' },
+        { status: 403 }
+      );
+    }
+
     if (!user.transactionPin) {
       return NextResponse.json(
         { error: 'Please set up your transaction PIN first' },

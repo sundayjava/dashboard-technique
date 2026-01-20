@@ -29,33 +29,13 @@ async function generateAccountNumber(): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, recaptchaToken } = body;
+    const { email, password } = body;
 
     // Validate input
-    if (!email || !password || !recaptchaToken) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: 'Email, password, and reCAPTCHA verification are required' },
+        { error: 'Email and password are required' },
         { status: 400 }
-      );
-    }
-
-    // Verify reCAPTCHA
-    try {
-      const recaptchaResponse = await axios.post(
-        `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${recaptchaToken}`
-      );
-
-      if (!recaptchaResponse.data.success) {
-        return NextResponse.json(
-          { error: 'reCAPTCHA verification failed. Please try again.' },
-          { status: 400 }
-        );
-      }
-    } catch (error) {
-      console.error('reCAPTCHA verification error:', error);
-      return NextResponse.json(
-        { error: 'Failed to verify reCAPTCHA. Please try again.' },
-        { status: 500 }
       );
     }
 
@@ -73,6 +53,7 @@ export async function POST(request: NextRequest) {
         accountType: true,
         currency: true,
         isPlusUser: true,
+        accountDisabled: true,
       },
     });
 
@@ -83,10 +64,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email is verified
-    if (!user.emailVerified) {
+    // Check if account is disabled
+    if (user.accountDisabled) {
       return NextResponse.json(
-        { error: 'Please verify your email before logging in' },
+        { error: 'Your account has been disabled. Please contact support.' },
         { status: 403 }
       );
     }
@@ -98,6 +79,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
+      );
+    }
+
+    // Check if email is verified
+    if (!user.emailVerified) {
+      // Generate OTP for email verification
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Update user with OTP
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerificationOTP: otp,
+          emailVerificationOTPExpiry: otpExpiry,
+        },
+      });
+
+      // TODO: Send OTP email here
+      // await sendOTPEmail(user.email, otp);
+
+      return NextResponse.json(
+        { 
+          error: 'Email not verified',
+          requiresVerification: true,
+          email: user.email,
+          message: 'Please verify your email. We have sent a verification code to your email.' 
+        },
+        { status: 403 }
       );
     }
 
