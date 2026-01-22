@@ -13,7 +13,6 @@ interface Account {
   accountType: string;
   currency: string;
   balance: number;
-  availableBalance: number;
   status: string;
 }
 
@@ -126,7 +125,11 @@ export default function InternationalTransferPage() {
 
   const checkOTPRequirement = async () => {
     try {
-      const userId = localStorage.getItem('userId');
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) return;
+
+      const userData = JSON.parse(storedUser);
+      const userId = userData.id;
       if (!userId) return;
 
       const response = await axios.get(`/api/transfer/otp/required?userId=${userId}`);
@@ -157,7 +160,8 @@ export default function InternationalTransferPage() {
         toast.error('Amount must be greater than 0');
         return;
       }
-      if (selectedAccount && totalAmount > selectedAccount.availableBalance) {
+      // Convert balance to number to ensure proper numeric comparison
+      if (selectedAccount && totalAmount > Number(selectedAccount.balance)) {
         toast.error('Insufficient balance');
         return;
       }
@@ -187,7 +191,15 @@ export default function InternationalTransferPage() {
 
   const handleSendOTP = async () => {
     try {
-      const userId = localStorage.getItem('userId');
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        toast.error('Please login to continue');
+        return;
+      }
+
+      const userData = JSON.parse(storedUser);
+      const userId = userData.id;
+
       if (!userId) {
         toast.error('Please login to continue');
         return;
@@ -223,7 +235,15 @@ export default function InternationalTransferPage() {
     }
 
     try {
-      const userId = localStorage.getItem('userId');
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        toast.error('Please login to continue');
+        return;
+      }
+
+      const userData = JSON.parse(storedUser);
+      const userId = userData.id;
+
       if (!userId) {
         toast.error('Please login to continue');
         return;
@@ -272,7 +292,7 @@ export default function InternationalTransferPage() {
 
       // Redirect to transactions page after 2 seconds
       setTimeout(() => {
-        router.push('/dashboard/transactions');
+        router.push('/dashboard/transfer/history');
       }, 2000);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Transfer failed');
@@ -366,7 +386,7 @@ export default function InternationalTransferPage() {
                     ) : (
                       accounts.map((account) => (
                         <option key={account.id} value={account.id}>
-                          {account.accountName} - {account.accountNumber} (Available: {account.currency} {account.availableBalance.toFixed(2)})
+                          {account.accountName} - {account.accountNumber} (Balance: {account.currency} {account.balance.toFixed(2)})
                         </option>
                       ))
                     )}

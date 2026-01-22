@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { getSettingValue } from '@/app/api/settings/route';
 import { createActivityLog } from '@/app/api/activity-log/route';
+import { notifyAdminsOfUserActivity } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,8 +39,8 @@ export async function POST(request: NextRequest) {
       narration,
     } = body;
 
-    // Validation
-    if (!userId || !accountId || !amount || !currency || !pin || !otp) {
+    // Basic validation
+    if (!userId || !accountId || !amount || !currency || !pin) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -88,6 +89,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Check OTP requirement
+    if (user.requireOTPForInternational && !otp) {
+      return NextResponse.json(
+        { error: 'OTP is required for international transfers. Please request an OTP.' },
+        { status: 400 }
+      );
+    }
+
     // Admin control checks
     if (user.accountDisabled) {
       return NextResponse.json(
@@ -98,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     if (user.transferDisabled) {
       return NextResponse.json(
-        { error: 'Transfers have been disabled for your account. Please contact support.' },
+        { error: 'network error' },
         { status: 403 }
       );
     }
@@ -166,17 +175,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if OTP was used recently (within last 30 seconds to prevent double submission)
-    const recentOtpUse = await prisma.internationalTransfer.findFirst({
+    // Check if transfer was submitted recently (within last 30 seconds to prevent double submission)
+    const recentTransferSubmit = await prisma.transaction.findFirst({
       where: {
         userId,
+        transactionType: 'TRANSFER_OUT',
+        channel: 'INTERNATIONAL',
         createdAt: {
           gte: new Date(Date.now() - 30 * 1000),
         },
       },
     });
 
-    if (recentOtpUse) {
+    if (recentTransferSubmit) {
       return NextResponse.json(
         { error: 'Please wait before submitting another transfer' },
         { status: 429 }
@@ -206,7 +217,7 @@ export async function POST(request: NextRequest) {
     const totalAmount = amount + fee;
 
     // Check balance
-    if (account.availableBalance < totalAmount) {
+    if (account.balance < totalAmount) {
       return NextResponse.json(
         { error: `Insufficient balance. You need $${totalAmount.toFixed(2)} (including $${fee.toFixed(2)} fee)` },
         { status: 400 }
@@ -214,71 +225,63 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate reference
-    const reference = `INT${Date.now()}${Math.floor(Math.random() * 10000)}`;
+    const reference = `INT-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
-    // Create transaction and international transfer in a transaction
+    // Create transaction in a database transaction
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await prisma.$transaction(async (tx: any) => {
-      // Create transaction record
+      // Create unified transaction record for international transfer
       const transaction = await tx.transaction.create({
         data: {
           userId: user.id,
           accountId: account.id,
           transactionType: 'TRANSFER_OUT',
-          amount: -amount,
+          channel: 'INTERNATIONAL',
+          paymentMethod: 'BANK',
+          amount: amount,
           fee,
           currency,
           status: 'PENDING',
           reference,
           description: `International transfer to ${beneficiaryName} - ${bankName}, ${bankCountry}`,
           balanceAfter: account.balance, // Balance unchanged until approved
-        },
-      });
-
-      // Create international transfer record
-      const internationalTransfer = await tx.internationalTransfer.create({
-        data: {
-          userId: user.id,
-          transactionId: transaction.id,
-          senderAccountId: account.id,
-          amount,
-          currency,
-          fee,
-          // Beneficiary details
-          beneficiaryName,
-          beneficiaryEmail,
-          beneficiaryPhone,
-          beneficiaryAddress,
-          beneficiaryCity,
-          beneficiaryState,
-          beneficiaryCountry,
-          beneficiaryPostalCode,
+          // Recipient details
+          recipientName: beneficiaryName,
+          recipientEmail: beneficiaryEmail || null,
+          recipientPhone: beneficiaryPhone || null,
+          recipientAddress: beneficiaryAddress,
+          recipientCountry: beneficiaryCountry,
           // Bank details
           bankName,
-          bankAddress,
-          bankCity,
-          bankCountry,
+          bankCode: null,
           accountNumber,
-          iban,
           swiftCode,
-          routingNumber,
-          sortCode,
-          // Transfer details
-          purpose,
-          narration,
-          status: 'PENDING',
+          iban: iban || null,
+          routingNumber: routingNumber || null,
+          // Additional metadata
+          metadata: {
+            purpose,
+            narration: narration || null,
+            beneficiaryCity: beneficiaryCity || null,
+            beneficiaryState: beneficiaryState || null,
+            beneficiaryPostalCode: beneficiaryPostalCode || null,
+            bankAddress,
+            bankCity: bankCity || null,
+            bankCountry,
+            sortCode: sortCode || null,
+          },
         },
       });
 
-      // Lock funds by reducing available balance
+      // Deduct funds immediately
       await tx.account.update({
         where: { id: account.id },
         data: {
-          availableBalance: account.availableBalance - totalAmount,
+          balance: account.balance - totalAmount,
         },
       });
 
-      return { transaction, internationalTransfer };
+      return { transaction };
     });
 
     // Create notification for user
@@ -288,7 +291,7 @@ export async function POST(request: NextRequest) {
         type: 'TRANSACTION',
         title: 'International Transfer Pending',
         message: `Your international transfer of ${currency} ${amount.toFixed(2)} to ${beneficiaryName} is pending admin approval.`,
-        link: '/dashboard/transactions',
+        link: '/dashboard/transfer/history',
       },
     });
 
@@ -317,12 +320,18 @@ export async function POST(request: NextRequest) {
       `Initiated international transfer of ${currency} ${amount.toFixed(2)} to ${beneficiaryName} in ${beneficiaryCountry}`
     );
 
+    // Notify admins via email
+    notifyAdminsOfUserActivity(
+      userId,
+      user.name || 'Unknown User',
+      `an International Transfer of ${currency} ${amount.toFixed(2)} to ${beneficiaryCountry}`
+    );
+
     return NextResponse.json({
       success: true,
       message: 'International transfer initiated successfully. Awaiting admin approval.',
       reference,
       transaction: result.transaction,
-      transfer: result.internationalTransfer,
     });
   } catch (error: any) {
     console.error('Error processing international transfer:', error);

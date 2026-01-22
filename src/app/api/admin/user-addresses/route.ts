@@ -116,16 +116,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create notification for user
-    await prisma.notification.create({
-      data: {
-        userId,
-        type: 'SYSTEM',
-        title: 'New Deposit Address Assigned',
-        message: `A new ${address.type === 'CRYPTO' ? 'crypto' : 'bank'} deposit address has been assigned to your account.`,
-      },
-    });
-
     return NextResponse.json(assignment, { status: 201 });
   } catch (error: any) {
     console.error('Error assigning address:', error);

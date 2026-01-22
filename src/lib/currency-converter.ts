@@ -12,6 +12,45 @@ const EXCHANGE_RATES: Record<string, number> = {
   JPY: 149,
   CNY: 7.24,
   INR: 83.2,
+  SAR: 3.75,      // Saudi Riyal
+  AED: 3.67,      // UAE Dirham
+  QAR: 3.64,      // Qatari Riyal
+  KWD: 0.31,      // Kuwaiti Dinar
+  OMR: 0.39,      // Omani Rial
+  BHD: 0.38,      // Bahraini Dinar
+  EGP: 30.9,      // Egyptian Pound
+  TRY: 32.5,      // Turkish Lira
+  CHF: 0.88,      // Swiss Franc
+  SEK: 10.4,      // Swedish Krona
+  NOK: 10.6,      // Norwegian Krone
+  DKK: 6.85,      // Danish Krone
+  PLN: 4.02,      // Polish Zloty
+  CZK: 22.8,      // Czech Koruna
+  HUF: 356,       // Hungarian Forint
+  RON: 4.58,      // Romanian Leu
+  BGN: 1.80,      // Bulgarian Lev
+  HRK: 6.93,      // Croatian Kuna
+  RUB: 92.5,      // Russian Ruble
+  UAH: 41.2,      // Ukrainian Hryvnia
+  BRL: 4.97,      // Brazilian Real
+  MXN: 17.1,      // Mexican Peso
+  ARS: 1015,      // Argentine Peso
+  CLP: 950,       // Chilean Peso
+  COP: 3925,      // Colombian Peso
+  PEN: 3.72,      // Peruvian Sol
+  SGD: 1.34,      // Singapore Dollar
+  HKD: 7.82,      // Hong Kong Dollar
+  KRW: 1340,      // South Korean Won
+  THB: 35.2,      // Thai Baht
+  MYR: 4.48,      // Malaysian Ringgit
+  IDR: 15850,     // Indonesian Rupiah
+  PHP: 56.8,      // Philippine Peso
+  VND: 24750,     // Vietnamese Dong
+  NZD: 1.67,      // New Zealand Dollar
+  PKR: 278,       // Pakistani Rupee
+  BDT: 110,       // Bangladeshi Taka
+  LKR: 305,       // Sri Lankan Rupee
+  NPR: 133,       // Nepalese Rupee
 };
 
 /**
@@ -26,15 +65,19 @@ export function convertCurrency(
   fromCurrency: string,
   toCurrency: string
 ): number {
-  if (fromCurrency === toCurrency) {
+  // Normalize currency codes to uppercase
+  const from = fromCurrency?.toUpperCase() || 'USD';
+  const to = toCurrency?.toUpperCase() || 'USD';
+
+  if (from === to) {
     return amount;
   }
 
-  const fromRate = EXCHANGE_RATES[fromCurrency];
-  const toRate = EXCHANGE_RATES[toCurrency];
+  const fromRate = EXCHANGE_RATES[from];
+  const toRate = EXCHANGE_RATES[to];
 
   if (!fromRate || !toRate) {
-    throw new Error(`Exchange rate not found for ${fromCurrency} or ${toCurrency}`);
+    throw new Error(`Exchange rate not found for ${from} or ${to}`);
   }
 
   // Convert to USD first, then to target currency
@@ -54,15 +97,19 @@ export function getExchangeRate(
   fromCurrency: string,
   toCurrency: string
 ): number {
-  if (fromCurrency === toCurrency) {
+  // Normalize currency codes to uppercase
+  const from = fromCurrency?.toUpperCase() || 'USD';
+  const to = toCurrency?.toUpperCase() || 'USD';
+
+  if (from === to) {
     return 1;
   }
 
-  const fromRate = EXCHANGE_RATES[fromCurrency];
-  const toRate = EXCHANGE_RATES[toCurrency];
+  const fromRate = EXCHANGE_RATES[from];
+  const toRate = EXCHANGE_RATES[to];
 
   if (!fromRate || !toRate) {
-    throw new Error(`Exchange rate not found for ${fromCurrency} or ${toCurrency}`);
+    throw new Error(`Exchange rate not found for ${from} or ${to}`);
   }
 
   return toRate / fromRate;

@@ -163,7 +163,7 @@ export default function AssignAddressesPage() {
   };
 
   const filteredAssignments = assignments.filter(assignment =>
-    assignment.user.name.toLowerCase().includes(search.toLowerCase()) ||
+    assignment.user.name?.toLowerCase().includes(search.toLowerCase()) ||
     assignment.user.email.toLowerCase().includes(search.toLowerCase()) ||
     (assignment.address.tokenName?.toLowerCase().includes(search.toLowerCase())) ||
     (assignment.address.bankName?.toLowerCase().includes(search.toLowerCase()))

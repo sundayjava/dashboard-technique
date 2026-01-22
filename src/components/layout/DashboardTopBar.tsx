@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Avatar from '@/components/ui/Avatar';
-import { Bell, X } from 'lucide-react';
+import { Bell, X, MessageSquare } from 'lucide-react';
 import axios from 'axios';
 
 interface Notification {
@@ -38,16 +38,42 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  // Fetch notifications on mount
+  // Fetch notifications and messages on mount
   useEffect(() => {
     if (user?.id) {
       fetchNotifications();
+      if (user.role === 'ADMIN') {
+        fetchUnreadMessagesCount();
+      }
     }
   }, [user]);
+
+  // Poll for new messages if admin
+  useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      const interval = setInterval(() => {
+        fetchUnreadMessagesCount();
+      }, 30000); // Check every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const fetchUnreadMessagesCount = async () => {
+    try {
+      const response = await axios.get(`/api/messages?userId=${user.id}`);
+      const messages = response.data.messages || [];
+      // Count unread messages where user is receiver
+      const unread = messages.filter((msg: any) => msg.receiverId === user.id && !msg.isRead).length;
+      setUnreadMessagesCount(unread);
+    } catch (error) {
+      console.error('Error fetching unread messages count:', error);
+    }
+  };
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -316,17 +342,28 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
         </div>
 
         {/* Messages */}
-        <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors hidden sm:block">
-          <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-            />
-          </svg>
-          <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-        </button>
+        {user.role === 'ADMIN' && (
+          <button 
+            onClick={() => router.push('/admin/messages')}
+            className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <MessageSquare className="w-6 h-6 text-gray-600" />
+            {unreadMessagesCount > 0 && (
+              <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {user.role === 'USER' && (
+          <button 
+            onClick={() => router.push('/dashboard/support/message')}
+            className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors hidden sm:block"
+          >
+            <MessageSquare className="w-6 h-6 text-gray-600" />
+          </button>
+        )}
 
         {/* Settings */}
         <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors hidden md:block">
@@ -369,7 +406,12 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
                 </div>
               
               <button
-                onClick={() => router.push('/dashboard/account/profile')}
+                onClick={() => {
+                  const profilePath = user.role === 'ADMIN' 
+                    ? '/admin/settings/profile' 
+                    : '/dashboard/account/profile';
+                  router.push(profilePath);
+                }}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

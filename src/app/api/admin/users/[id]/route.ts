@@ -63,6 +63,10 @@ export async function PATCH(
   try {
     const { id: userId } = await params;
     const body = await request.json();
+    
+    // Debug logging
+    console.log('Update user request body:', JSON.stringify(body, null, 2));
+    
     const { 
       name, 
       email, 
@@ -81,6 +85,8 @@ export async function PATCH(
       role,
       password,
       transactionPin,    } = body;
+    
+    console.log('Extracted values - canTransfer:', canTransfer, 'transferDisabled:', transferDisabled);
 
     if (!userId) {
       return NextResponse.json(
@@ -163,6 +169,9 @@ export async function PATCH(
     if (role !== undefined) updateData.role = role;
     if (hashedPassword !== undefined) updateData.password = hashedPassword;
     if (hashedTransactionPin !== undefined) updateData.transactionPin = hashedTransactionPin;
+
+    // Debug: Log what will be updated
+    console.log('Update data to be sent to database:', JSON.stringify(updateData, null, 2));
 
     // Update user
     const updatedUser = await prisma.user.update({
@@ -375,28 +384,8 @@ export async function DELETE(
         where: { userId: userId },
       });
 
-      // Delete crypto deposits
-      await tx.cryptoDeposit.deleteMany({
-        where: { userId: userId },
-      });
-
       // Delete card applications
       await tx.cardApplication.deleteMany({
-        where: { userId: userId },
-      });
-
-      // Delete cheque deposits
-      await tx.chequeDeposit.deleteMany({
-        where: { userId: userId },
-      });
-
-      // Delete bank deposits
-      await tx.bankDeposit.deleteMany({
-        where: { userId: userId },
-      });
-
-      // Delete assigned bank accounts
-      await tx.userBankAccount.deleteMany({
         where: { userId: userId },
       });
 

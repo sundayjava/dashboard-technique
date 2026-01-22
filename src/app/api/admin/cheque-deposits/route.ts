@@ -4,10 +4,14 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') as 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+    const statusParam = searchParams.get('status');
 
-    const deposits = await prisma.chequeDeposit.findMany({
-      where: status ? { status } : undefined,
+    const deposits = await prisma.transaction.findMany({
+      where: {
+        transactionType: 'DEPOSIT',
+        channel: 'CHEQUE',
+        ...(statusParam ? { status: statusParam as any } : {}),
+      },
       include: {
         user: {
           select: {
@@ -16,8 +20,15 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
+        account: {
+          select: {
+            id: true,
+            accountNumber: true,
+            currency: true,
+          },
+        },
       },
-      orderBy: { submittedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json({ deposits });

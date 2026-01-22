@@ -14,8 +14,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get deposit details
-    const deposit = await prisma.bankDeposit.findUnique({
-      where: { id: depositId },
+    const deposit = await prisma.transaction.findUnique({
+      where: {
+        id: depositId,
+        transactionType: 'DEPOSIT',
+        channel: 'BANK',
+      },
       include: {
         user: {
           select: {
@@ -23,11 +27,7 @@ export async function POST(request: NextRequest) {
             email: true,
           },
         },
-        userBankAccount: {
-          include: {
-            bank: true,
-          },
-        },
+        account: true,
       },
     });
 
@@ -35,55 +35,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Deposit not found' }, { status: 404 });
     }
 
-    if (deposit.status !== 'PENDING') {
+    if (deposit.status === 'COMPLETED') {
       return NextResponse.json(
         { error: 'This deposit has already been processed' },
         { status: 400 }
       );
     }
 
-    // Get account to credit
-    const account = await prisma.account.findUnique({
-      where: { id: deposit.accountId },
-    });
-
-    if (!account) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
-    }
-
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Update bank deposit status
-      const updatedDeposit = await tx.bankDeposit.update({
-        where: { id: depositId },
-        data: {
-          status: 'APPROVED',
-          processedAt: new Date(),
-          processedBy: adminId,
-          adminNotes: adminNotes || null,
-        },
-      });
-
       // Credit the account
       const updatedAccount = await tx.account.update({
         where: { id: deposit.accountId },
         data: {
           balance: { increment: deposit.amount },
-          availableBalance: { increment: deposit.amount },
         },
       });
 
-      // Create transaction record
-      await tx.transaction.create({
+      // Update deposit transaction status
+      const updatedDeposit = await tx.transaction.update({
+        where: { id: depositId },
         data: {
-          userId: deposit.userId,
-          accountId: deposit.accountId,
-          transactionType: 'DEPOSIT',
-          amount: deposit.amount,
-          currency: account.currency,
-          description: `Bank deposit approved via ${deposit.userBankAccount.bank.name} - Ref: ${deposit.referenceNumber}`,
-          reference: `BNK-${depositId.substring(0, 8)}-${Date.now()}`,
           status: 'COMPLETED',
+          processedAt: new Date(),
+          processedBy: adminId,
+          adminNotes: adminNotes || null,
           balanceAfter: updatedAccount.balance,
         },
       });
@@ -94,7 +70,7 @@ export async function POST(request: NextRequest) {
           userId: deposit.userId,
           type: 'TRANSACTION',
           title: 'Bank Deposit Approved',
-          message: `Your bank deposit of ${account.currency} ${deposit.amount.toFixed(2)} via ${deposit.userBankAccount.bank.name} has been approved and credited to your account.`,
+          message: `Your bank deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} has been approved and credited to your account.`,
         },
       });
 
@@ -103,12 +79,11 @@ export async function POST(request: NextRequest) {
         data: {
           userId: deposit.userId,
           action: 'BANK_DEPOSIT_APPROVED',
-          description: `Bank deposit of ${account.currency} ${deposit.amount.toFixed(2)} via ${deposit.userBankAccount.bank.name} was approved and credited`,
+          description: `Bank deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} was approved and credited`,
           metadata: {
             depositId: depositId,
             amount: deposit.amount,
-            currency: account.currency,
-            bankName: deposit.userBankAccount.bank.name,
+            currency: deposit.currency,
             accountId: deposit.accountId,
             processedBy: adminId,
             adminNotes: adminNotes || null,
@@ -121,13 +96,12 @@ export async function POST(request: NextRequest) {
         data: {
           userId: adminId,
           action: 'ADMIN_BANK_DEPOSIT_APPROVED',
-          description: `Approved bank deposit of ${account.currency} ${deposit.amount.toFixed(2)} for user ${deposit.user.name || deposit.user.email}`,
+          description: `Approved bank deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} for user ${deposit.user.name || deposit.user.email}`,
           metadata: {
             depositId: depositId,
             targetUserId: deposit.userId,
             amount: deposit.amount,
-            currency: account.currency,
-            bankName: deposit.userBankAccount.bank.name,
+            currency: deposit.currency,
             accountId: deposit.accountId,
           },
         },

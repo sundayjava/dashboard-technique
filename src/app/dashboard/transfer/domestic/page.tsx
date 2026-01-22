@@ -202,8 +202,11 @@ export default function DomesticTransferPage() {
       
       const transferAmount = parseFloat(amount);
       const total = transferAmount + fee;
-      
-      if (selectedAccount.availableBalance < total) {
+
+      // Convert balance to number to ensure proper numeric comparison
+      const accountBalance = Number(selectedAccount.balance);
+
+      if (accountBalance < total) {
         setError(`Insufficient balance. You need ${total} ${selectedAccount.currency} (Amount: ${transferAmount} + Fee: ${fee})`);
         return;
       }
@@ -349,7 +352,7 @@ export default function DomesticTransferPage() {
                 >
                   {accounts.map((account) => (
                     <option key={account.id} value={account.id}>
-                      {account.accountName} - {account.accountNumber} ({formatCurrency(account.availableBalance, account.currency)})
+                      {account.accountName} - {account.accountNumber} ({formatCurrency(account.balance, account.currency)})
                     </option>
                   ))}
                 </select>

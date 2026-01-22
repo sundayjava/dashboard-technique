@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
 import MiniLineChart from '@/components/MiniLineChart';
+import CardDisplay from '@/components/sections/CardDisplay';
 import axios from 'axios';
 import { 
   TrendingUp, TrendingDown, Send, CreditCard, 
   ArrowUpRight, ArrowDownRight, DollarSign, Wallet,
   BarChart3, Activity, Clock, Calendar, MessageSquare,
-  ArrowRight, ExternalLink
+  ArrowRight, ExternalLink, Copy, Check
 } from 'lucide-react';
 
 interface User {
@@ -48,6 +49,11 @@ interface Transaction {
   status: string;
   createdAt: string;
   description?: string;
+  currency?: string;
+  reference?: string;
+  recipientName?: string;
+  senderName?: string;
+  balanceAfter?: number;
 }
 
 interface Investment {
@@ -75,6 +81,8 @@ export default function DashboardPage() {
   const [cryptoData, setCryptoData] = useState<CryptoToken[]>([]);
   const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>([]);
   const [accountBalance, setAccountBalance] = useState(0);
+  const [accountCurrency, setAccountCurrency] = useState('USD');
+  const [accountNumber, setAccountNumber] = useState<string>('');
   const [totalInvestments, setTotalInvestments] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeInvestments, setActiveInvestments] = useState<Investment[]>([]);
@@ -82,6 +90,35 @@ export default function DashboardPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [cryptoUpdating, setCryptoUpdating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const getCurrencySymbol = (currency: string): string => {
+    const symbols: Record<string, string> = {
+      USD: '$',
+      EUR: '€',
+      GBP: '£',
+      NGN: '₦',
+      ZAR: 'R',
+      KES: 'KSh',
+      GHS: 'GH₵',
+      CAD: 'CA$',
+      AUD: 'A$',
+      JPY: '¥',
+      CNY: '¥',
+      INR: '₹',
+    };
+    return symbols[currency] || currency;
+  };
 
   const fetchDashboardData = async (userId: string) => {
     try {
@@ -95,6 +132,8 @@ export default function DashboardPage() {
 
       if (accountRes.data.accounts?.length > 0) {
         setAccountBalance(accountRes.data.accounts[0].balance);
+        setAccountCurrency(accountRes.data.accounts[0].currency || 'USD');
+        setAccountNumber(accountRes.data.accounts[0].accountNumber || '');
       }
 
       if (investmentsRes.data) {
@@ -102,7 +141,7 @@ export default function DashboardPage() {
       }
 
       if (transactionsRes.data.transactions) {
-        setTransactions(transactionsRes.data.transactions.slice(0, 5));
+        setTransactions(transactionsRes.data.transactions.slice(0, 4));
       }
 
       if (investmentsListRes.data.investments) {
@@ -110,7 +149,7 @@ export default function DashboardPage() {
       }
 
       if (messagesRes.data.messages) {
-        setMessages(messagesRes.data.messages.slice(0, 5));
+        setMessages(messagesRes.data.messages.slice(0, 3));
         const unread = messagesRes.data.messages.filter((m: Message) => !m.isRead).length;
         setUnreadCount(unread);
       }
@@ -182,21 +221,21 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayoutWrapper>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Welcome Section */}
-        <div className="bg-linear-to-r from-gray-900 via-gray-800 to-black rounded-xl p-4 text-white">
-          <h1 className="text-xl font-bold mb-1">
+        <div className="bg-linear-to-r from-gray-900 via-gray-800 to-black rounded-lg p-3 text-white">
+          <h1 className="text-lg font-bold mb-0.5">
             Welcome back{user?.name ? `, ${user.name}` : ''}! 👋
           </h1>
-          <p className="text-sm text-gray-300">Here's what's happening with your finances today</p>
+          <p className="text-xs text-gray-300">Here's what's happening with your finances today</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Wallet className="w-5 h-5 text-blue-600" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-white rounded-lg shadow p-3 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Wallet className="w-4 h-4 text-blue-600" />
               </div>
               <span className="text-xs text-green-600 flex items-center">
                 <TrendingUp className="w-3 h-3 mr-1" />
@@ -204,15 +243,33 @@ export default function DashboardPage() {
               </span>
             </div>
             <p className="text-xs text-gray-600 mb-1">Total Balance</p>
-            <p className="text-xl font-bold text-gray-900">
-              ${accountBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            <p className="text-lg font-bold text-gray-900">
+              {getCurrencySymbol(accountCurrency)}{accountBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
+            {accountNumber && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <p className="text-xs text-gray-500 font-mono flex-1">
+                  Acc: {accountNumber}
+                </p>
+                <button
+                  onClick={() => copyToClipboard(accountNumber)}
+                  className="p-1 hover:bg-blue-50 rounded transition-colors"
+                  title="Copy account number"
+                >
+                  {copied ? (
+                    <Check className="w-3 h-3 text-green-600" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-blue-600" />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-green-600" />
+          <div className="bg-white rounded-lg shadow p-3 border-l-4 border-green-500">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-green-600" />
               </div>
               <span className="text-xs text-green-600 flex items-center">
                 <TrendingUp className="w-3 h-3 mr-1" />
@@ -220,28 +277,28 @@ export default function DashboardPage() {
               </span>
             </div>
             <p className="text-xs text-gray-600 mb-1">Investments</p>
-            <p className="text-xl font-bold text-gray-900">
-              ${totalInvestments.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            <p className="text-lg font-bold text-gray-900">
+              {getCurrencySymbol(accountCurrency)}{totalInvestments.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Activity className="w-5 h-5 text-purple-600" />
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Activity className="w-4 h-4 text-purple-600" />
               </div>
               <span className="text-xs text-purple-600 flex items-center">
                 Live
               </span>
             </div>
             <p className="text-xs text-gray-600 mb-1">Crypto Market</p>
-            <p className="text-xl font-bold text-gray-900">Active</p>
+            <p className="text-lg font-bold text-gray-900">Active</p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-orange-600" />
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-orange-600" />
               </div>
               <span className="text-xs text-green-600 flex items-center">
                 <TrendingUp className="w-3 h-3 mr-1" />
@@ -249,37 +306,37 @@ export default function DashboardPage() {
               </span>
             </div>
             <p className="text-xs text-gray-600 mb-1">Total Assets</p>
-            <p className="text-xl font-bold text-gray-900">
-              ${(accountBalance + totalInvestments).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            <p className="text-lg font-bold text-gray-900">
+              {getCurrencySymbol(accountCurrency)}{(accountBalance + totalInvestments).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-base font-bold text-gray-900 mb-3">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white rounded-lg shadow p-3">
+          <h2 className="text-sm font-bold text-gray-900 mb-2">Quick Actions</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {quickActions.map((action, index) => {
               const Icon = action.icon;
               return (
                 <button
                   key={index}
                   onClick={() => router.push(action.href)}
-                  className={`p-3 rounded-lg border-2 hover:shadow transition-all duration-200 group ${
+                  className={`p-2 rounded-lg border-2 hover:shadow transition-all duration-200 group ${
                     action.color === 'blue' ? 'border-blue-200 hover:border-blue-500 hover:bg-blue-50' :
                     action.color === 'green' ? 'border-green-200 hover:border-green-500 hover:bg-green-50' :
                     action.color === 'purple' ? 'border-purple-200 hover:border-purple-500 hover:bg-purple-50' :
                     'border-orange-200 hover:border-orange-500 hover:bg-orange-50'
                   }`}
                 >
-                  <div className="flex flex-col items-center space-y-1">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  <div className="flex flex-col items-center space-y-0.5">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                       action.color === 'blue' ? 'bg-blue-100' :
                       action.color === 'green' ? 'bg-green-100' :
                       action.color === 'purple' ? 'bg-purple-100' :
                       'bg-orange-100'
                     } group-hover:scale-110 transition-transform`}>
-                      <Icon className={`w-5 h-5 ${
+                      <Icon className={`w-4 h-4 ${
                         action.color === 'blue' ? 'text-blue-600' :
                         action.color === 'green' ? 'text-green-600' :
                         action.color === 'purple' ? 'text-purple-600' :
@@ -294,8 +351,172 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Horizontal Layout: Crypto + Economic Calendar + Chart */}
+
+        {/* Main Content Grid - 3 columns */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Card Display */}
+          {user && <CardDisplay userId={user.id} />}
+
+          {/* Transaction History */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-gray-900">Recent Transactions</h2>
+              <Activity className="w-4 h-4 text-gray-500" />
+            </div>
+
+            <div className="space-y-2">
+              {transactions.length > 0 ? (
+                <>
+                  {transactions.map((transaction) => {
+                    const isCredit = transaction.type === 'DEPOSIT' || 
+                                   transaction.type === 'TRANSFER_IN' || 
+                                   transaction.type === 'REFUND' ||
+                                   transaction.type === 'INTEREST' ||
+                                   transaction.type === 'BONUS';
+                    const isDebit = transaction.type === 'WITHDRAWAL' || 
+                                  transaction.type === 'TRANSFER_OUT' || 
+                                  transaction.type === 'PAYMENT' ||
+                                  transaction.type === 'FEE';
+                    
+                    const getTypeLabel = (type: string) => {
+                      const labels: Record<string, string> = {
+                        'DEPOSIT': 'Deposit',
+                        'WITHDRAWAL': 'Withdrawal',
+                        'TRANSFER_IN': 'Transfer In',
+                        'TRANSFER_OUT': 'Transfer Out',
+                        'PAYMENT': 'Payment',
+                        'REFUND': 'Refund',
+                        'FEE': 'Fee',
+                        'INTEREST': 'Interest',
+                        'BONUS': 'Bonus',
+                      };
+                      return labels[type] || type.replace('_', ' ');
+                    };
+
+                    return (
+                      <div key={transaction.id} className="flex items-start justify-between p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <div className="flex items-start gap-2 flex-1">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            isCredit ? 'bg-green-100' : isDebit ? 'bg-red-100' : 'bg-blue-100'
+                          }`}>
+                            {isCredit ? (
+                              <ArrowDownRight className={`w-4 h-4 ${isCredit ? 'text-green-600' : 'text-blue-600'}`} />
+                            ) : isDebit ? (
+                              <ArrowUpRight className="w-4 h-4 text-red-600" />
+                            ) : (
+                              <Activity className="w-4 h-4 text-blue-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-900">{getTypeLabel(transaction.type)}</p>
+                            {/* {transaction.description && (
+                              <p className="text-xs text-gray-500 truncate line-clamp-1">{transaction.description}</p>
+                            )} */}
+                            {transaction.recipientName && transaction.type === 'TRANSFER_OUT' && (
+                              <p className="text-xs text-gray-500">To: {transaction.recipientName}</p>
+                            )}
+                            {transaction.senderName && transaction.type === 'TRANSFER_IN' && (
+                              <p className="text-xs text-gray-500">From: {transaction.senderName}</p>
+                            )}
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {new Date(transaction.createdAt).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right ml-2">
+                          <p className={`text-sm font-bold ${
+                            isCredit ? 'text-green-600' : isDebit ? 'text-red-600' : 'text-gray-900'
+                          }`}>
+                            {isCredit ? '+' : isDebit ? '-' : ''}{getCurrencySymbol(transaction.currency || accountCurrency)}{transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <span className={`text-xs px-1.5 py-0.5 rounded inline-block mt-1 ${
+                            transaction.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                            transaction.status === 'PENDING' || transaction.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-700' :
+                            transaction.status === 'FAILED' || transaction.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {transaction.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button 
+                    onClick={() => router.push('/dashboard/transfer/history')}
+                    className="w-full py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center justify-center"
+                  >
+                    View All Transactions <ArrowRight className="w-3 h-3 ml-1" />
+                  </button>
+                </>
+              ) : (
+                <div className="text-center py-6 text-gray-500">
+                  <Activity className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                  <p className="text-xs">No transactions yet</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Active Investments */}
+          <div className="bg-white rounded-lg shadow p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-bold text-gray-900">Active Investments</h2>
+              <BarChart3 className="w-4 h-4 text-gray-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              {activeInvestments.length > 0 ? (
+                <>
+                  {activeInvestments.map((investment) => (
+                    <div key={investment.id} className="p-1.5 rounded border-2 border-purple-100 hover:border-purple-300 transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-bold text-gray-900">{investment.planName}</p>
+                        <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">ACTIVE</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600">Amount:</span>
+                        <span className="font-semibold text-gray-900">${investment.amount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600">Profit:</span>
+                        <span className="font-semibold text-green-600">+${investment.profitEarned.toLocaleString()}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        Ends: {new Date(investment.endDate).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                  <button 
+                    onClick={() => router.push('/investment/my-investments')}
+                    className="w-full py-1.5 text-xs text-purple-600 hover:bg-purple-50 rounded transition-colors flex items-center justify-center"
+                  >
+                    View All Investments <ArrowRight className="w-3 h-3 ml-1" />
+                  </button>
+                </>
+              ) : (
+                <div className="text-center py-6 text-gray-500">
+                  <BarChart3 className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                  <p className="text-xs">No active investments</p>
+                  <button 
+                    onClick={() => router.push('/investment/plans')}
+                    className="mt-2 text-xs text-blue-600 hover:underline"
+                  >
+                    Start Investing →
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Horizontal Layout: Crypto + Economic Calendar + Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
           {/* Live Crypto Markets - Compact 3x3 Grid */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-3">
@@ -591,162 +812,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Main Content Grid - 3 columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Transaction History */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Recent Transactions</h2>
-              <Activity className="w-5 h-5 text-gray-500" />
-            </div>
-
-            <div className="space-y-3">
-              {transactions.length > 0 ? (
-                <>
-                  {transactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors">
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-900 capitalize">{transaction.type.replace('_', ' ')}</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(transaction.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-xs font-bold ${transaction.type.includes('DEPOSIT') || transaction.type.includes('CREDIT') ? 'text-green-600' : 'text-gray-900'}`}>
-                          ${transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                        </p>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${
-                          transaction.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                          transaction.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {transaction.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  <button 
-                    onClick={() => router.push('/dashboard/statement')}
-                    className="w-full py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center justify-center"
-                  >
-                    View All Transactions <ArrowRight className="w-3 h-3 ml-1" />
-                  </button>
-                </>
-              ) : (
-                <div className="text-center py-6 text-gray-500">
-                  <Activity className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                  <p className="text-xs">No transactions yet</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Active Investments */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900">Active Investments</h2>
-              <BarChart3 className="w-4 h-4 text-gray-500" />
-            </div>
-
-            <div className="space-y-2">
-              {activeInvestments.length > 0 ? (
-                <>
-                  {activeInvestments.map((investment) => (
-                    <div key={investment.id} className="p-2 rounded border-2 border-purple-100 hover:border-purple-300 transition-colors">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-bold text-gray-900">{investment.planName}</p>
-                        <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">ACTIVE</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">Amount:</span>
-                        <span className="font-semibold text-gray-900">${investment.amount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">Profit:</span>
-                        <span className="font-semibold text-green-600">+${investment.profitEarned.toLocaleString()}</span>
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        Ends: {new Date(investment.endDate).toLocaleDateString()}
-                      </div>
-                    </div>
-                  ))}
-                  <button 
-                    onClick={() => router.push('/investment/my-investments')}
-                    className="w-full py-1.5 text-xs text-purple-600 hover:bg-purple-50 rounded transition-colors flex items-center justify-center"
-                  >
-                    View All Investments <ArrowRight className="w-3 h-3 ml-1" />
-                  </button>
-                </>
-              ) : (
-                <div className="text-center py-6 text-gray-500">
-                  <BarChart3 className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                  <p className="text-xs">No active investments</p>
-                  <button 
-                    onClick={() => router.push('/investment/plans')}
-                    className="mt-2 text-xs text-blue-600 hover:underline"
-                  >
-                    Start Investing →
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Messages/Chat */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900">Messages</h2>
-              <div className="flex items-center">
-                {unreadCount > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full mr-2">
-                    {unreadCount}
-                  </span>
-                )}
-                <MessageSquare className="w-4 h-4 text-gray-500" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {messages.length > 0 ? (
-                <>
-                  {messages.map((message) => (
-                    <div 
-                      key={message.id} 
-                      className={`p-2 rounded cursor-pointer transition-colors ${
-                        message.isRead ? 'bg-gray-50 hover:bg-gray-100' : 'bg-blue-50 hover:bg-blue-100 border-l-2 border-blue-500'
-                      }`}
-                      onClick={() => router.push('/dashboard/messages')}
-                    >
-                      <div className="flex items-start justify-between mb-0.5">
-                        <p className={`text-xs font-semibold ${message.isRead ? 'text-gray-900' : 'text-blue-900'}`}>
-                          {message.subject}
-                        </p>
-                        {!message.isRead && (
-                          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-600 line-clamp-2 mb-0.5">{message.content}</p>
-                      <p className="text-xs text-gray-400">
-                        {new Date(message.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))}
-                  <button 
-                    onClick={() => router.push('/dashboard/messages')}
-                    className="w-full py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center justify-center"
-                  >
-                    View All Messages <ArrowRight className="w-3 h-3 ml-1" />
-                  </button>
-                </>
-              ) : (
-                <div className="text-center py-6 text-gray-500">
-                  <MessageSquare className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                  <p className="text-xs">No messages</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </DashboardLayoutWrapper>
   );

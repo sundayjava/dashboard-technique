@@ -94,7 +94,6 @@ export async function POST(request: NextRequest) {
         accountType: accountType || 'PERSONAL',
         currency: currency,
         balance: 0,
-        availableBalance: 0,
         status: 'ACTIVE',
       },
     });

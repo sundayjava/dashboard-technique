@@ -16,16 +16,13 @@ export async function GET(request: NextRequest) {
     // Get total transactions count
     const totalTransactions = await prisma.transaction.count();
 
-    // Get pending approvals (bank deposits + cheque deposits)
-    const pendingBankDeposits = await prisma.bankDeposit.count({
-      where: { status: 'PENDING' },
+    // Get pending approvals (pending deposits)
+    const pendingApprovals = await prisma.transaction.count({
+      where: {
+        transactionType: 'DEPOSIT',
+        status: 'PENDING',
+      },
     });
-
-    const pendingChequeDeposits = await prisma.chequeDeposit.count({
-      where: { status: 'PENDING' },
-    });
-
-    const pendingApprovals = pendingBankDeposits + pendingChequeDeposits;
 
     // Get recent users (last 5)
     const recentUsers = await prisma.user.findMany({

@@ -14,8 +14,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get deposit details
-    const deposit = await prisma.chequeDeposit.findUnique({
-      where: { id: depositId },
+    const deposit = await prisma.transaction.findUnique({
+      where: {
+        id: depositId,
+        transactionType: 'DEPOSIT',
+        channel: 'CHEQUE',
+      },
       include: {
         user: {
           select: {
@@ -23,6 +27,7 @@ export async function POST(request: NextRequest) {
             email: true,
           },
         },
+        account: true,
       },
     });
 
@@ -30,55 +35,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Deposit not found' }, { status: 404 });
     }
 
-    if (deposit.status !== 'PENDING') {
+    if (deposit.status === 'COMPLETED') {
       return NextResponse.json(
         { error: 'This deposit has already been processed' },
         { status: 400 }
       );
     }
 
-    // Get account to credit
-    const account = await prisma.account.findUnique({
-      where: { id: deposit.accountId },
-    });
-
-    if (!account) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
-    }
-
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Update cheque deposit status
-      const updatedDeposit = await tx.chequeDeposit.update({
-        where: { id: depositId },
-        data: {
-          status: 'APPROVED',
-          processedAt: new Date(),
-          processedBy: adminId,
-          adminNotes: adminNotes || null,
-        },
-      });
-
       // Credit the account
       const updatedAccount = await tx.account.update({
         where: { id: deposit.accountId },
         data: {
           balance: { increment: deposit.amount },
-          availableBalance: { increment: deposit.amount },
         },
       });
 
-      // Create transaction record
-      await tx.transaction.create({
+      // Update deposit transaction status
+      const updatedDeposit = await tx.transaction.update({
+        where: { id: depositId },
         data: {
-          userId: deposit.userId,
-          accountId: deposit.accountId,
-          transactionType: 'DEPOSIT',
-          amount: deposit.amount,
-          currency: account.currency,
-          description: `Cheque deposit approved - Ref: ${depositId.substring(0, 8)}`,
-          reference: `CHQ-${depositId.substring(0, 8)}-${Date.now()}`,
           status: 'COMPLETED',
+          processedAt: new Date(),
+          processedBy: adminId,
+          adminNotes: adminNotes || null,
           balanceAfter: updatedAccount.balance,
         },
       });
@@ -89,7 +70,7 @@ export async function POST(request: NextRequest) {
           userId: deposit.userId,
           type: 'TRANSACTION',
           title: 'Cheque Deposit Approved',
-          message: `Your cheque deposit of ${account.currency} ${deposit.amount.toFixed(2)} has been approved and credited to your account.`,
+          message: `Your cheque deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} has been approved and credited to your account.`,
         },
       });
 
@@ -98,11 +79,11 @@ export async function POST(request: NextRequest) {
         data: {
           userId: deposit.userId,
           action: 'CHEQUE_DEPOSIT_APPROVED',
-          description: `Cheque deposit of ${account.currency} ${deposit.amount.toFixed(2)} was approved by admin and credited to account`,
+          description: `Cheque deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} was approved and credited`,
           metadata: {
             depositId: depositId,
             amount: deposit.amount,
-            currency: account.currency,
+            currency: deposit.currency,
             accountId: deposit.accountId,
             processedBy: adminId,
             adminNotes: adminNotes || null,
@@ -115,12 +96,12 @@ export async function POST(request: NextRequest) {
         data: {
           userId: adminId,
           action: 'ADMIN_CHEQUE_APPROVED',
-          description: `Approved cheque deposit of ${account.currency} ${deposit.amount.toFixed(2)} for user ${deposit.user.name || deposit.user.email}`,
+          description: `Approved cheque deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} for user ${deposit.user.name || deposit.user.email}`,
           metadata: {
             depositId: depositId,
             targetUserId: deposit.userId,
             amount: deposit.amount,
-            currency: account.currency,
+            currency: deposit.currency,
             accountId: deposit.accountId,
           },
         },

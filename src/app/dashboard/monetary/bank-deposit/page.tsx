@@ -17,19 +17,19 @@ interface User {
   authorizationCode: string;
 }
 
-interface Bank {
+interface DepositAddress {
   id: string;
-  name: string;
-  code: string;
-}
-
-interface UserBankAccount {
-  id: string;
-  accountName: string;
-  accountNumber: string;
-  bankBranch: string | null;
-  instructions: string | null;
-  bank: Bank;
+  type: 'CRYPTO' | 'BANK';
+  tokenName: string | null;
+  address: string | null;
+  network: string | null;
+  bankName: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  swiftCode: string | null;
+  routingNumber: string | null;
+  country: string | null;
+  createdAt: string;
 }
 
 interface Account {
@@ -44,12 +44,15 @@ interface Account {
 interface BankDeposit {
   id: string;
   amount: number;
-  referenceNumber: string;
+  reference: string;
   status: string;
-  submittedAt: string;
+  createdAt: string;
   processedAt: string | null;
   adminNotes: string | null;
-  userBankAccount: UserBankAccount;
+  bankName: string | null;
+  accountNumber: string | null;
+  account: Account;
+  depositAddress?: DepositAddress;
 }
 
 export default function BankDepositPage() {
@@ -60,17 +63,18 @@ export default function BankDepositPage() {
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
   
   // Data
-  const [bankAccounts, setBankAccounts] = useState<UserBankAccount[]>([]);
+  const [bankAddresses, setBankAddresses] = useState<DepositAddress[]>([]);
   const [userAccounts, setUserAccounts] = useState<Account[]>([]);
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   
   // Form fields
-  const [selectedBankAccount, setSelectedBankAccount] = useState<string>('');
+  const [selectedBankAddress, setSelectedBankAddress] = useState<string>('');
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [amount, setAmount] = useState('');
   const [referenceNumber, setReferenceNumber] = useState('');
+  const [copiedField, setCopiedField] = useState<string>('');
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -98,7 +102,7 @@ export default function BankDepositPage() {
     try {
       setLoading(true);
       await Promise.all([
-        fetchBankAccounts(),
+        fetchBankAddresses(),
         fetchUserAccounts(),
         fetchDeposits(),
       ]);
@@ -109,12 +113,16 @@ export default function BankDepositPage() {
     }
   };
 
-  const fetchBankAccounts = async () => {
+  const fetchBankAddresses = async () => {
     try {
-      const response = await axios.get(`/api/user-bank-accounts?userId=${user?.id}`);
-      setBankAccounts(response.data.bankAccounts);
+      const response = await axios.get(`/api/user-addresses?userId=${user?.id}`);
+      // Filter only BANK addresses
+      const bankAddrs = response.data.addresses.filter(
+        (addr: DepositAddress) => addr.type === 'BANK'
+      );
+      setBankAddresses(bankAddrs);
     } catch (error) {
-      console.error('Error fetching bank accounts:', error);
+      console.error('Error fetching bank addresses:', error);
     }
   };
 
@@ -142,11 +150,22 @@ export default function BankDepositPage() {
     }
   };
 
+  const copyToClipboard = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      toast.success(`${fieldName} copied!`);
+      setTimeout(() => setCopiedField(''), 2000);
+    } catch (error) {
+      toast.error('Failed to copy');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedBankAccount) {
-      toast.error('Please select a bank');
+    if (!selectedBankAddress) {
+      toast.error('Please select a bank account');
       return;
     }
 
@@ -168,18 +187,23 @@ export default function BankDepositPage() {
     setSubmitting(true);
 
     try {
+      // Get the selected bank address details
+      const selectedAddress = bankAddresses.find(addr => addr.id === selectedBankAddress);
+      
       await axios.post('/api/bank-deposits', {
         userId: user?.id,
-        userBankAccountId: selectedBankAccount,
         accountId: selectedAccount,
         amount: parseFloat(amount),
         referenceNumber: referenceNumber.trim(),
+        bankName: selectedAddress?.bankName || null,
+        bankCode: selectedAddress?.swiftCode || selectedAddress?.routingNumber || null,
+        accountNumber: selectedAddress?.accountNumber || null,
       });
 
       toast.success('Bank deposit submitted successfully!');
       setAmount('');
       setReferenceNumber('');
-      setSelectedBankAccount('');
+      setSelectedBankAddress('');
       
       // Refresh deposits
       await fetchDeposits();
@@ -223,7 +247,7 @@ export default function BankDepositPage() {
     return badges[status as keyof typeof badges] || null;
   };
 
-  const selectedBankDetails = bankAccounts.find(ba => ba.id === selectedBankAccount);
+  const selectedBankDetails = bankAddresses.find(ba => ba.id === selectedBankAddress);
 
   if (!user || loading) {
     return (
@@ -295,13 +319,13 @@ export default function BankDepositPage() {
             <div className="p-4 md:p-6">
               {activeTab === 'new' ? (
                 <>
-                  {bankAccounts.length === 0 ? (
+                  {bankAddresses.length === 0 ? (
                     <div className="text-center py-8">
                       <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
-                      <p className="text-gray-600 mb-2">No bank accounts assigned</p>
-                      <p className="text-sm text-gray-500">Please contact support to have bank accounts assigned to you</p>
+                      <p className="text-gray-600 mb-2">No Bank Accounts Assigned</p>
+                      <p className="text-sm text-gray-500">Please contact admin to have bank accounts assigned to you</p>
                     </div>
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -311,15 +335,15 @@ export default function BankDepositPage() {
                           Select Bank
                         </label>
                         <select
-                          value={selectedBankAccount}
-                          onChange={(e) => setSelectedBankAccount(e.target.value)}
+                          value={selectedBankAddress}
+                          onChange={(e) => setSelectedBankAddress(e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent"
                           required
                         >
                           <option value="">Choose a bank...</option>
-                          {bankAccounts.map((ba) => (
+                          {bankAddresses.map((ba) => (
                             <option key={ba.id} value={ba.id}>
-                              {ba.bank.name}
+                              {ba.bankName} {ba.country ? `(${ba.country})` : ''}
                             </option>
                           ))}
                         </select>
@@ -330,28 +354,106 @@ export default function BankDepositPage() {
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                           <h3 className="font-semibold text-blue-900 mb-3">Bank Account Details</h3>
                           <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
+                            <div className="flex justify-between items-center">
                               <span className="text-blue-700">Bank:</span>
-                              <span className="font-medium text-blue-900">{selectedBankDetails.bank.name}</span>
+                              <span className="font-medium text-blue-900">{selectedBankDetails.bankName}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between items-center">
                               <span className="text-blue-700">Account Name:</span>
-                              <span className="font-medium text-blue-900">{selectedBankDetails.accountName}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-blue-900">{selectedBankDetails.accountName}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(selectedBankDetails.accountName || '', 'Account Name')}
+                                  className="p-1 hover:bg-blue-100 rounded transition-colors"
+                                  title="Copy account name"
+                                >
+                                  {copiedField === 'Account Name' ? (
+                                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                  )}
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between items-center">
                               <span className="text-blue-700">Account Number:</span>
-                              <span className="font-medium text-blue-900">{selectedBankDetails.accountNumber}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-blue-900 font-mono">{selectedBankDetails.accountNumber}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(selectedBankDetails.accountNumber || '', 'Account Number')}
+                                  className="p-1 hover:bg-blue-100 rounded transition-colors"
+                                  title="Copy account number"
+                                >
+                                  {copiedField === 'Account Number' ? (
+                                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                  )}
+                                </button>
+                              </div>
                             </div>
-                            {selectedBankDetails.bankBranch && (
-                              <div className="flex justify-between">
-                                <span className="text-blue-700">Branch:</span>
-                                <span className="font-medium text-blue-900">{selectedBankDetails.bankBranch}</span>
+                            {selectedBankDetails.swiftCode && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-blue-700">SWIFT Code:</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-blue-900 font-mono">{selectedBankDetails.swiftCode}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(selectedBankDetails.swiftCode || '', 'SWIFT Code')}
+                                    className="p-1 hover:bg-blue-100 rounded transition-colors"
+                                    title="Copy SWIFT code"
+                                  >
+                                    {copiedField === 'SWIFT Code' ? (
+                                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                </div>
                               </div>
                             )}
-                            {selectedBankDetails.instructions && (
-                              <div className="mt-3 pt-3 border-t border-blue-200">
-                                <p className="text-blue-700 mb-1">Instructions:</p>
-                                <p className="text-blue-900 text-xs">{selectedBankDetails.instructions}</p>
+                            {selectedBankDetails.routingNumber && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-blue-700">Routing Number:</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-blue-900 font-mono">{selectedBankDetails.routingNumber}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(selectedBankDetails.routingNumber || '', 'Routing Number')}
+                                    className="p-1 hover:bg-blue-100 rounded transition-colors"
+                                    title="Copy routing number"
+                                  >
+                                    {copiedField === 'Routing Number' ? (
+                                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {selectedBankDetails.country && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-blue-700">Country:</span>
+                                <span className="font-medium text-blue-900">{selectedBankDetails.country}</span>
                               </div>
                             )}
                           </div>
@@ -466,11 +568,13 @@ export default function BankDepositPage() {
                         <tbody className="divide-y divide-gray-200">
                           {deposits.map((deposit) => (
                             <tr key={deposit.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm text-gray-900">{deposit.userBankAccount.bank.name}</td>
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {deposit.bankName || 'N/A'}
+                              </td>
                               <td className="px-4 py-3 text-sm font-medium text-gray-900">${deposit.amount.toFixed(2)}</td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{deposit.referenceNumber}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{deposit.reference || 'N/A'}</td>
                               <td className="px-4 py-3 text-sm text-gray-600">
-                                {new Date(deposit.submittedAt).toLocaleDateString()}
+                                {deposit.createdAt ? new Date(deposit.createdAt).toLocaleDateString() : 'N/A'}
                               </td>
                               <td className="px-4 py-3">{getStatusBadge(deposit.status)}</td>
                             </tr>

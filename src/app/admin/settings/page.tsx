@@ -195,8 +195,8 @@ export default function AdminSettingsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {items.map((setting) => (
-                      <tr key={setting.id} className="hover:bg-gray-50">
+                    {items.map((setting, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div>
                             <p className="text-sm font-medium text-gray-900">{setting.key}</p>

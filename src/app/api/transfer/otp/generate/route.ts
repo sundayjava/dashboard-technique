@@ -16,14 +16,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user details
+    console.log('🔍 Looking up user with ID:', userId);
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, name: true, accountDisabled: true },
     });
 
     if (!user) {
+      console.error('❌ User not found with ID:', userId);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    console.log('✅ User found:', { id: user.id, email: user.email, name: user.name });
 
     if (user.accountDisabled) {
       return NextResponse.json(
@@ -65,7 +69,30 @@ export async function POST(request: NextRequest) {
       ? 'International Transfer' 
       : 'Domestic Transfer';
 
-    await sendOTPEmail(user.email, otp, user.name || 'valued customer', type);
+    try {
+      console.log('📧 Attempting to send OTP email to:', user.email);
+      console.log('   OTP:', otp);
+      console.log('   Name:', user.name || 'valued customer');
+      console.log('   Type:', type);
+      await sendOTPEmail(user.email, otp, user.name || 'valued customer', type);
+      console.log('✅ OTP email sent successfully to:', user.email);
+    } catch (emailError: any) {
+      console.error('❌ Error sending OTP email:', emailError);
+      // Delete the OTP since we couldn't send the email
+      await prisma.transferOTP.deleteMany({
+        where: {
+          userId: user.id,
+          otp,
+        },
+      });
+      return NextResponse.json(
+        { 
+          error: emailError.message || 'Failed to send OTP email. Please check your email configuration.',
+          details: 'Email server is not properly configured. Contact support if this persists.'
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -75,7 +102,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error generating OTP:', error);
     return NextResponse.json(
-      { error: 'Failed to generate OTP. Please try again.' },
+      { error: error.message || 'Failed to generate OTP. Please try again.' },
       { status: 500 }
     );
   }

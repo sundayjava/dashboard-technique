@@ -138,9 +138,6 @@ export async function PUT(request: NextRequest) {
             data: {
               balance: {
                 increment: amountToCredit
-              },
-              availableBalance: {
-                increment: amountToCredit
               }
             }
           });

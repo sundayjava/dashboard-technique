@@ -19,11 +19,17 @@ interface Account {
 interface ChequeDeposit {
   id: string;
   amount: number;
-  chequeImage: string;
+  currency: string;
+  chequeImage: string | null;
   status: string;
-  submittedAt: string;
+  createdAt: string;
   processedAt: string | null;
   adminNotes: string | null;
+  metadata?: any;
+  account: {
+    accountNumber: string;
+    currency: string;
+  };
 }
 
 export default function ChequeDepositPage() {
@@ -31,6 +37,7 @@ export default function ChequeDepositPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [amount, setAmount] = useState('');
+  const [chequeNumber, setChequeNumber] = useState('');
   const [chequeImage, setChequeImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -155,6 +162,7 @@ export default function ChequeDepositPage() {
         accountId: selectedAccount.id,
         amount: parseFloat(amount),
         chequeImage: chequeImagePath,
+        chequeNumber: chequeNumber.trim() || undefined,
       };
 
       await axios.post('/api/cheque-deposits', depositData);
@@ -163,6 +171,7 @@ export default function ChequeDepositPage() {
       
       // Reset form
       setAmount('');
+      setChequeNumber('');
       setChequeImage(null);
       setImagePreview('');
       fetchDeposits();
@@ -183,18 +192,26 @@ export default function ChequeDepositPage() {
             Pending
           </span>
         );
-      case 'APPROVED':
+      case 'COMPLETED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
             <CheckCircle className="w-4 h-4 mr-1" />
-            Approved
+            Completed
           </span>
         );
-      case 'REJECTED':
+      case 'FAILED':
+      case 'CANCELLED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
             <XCircle className="w-4 h-4 mr-1" />
-            Rejected
+            {status === 'FAILED' ? 'Failed' : 'Cancelled'}
+          </span>
+        );
+      case 'PROCESSING':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+            <Clock className="w-4 h-4 mr-1" />
+            Processing
           </span>
         );
       default:
@@ -282,6 +299,21 @@ export default function ChequeDepositPage() {
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Enter the amount written on the cheque</p>
+              </div>
+
+              {/* Cheque Number */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cheque Number <span className="text-gray-400">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={chequeNumber}
+                  onChange={(e) => setChequeNumber(e.target.value)}
+                  placeholder="Enter cheque number"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-[#c1ff72] outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">The cheque number helps with tracking and verification</p>
               </div>
 
               {/* Cheque Image Upload */}
@@ -379,6 +411,9 @@ export default function ChequeDepositPage() {
                         Date
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Cheque Number
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Amount
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -393,10 +428,13 @@ export default function ChequeDepositPage() {
                     {deposits.map((deposit) => (
                       <tr key={deposit.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(deposit.submittedAt).toLocaleDateString()}
+                          {new Date(deposit.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {deposit.metadata?.chequeNumber || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ${deposit.amount.toFixed(2)}
+                          {deposit.currency} {deposit.amount.toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(deposit.status)}

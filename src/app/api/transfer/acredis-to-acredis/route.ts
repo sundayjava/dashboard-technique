@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyAdminsOfUserActivity } from '@/lib/email';
 import bcrypt from 'bcryptjs';
 import { createActivityLog } from '@/app/api/activity-log/route';
 import { convertCurrency, getExchangeRate } from '@/lib/currency-converter';
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check sufficient balance
-    if (senderAccount.availableBalance < amount) {
+    if (senderAccount.balance < amount) {
       return NextResponse.json(
         { error: 'Insufficient funds' },
         { status: 400 }
@@ -131,20 +132,27 @@ export async function POST(request: NextRequest) {
     let recipientAmount = amount;
     let exchangeRate = 1;
     
-    if (senderAccount.currency !== recipientAccount.currency) {
+    // Normalize currency codes
+    const senderCurrency = senderAccount.currency?.toUpperCase() || 'USD';
+    const recipientCurrency = recipientAccount.currency?.toUpperCase() || 'USD';
+    
+    if (senderCurrency !== recipientCurrency) {
       try {
-        exchangeRate = getExchangeRate(senderAccount.currency, recipientAccount.currency);
-        recipientAmount = convertCurrency(amount, senderAccount.currency, recipientAccount.currency);
+        exchangeRate = getExchangeRate(senderCurrency, recipientCurrency);
+        recipientAmount = convertCurrency(amount, senderCurrency, recipientCurrency);
       } catch (error) {
+        console.error('Currency conversion error:', error);
         return NextResponse.json(
-          { error: 'Currency conversion failed. Please try again.' },
+          { error: `Currency conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}` },
           { status: 400 }
         );
       }
     }
 
-    // Generate unique reference
-    const reference = `TRF${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    // Generate unique references for both transactions
+    const baseReference = `TRF${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    const senderReference = `${baseReference}-OUT`;
+    const recipientReference = `${baseReference}-IN`;
 
     // Perform transfer in a transaction
     const result = await prisma.$transaction(async (tx: any) => {
@@ -176,7 +184,7 @@ export async function POST(request: NextRequest) {
           balanceAfter: updatedSenderAccount.balance,
           currency: senderAccount.currency,
           description: description || `Transfer to ${recipientAccount.accountName}`,
-          reference: reference,
+          reference: senderReference,
           status: 'COMPLETED',
           recipientName: recipientAccount.accountName,
           recipientAccount: recipientAccount.accountNumber,
@@ -189,6 +197,7 @@ export async function POST(request: NextRequest) {
             exchangeRate: exchangeRate,
             recipientAmount: recipientAmount,
             recipientCurrency: recipientAccount.currency,
+            linkedReference: recipientReference,
           },
         },
       });
@@ -203,7 +212,7 @@ export async function POST(request: NextRequest) {
           balanceAfter: updatedRecipientAccount.balance,
           currency: recipientAccount.currency,
           description: description || `Transfer from ${senderAccount.accountName}`,
-          reference: reference,
+          reference: recipientReference,
           status: 'COMPLETED',
           recipientName: recipientAccount.accountName,
           recipientAccount: recipientAccount.accountNumber,
@@ -216,6 +225,7 @@ export async function POST(request: NextRequest) {
             exchangeRate: exchangeRate,
             senderAmount: amount,
             senderCurrency: senderAccount.currency,
+            linkedReference: senderReference,
           },
         },
       });
@@ -260,7 +270,7 @@ export async function POST(request: NextRequest) {
         {
           transactionType: 'TRANSFER_OUT',
           amount,
-          reference,
+          reference: senderReference,
           recipientAccount: recipientAccount.accountNumber,
         }
       );
@@ -269,9 +279,21 @@ export async function POST(request: NextRequest) {
       // Don't fail the transfer if logging fails
     }
 
+    // Notify admins via email
+    const senderUser = await prisma.user.findUnique({
+      where: { id: senderAccount.userId },
+      select: { name: true },
+    });
+
+    notifyAdminsOfUserActivity(
+      senderAccount.userId,
+      senderUser?.name || 'Unknown User',
+      `an Acredis Transfer of ${amount} ${senderAccount.currency} to ${recipientAccount.accountName}`
+    );
+
     return NextResponse.json({
       message: 'Transfer successful',
-      reference,
+      reference: baseReference,
       amount,
       currency: senderAccount.currency,
       recipient: {

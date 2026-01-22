@@ -3,147 +3,85 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { DollarSign, Plus, Edit2, Trash2, Loader2, Search, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { FileCheck, Loader2, Search, CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
-interface Loan {
+interface LoanApplication {
   id: string;
   userId: string;
-  user: User;
+  fromDate: string;
+  fullName: string;
   amount: number;
-  interestRate: number;
-  duration: number; // in months
-  status: string; // PENDING, APPROVED, ACTIVE, COMPLETED, REJECTED, DEFAULTED
-  purpose: string;
-  monthlyPayment: number;
-  totalRepayment: number;
-  paidAmount: number;
+  duration: number;
+  loanType: string;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  adminNotes: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
   createdAt: string;
-  approvedAt?: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    authorizationCode: string;
+  };
 }
 
 export default function LoanManagementPage() {
-  const [loans, setLoans] = useState<Loan[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [loans, setLoans] = useState<LoanApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [selectedLoan, setSelectedLoan] = useState<LoanApplication | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
-  const [formData, setFormData] = useState({
-    userId: '',
-    amount: 0,
-    interestRate: 5,
-    duration: 12,
-    status: 'PENDING',
-    purpose: '',
-  });
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchData();
+    fetchLoans();
   }, []);
 
-  const fetchData = async () => {
+  const fetchLoans = async () => {
     try {
       setLoading(true);
-      const [loansRes, usersRes] = await Promise.all([
-        axios.get('/api/admin/loans').catch(() => ({ data: [] })),
-        axios.get('/api/admin/users').catch(() => ({ data: [] })),
-      ]);
-      setLoans(loansRes.data);
-      setUsers(usersRes.data);
+      const response = await axios.get('/api/loans');
+      setLoans(response.data.loans || []);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to fetch data');
+      toast.error(err.response?.data?.error || 'Failed to fetch loan applications');
       setLoans([]);
-      setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+  const handleApproveLoan = async (loanId: string) => {
+    if (!confirm('Are you sure you want to approve this loan application?')) return;
 
+    const adminId = localStorage.getItem('userId');
     try {
-      if (editingLoan) {
-        await axios.patch(`/api/admin/loans/${editingLoan.id}`, formData);
-        toast.success('Loan updated successfully');
-      } else {
-        await axios.post('/api/admin/loans', formData);
-        toast.success('Loan created successfully');
-      }
-      
-      setShowModal(false);
-      setEditingLoan(null);
-      resetForm();
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to save loan');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      userId: '',
-      amount: 0,
-      interestRate: 5,
-      duration: 12,
-      status: 'PENDING',
-      purpose: '',
-    });
-  };
-
-  const handleEdit = (loan: Loan) => {
-    setEditingLoan(loan);
-    setFormData({
-      userId: loan.userId,
-      amount: loan.amount,
-      interestRate: loan.interestRate,
-      duration: loan.duration,
-      status: loan.status,
-      purpose: loan.purpose,
-    });
-    setShowModal(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this loan?')) return;
-
-    try {
-      await axios.delete(`/api/admin/loans/${id}`);
-      toast.success('Loan deleted successfully');
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to delete loan');
-    }
-  };
-
-  const handleApprove = async (id: string) => {
-    try {
-      await axios.patch(`/api/admin/loans/${id}/approve`);
+      await axios.patch(`/api/loans/${loanId}`, { 
+        status: 'APPROVED',
+        approvedBy: adminId
+      });
       toast.success('Loan approved successfully');
-      fetchData();
+      fetchLoans();
+      setShowModal(false);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to approve loan');
     }
   };
 
-  const handleReject = async (id: string) => {
-    if (!confirm('Are you sure you want to reject this loan?')) return;
+  const handleRejectLoan = async (loanId: string) => {
+    const notes = prompt('Please provide a reason for rejection:');
+    if (!notes) return;
 
     try {
-      await axios.patch(`/api/admin/loans/${id}/reject`);
+      await axios.patch(`/api/loans/${loanId}`, { 
+        status: 'REJECTED',
+        adminNotes: notes
+      });
       toast.success('Loan rejected');
-      fetchData();
+      fetchLoans();
+      setShowModal(false);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to reject loan');
     }
@@ -151,9 +89,10 @@ export default function LoanManagementPage() {
 
   const filteredLoans = loans.filter(loan => {
     const matchesSearch = 
-      loan.user.name.toLowerCase().includes(search.toLowerCase()) ||
-      loan.user.email.toLowerCase().includes(search.toLowerCase()) ||
-      loan.purpose.toLowerCase().includes(search.toLowerCase());
+      loan.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+      loan.user?.email?.toLowerCase().includes(search.toLowerCase()) ||
+      loan.loanType?.toLowerCase().includes(search.toLowerCase()) ||
+      loan.reason?.toLowerCase().includes(search.toLowerCase());
     
     const matchesStatus = statusFilter === 'ALL' || loan.status === statusFilter;
     
@@ -163,11 +102,8 @@ export default function LoanManagementPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'APPROVED':
-      case 'ACTIVE':
-      case 'COMPLETED':
         return <CheckCircle className="w-4 h-4" />;
       case 'REJECTED':
-      case 'DEFAULTED':
         return <XCircle className="w-4 h-4" />;
       case 'PENDING':
         return <Clock className="w-4 h-4" />;
@@ -179,12 +115,8 @@ export default function LoanManagementPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'APPROVED':
-      case 'ACTIVE':
         return 'bg-green-100 text-green-800';
-      case 'COMPLETED':
-        return 'bg-blue-100 text-blue-800';
       case 'REJECTED':
-      case 'DEFAULTED':
         return 'bg-red-100 text-red-800';
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-800';
@@ -195,8 +127,11 @@ export default function LoanManagementPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="w-16 h-16 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading loan applications...</p>
+        </div>
       </div>
     );
   }
@@ -204,22 +139,9 @@ export default function LoanManagementPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Loan Management</h1>
-          <p className="mt-2 text-gray-600">Manage and approve user loan applications</p>
-        </div>
-        <button
-          onClick={() => {
-            setEditingLoan(null);
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Create Loan
-        </button>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Loan Applications</h1>
+        <p className="mt-2 text-gray-600">Review and approve user loan applications</p>
       </div>
 
       {/* Filters */}
@@ -229,7 +151,7 @@ export default function LoanManagementPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by user or purpose..."
+              placeholder="Search by applicant, email, loan type, or reason..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -243,34 +165,68 @@ export default function LoanManagementPage() {
             <option value="ALL">All Status</option>
             <option value="PENDING">Pending</option>
             <option value="APPROVED">Approved</option>
-            <option value="ACTIVE">Active</option>
-            <option value="COMPLETED">Completed</option>
             <option value="REJECTED">Rejected</option>
-            <option value="DEFAULTED">Defaulted</option>
           </select>
         </div>
       </div>
 
-      {/* Loans List */}
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Pending</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {loans.filter(l => l.status === 'PENDING').length}
+              </p>
+            </div>
+            <Clock className="w-12 h-12 text-yellow-600 opacity-20" />
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Approved</p>
+              <p className="text-2xl font-bold text-green-600">
+                {loans.filter(l => l.status === 'APPROVED').length}
+              </p>
+            </div>
+            <CheckCircle className="w-12 h-12 text-green-600 opacity-20" />
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Rejected</p>
+              <p className="text-2xl font-bold text-red-600">
+                {loans.filter(l => l.status === 'REJECTED').length}
+              </p>
+            </div>
+            <XCircle className="w-12 h-12 text-red-600 opacity-20" />
+          </div>
+        </div>
+      </div>
+
+      {/* Loans Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
+                  Applicant
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Loan Details
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Terms
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Purpose
+                  Applied
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -283,8 +239,12 @@ export default function LoanManagementPage() {
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <DollarSign className="w-16 h-16 text-gray-400 mb-2" />
-                      <p className="text-gray-900 font-medium text-lg">No loans yet</p>
-                      <p className="text-gray-500 text-sm">Click "Create Loan" to add your first loan</p>
+                      <p className="text-gray-900 font-medium text-lg">No loan applications found</p>
+                      <p className="text-gray-500 text-sm">
+                        {search || statusFilter !== 'ALL' 
+                          ? 'Try adjusting your filters' 
+                          : 'Loan applications will appear here when users submit them'}
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -292,63 +252,40 @@ export default function LoanManagementPage() {
                 filteredLoans.map((loan) => (
                   <tr key={loan.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{loan.user.name}</div>
-                      <div className="text-sm text-gray-500">{loan.user.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-lg font-semibold text-gray-900">
-                        ${loan.amount.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        ${loan.monthlyPayment.toLocaleString()}/mo
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{loan.fullName}</p>
+                        <p className="text-xs text-gray-500">{loan.user.email}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{loan.duration} months</div>
-                      <div className="text-xs text-gray-500">{loan.interestRate}% interest</div>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="text-sm text-gray-900">{loan.loanType}</p>
+                        <p className="text-xs text-gray-500">{loan.duration} months</p>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full flex items-center gap-1 w-fit ${getStatusColor(loan.status)}`}>
+                      <p className="text-sm font-semibold text-gray-900">${loan.amount.toLocaleString()}</p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(loan.status)}`}>
                         {getStatusIcon(loan.status)}
                         {loan.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{loan.purpose}</div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(loan.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {loan.status === 'PENDING' && (
-                          <>
-                            <button
-                              onClick={() => handleApprove(loan.id)}
-                              className="p-2 text-green-600 hover:text-green-900"
-                              title="Approve"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleReject(loan.id)}
-                              className="p-2 text-red-600 hover:text-red-900"
-                              title="Reject"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => handleEdit(loan)}
-                          className="p-2 text-blue-600 hover:text-blue-900"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(loan.id)}
-                          className="p-2 text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedLoan(loan);
+                          setShowModal(true);
+                        }}
+                        className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        <FileCheck className="w-4 h-4 mr-2" />
+                        Review
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -358,133 +295,147 @@ export default function LoanManagementPage() {
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
+      {/* Loan Review Modal */}
+      {showModal && selectedLoan && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {editingLoan ? 'Edit Loan' : 'Create Loan'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    User <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.userId}
-                    onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                    disabled={!!editingLoan}
-                  >
-                    <option value="">Select User</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} ({user.email})
-                      </option>
-                    ))}
-                  </select>
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Loan Application Review</h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="space-y-6">
+                {/* User Information */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-3">Applicant Information</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Name:</span>
+                      <p className="font-medium">{selectedLoan.user.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Email:</span>
+                      <p className="font-medium">{selectedLoan.user.email}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Auth Code:</span>
+                      <p className="font-medium font-mono">{selectedLoan.user.authorizationCode}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Applied On:</span>
+                      <p className="font-medium">
+                        {new Date(selectedLoan.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
+                {/* Loan Details */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Loan Amount ($) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
-                    required
-                  />
+                  <h3 className="font-semibold text-gray-900 mb-3">Loan Details</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Full Name on Application:</span>
+                      <p className="font-medium">{selectedLoan.fullName}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Loan Type:</span>
+                      <p className="font-medium">{selectedLoan.loanType}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Loan Amount:</span>
+                      <p className="font-medium text-lg text-blue-600">
+                        ${selectedLoan.amount.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Duration:</span>
+                      <p className="font-medium">{selectedLoan.duration} months</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Start Date:</span>
+                      <p className="font-medium">
+                        {new Date(selectedLoan.fromDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Current Status:</span>
+                      <p className="font-medium">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedLoan.status)}`}>
+                          {selectedLoan.status}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
+                {/* Reason */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Interest Rate (%) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.interestRate}
-                    onChange={(e) => setFormData({ ...formData, interestRate: Number(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
-                    required
-                  />
+                  <h3 className="font-semibold text-gray-900 mb-3">Loan Purpose</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-700">{selectedLoan.reason}</p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Duration (months) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: Number(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="1"
-                    required
-                  />
-                </div>
+                {/* Admin Notes (if any) */}
+                {selectedLoan.adminNotes && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3">Admin Notes</h3>
+                    <div className="bg-red-50 p-4 rounded-lg">
+                      <p className="text-sm text-red-700">{selectedLoan.adminNotes}</p>
+                    </div>
+                  </div>
+                )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Status <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="PENDING">Pending</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="REJECTED">Rejected</option>
-                    <option value="DEFAULTED">Defaulted</option>
-                  </select>
-                </div>
+                {/* Approval/Rejection Information */}
+                {selectedLoan.approvedAt && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <p className="text-sm text-green-700">
+                      <strong>Approved on:</strong>{' '}
+                      {new Date(selectedLoan.approvedAt).toLocaleString()}
+                    </p>
+                    {selectedLoan.approvedBy && (
+                      <p className="text-sm text-green-700 mt-1">
+                        <strong>Approved by:</strong> Admin ID {selectedLoan.approvedBy}
+                      </p>
+                    )}
+                  </div>
+                )}
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Purpose <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={formData.purpose}
-                    onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={3}
-                    required
-                  />
-                </div>
+                {selectedLoan.rejectedAt && (
+                  <div className="bg-red-50 p-4 rounded-lg">
+                    <p className="text-sm text-red-700">
+                      <strong>Rejected on:</strong>{' '}
+                      {new Date(selectedLoan.rejectedAt).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {selectedLoan.status === 'PENDING' && (
+                  <div className="flex gap-4 pt-4 border-t">
+                    <button
+                      onClick={() => handleApproveLoan(selectedLoan.id)}
+                      className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                    >
+                      Approve Loan
+                    </button>
+                    <button
+                      onClick={() => handleRejectLoan(selectedLoan.id)}
+                      className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                    >
+                      Reject Loan
+                    </button>
+                  </div>
+                )}
               </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {saving ? 'Saving...' : editingLoan ? 'Update' : 'Create'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingLoan(null);
-                    resetForm();
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

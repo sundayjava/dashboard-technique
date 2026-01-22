@@ -49,7 +49,14 @@ export async function POST(request: NextRequest) {
     // Check if transfers are disabled for this user
     if (user.transferDisabled) {
       return NextResponse.json(
-        { error: 'Transfers have been disabled for your account. Please contact support.' },
+        { error: 'network error' },
+        { status: 403 }
+      );
+    }
+
+    if (!user.canTransfer) {
+      return NextResponse.json(
+        { error: 'Transfer privileges have been disabled for your account. Please contact support.' },
         { status: 403 }
       );
     }

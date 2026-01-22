@@ -1,21 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET - Fetch KYC submission for a user
+// GET - Fetch KYC submission(s)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+    // If userId is provided, get specific user's KYC
+    if (userId) {
+      const kycSubmission = await prisma.kYC.findUnique({
+        where: { userId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return NextResponse.json({
+        kyc: kycSubmission,
+        message: kycSubmission ? 'KYC submission found' : 'No KYC submission found',
+      });
     }
 
-    const kycSubmission = await prisma.kYC.findUnique({
-      where: { userId },
+    // Otherwise, get all KYC submissions (for admin)
+    const submissions = await prisma.kYC.findMany({
       include: {
         user: {
           select: {
@@ -25,11 +39,14 @@ export async function GET(request: NextRequest) {
           },
         },
       },
+      orderBy: {
+        submittedAt: 'desc',
+      },
     });
 
     return NextResponse.json({
-      kyc: kycSubmission,
-      message: kycSubmission ? 'KYC submission found' : 'No KYC submission found',
+      submissions,
+      total: submissions.length,
     });
   } catch (error: any) {
     console.error('Error fetching KYC:', error);

@@ -32,17 +32,35 @@ interface DepositAddress {
   createdAt: string;
 }
 
+interface CryptoDeposit {
+  id: string;
+  amount: number;
+  transactionHash: string | null;
+  status: string;
+  createdAt: string;
+  processedAt: string | null;
+  adminNotes: string | null;
+  tokenName: string | null;
+  network: string | null;
+  depositAddress?: DepositAddress;
+}
+
 export default function DigitalDepositPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [account, setAccount] = useState<any>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
   const [addresses, setAddresses] = useState<DepositAddress[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<DepositAddress | null>(null);
+  const [deposits, setDeposits] = useState<CryptoDeposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [estimatedFiat, setEstimatedFiat] = useState<number | null>(null);
+  const [fetchingPrice, setFetchingPrice] = useState(false);
   
   // Form fields
   const [amount, setAmount] = useState('');
@@ -68,9 +86,22 @@ export default function DigitalDepositPage() {
 
   useEffect(() => {
     if (user) {
+      fetchAccount();
       fetchAddresses();
+      fetchDeposits();
     }
   }, [user]);
+
+  const fetchAccount = async () => {
+    try {
+      const response = await axios.get(`/api/accounts?userId=${user?.id}`);
+      if (response.data.accounts?.length > 0) {
+        setAccount(response.data.accounts[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching account:', error);
+    }
+  };
 
   useEffect(() => {
     if (selectedAddress && selectedAddress.address) {
@@ -93,6 +124,15 @@ export default function DigitalDepositPage() {
       console.error('Error fetching addresses:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDeposits = async () => {
+    try {
+      const response = await axios.get(`/api/crypto-deposits?userId=${user?.id}`);
+      setDeposits(response.data.deposits);
+    } catch (error) {
+      console.error('Error fetching deposits:', error);
     }
   };
 
@@ -120,6 +160,82 @@ export default function DigitalDepositPage() {
     }
   };
 
+  const extractTokenSymbol = (tokenName: string | null): string => {
+    if (!tokenName) return 'BTC';
+    
+    // Common token name to symbol mapping
+    const tokenMap: Record<string, string> = {
+      'BITCOIN': 'BTC',
+      'ETHEREUM': 'ETH',
+      'TETHER': 'USDT',
+      'USD COIN': 'USDC',
+      'BINANCE COIN': 'BNB',
+      'RIPPLE': 'XRP',
+      'CARDANO': 'ADA',
+      'SOLANA': 'SOL',
+      'DOGECOIN': 'DOGE',
+      'POLKADOT': 'DOT',
+      'POLYGON': 'MATIC',
+      'CHAINLINK': 'LINK',
+      'AVALANCHE': 'AVAX',
+    };
+    
+    // Extract symbol from format like "Bitcoin (BTC)" or "BTC"
+    const match = tokenName.match(/\(([A-Z]+)\)/);
+    if (match) return match[1];
+    
+    // Check if it's in our mapping (case insensitive)
+    const upperName = tokenName.toUpperCase().trim();
+    if (tokenMap[upperName]) return tokenMap[upperName];
+    
+    // If it's already a symbol-like string (2-5 uppercase letters), use it
+    const symbolMatch = tokenName.match(/^[A-Z]{2,5}$/);
+    if (symbolMatch) return tokenName;
+    
+    // Otherwise, take first word and uppercase it
+    return tokenName.toUpperCase().split(' ')[0];
+  };
+
+  const fetchConversionEstimate = async (cryptoAmount: string) => {
+    if (!cryptoAmount || parseFloat(cryptoAmount) <= 0 || !selectedAddress || !account) {
+      setEstimatedFiat(null);
+      return;
+    }
+
+    setFetchingPrice(true);
+    try {
+      const tokenSymbol = extractTokenSymbol(selectedAddress.tokenName);
+      console.log('[Digital Deposit] Token:', selectedAddress.tokenName, '→ Symbol:', tokenSymbol);
+      
+      const response = await axios.post('/api/crypto/convert', {
+        cryptoAmount: parseFloat(cryptoAmount),
+        cryptoSymbol: tokenSymbol,
+        fiatCurrency: account.currency,
+      });
+      setEstimatedFiat(response.data.fiatAmount);
+      console.log('[Digital Deposit] Conversion result:', response.data);
+    } catch (error: any) {
+      // Silently fail - conversion will happen on backend during submission
+      console.warn('Preview conversion failed (will be calculated on submission):', error.response?.data?.error || error.message);
+      setEstimatedFiat(null);
+    } finally {
+      setFetchingPrice(false);
+    }
+  };
+
+  // Fetch conversion when amount changes
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (amount) {
+        fetchConversionEstimate(amount);
+      } else {
+        setEstimatedFiat(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [amount, selectedAddress, account]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -142,26 +258,57 @@ export default function DigitalDepositPage() {
     try {
       await axios.post('/api/crypto-deposits', {
         userId: user.id,
-        depositAddressId: selectedAddress.id,
+        accountId: account.id,
         tokenName: selectedAddress.tokenName,
+        tokenSymbol: extractTokenSymbol(selectedAddress.tokenName),
         network: selectedAddress.network,
         amount: parseFloat(amount),
-        transactionId: transactionId.trim(),
+        transactionHash: transactionId.trim(),
+        walletAddress: selectedAddress.address,
       });
 
       setSuccess('Deposit submitted successfully! Awaiting verification.');
       setAmount('');
       setTransactionId('');
       
-      // Redirect to deposit history after 2 seconds
-      setTimeout(() => {
-        router.push('/dashboard/monetary/deposit-history');
-      }, 2000);
+      // Refresh deposits and switch to history tab
+      await fetchDeposits();
+      setActiveTab('history');
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to submit deposit');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const badges = {
+      PENDING: (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Pending
+        </span>
+      ),
+      APPROVED: (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Approved
+        </span>
+      ),
+      REJECTED: (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Rejected
+        </span>
+      ),
+    };
+    return badges[status as keyof typeof badges] || <span className="text-xs text-gray-500">{status}</span>;
   };
 
   if (!user || loading) {
@@ -204,22 +351,51 @@ export default function DigitalDepositPage() {
             </div>
           </div>
 
-          {addresses.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 md:p-12 text-center">
-              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto bg-yellow-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 md:w-10 md:h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+          {/* Tabs */}
+          <div className="bg-white rounded-lg shadow-sm mb-6">
+            <div className="border-b border-gray-200">
+              <div className="flex">
+                <button
+                  onClick={() => setActiveTab('new')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'new'
+                      ? 'border-b-2 border-[#c1ff72] text-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  New Deposit
+                </button>
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === 'history'
+                      ? 'border-b-2 border-[#c1ff72] text-gray-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  History ({deposits.length})
+                </button>
               </div>
-              <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2">No Deposit Addresses Assigned</h3>
-              <p className="text-sm md:text-base text-gray-600 mb-4">
-                Your crypto deposit addresses have not been assigned yet.
-              </p>
-              <p className="text-sm text-gray-500">
-                Please contact admin to get deposit addresses assigned to your account.
-              </p>
             </div>
-          ) : (
+          </div>
+
+          {activeTab === 'new' ? (
+            addresses.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm p-8 md:p-12 text-center">
+                <div className="w-16 h-16 md:w-20 md:h-20 mx-auto bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 md:w-10 md:h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2">No Deposit Addresses Assigned</h3>
+                <p className="text-sm md:text-base text-gray-600 mb-4">
+                  Your crypto deposit addresses have not been assigned yet.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Please contact admin to get deposit addresses assigned to your account.
+                </p>
+              </div>
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Side - Address Selection */}
               <div className="lg:col-span-1">
@@ -236,7 +412,7 @@ export default function DigitalDepositPage() {
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        <div className="w-8 h-8 bg-gradient-to-br from-[#c1ff72] to-green-400 rounded-full flex items-center justify-center">
+                        <div className="w-8 h-8 bg-linear-to-br from-[#c1ff72] to-green-400 rounded-full flex items-center justify-center">
                           <span className="text-xs font-bold text-black">{address.tokenName?.[0] || 'C'}</span>
                         </div>
                         <div className="flex-1 text-left">
@@ -257,7 +433,7 @@ export default function DigitalDepositPage() {
                 {selectedAddress && (
                   <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-12 h-12 bg-gradient-to-br from-[#c1ff72] to-green-400 rounded-full flex items-center justify-center">
+                      <div className="w-12 h-12 bg-linear-to-br from-[#c1ff72] to-green-400 rounded-full flex items-center justify-center">
                         <span className="text-xl font-bold text-black">{selectedAddress.tokenName?.[0] || 'C'}</span>
                       </div>
                       <div>
@@ -347,9 +523,38 @@ export default function DigitalDepositPage() {
                             disabled={submitting}
                           />
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
-                            {selectedAddress.tokenName || 'CRYPTO'}
+                            {extractTokenSymbol(selectedAddress.tokenName)}
                           </span>
                         </div>
+                        {amount && estimatedFiat !== null && account && selectedAddress && (
+                          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">Estimated value:</span>
+                              <span className="font-semibold text-gray-900">
+                                {account.currency} {estimatedFiat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {amount} {extractTokenSymbol(selectedAddress.tokenName)} → {account.currency} {estimatedFiat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              This amount will be credited after admin approval
+                            </p>
+                          </div>
+                        )}
+                        {amount && estimatedFiat === null && !fetchingPrice && (
+                          <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                            <p className="text-xs text-gray-600">
+                              💡 Conversion will be calculated automatically when you submit
+                            </p>
+                          </div>
+                        )}
+                        {fetchingPrice && (
+                          <div className="mt-2 text-sm text-gray-500 flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                            Fetching current price...
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -408,6 +613,63 @@ export default function DigitalDepositPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )
+          ) : (
+            /* History Tab */
+            <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+              {deposits.length === 0 ? (
+                <div className="text-center py-8">
+                  <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-gray-600">No deposit history</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Token</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Network</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transaction ID</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {deposits.map((deposit) => (
+                        <tr key={deposit.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {deposit.tokenName || deposit.depositAddress?.tokenName || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {deposit.network || deposit.depositAddress?.network || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{deposit.amount}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 font-mono">
+                            {deposit.transactionHash && deposit.transactionHash.length > 20
+                              ? `${deposit.transactionHash.slice(0, 10)}...${deposit.transactionHash.slice(-10)}`
+                              : deposit.transactionHash || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {new Date(deposit.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3">{getStatusBadge(deposit.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {deposits.some(d => d.status === 'PENDING') && (
+                    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> Pending deposits are being verified by our admin team. This usually takes 24-48 hours.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

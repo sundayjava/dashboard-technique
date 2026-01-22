@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyAdminsOfUserActivity } from '@/lib/email';
 
 // GET - List card applications
 export async function GET(request: Request) {
@@ -91,6 +92,13 @@ export async function POST(request: Request) {
         },
       },
     });
+
+    // Notify admins via email
+    notifyAdminsOfUserActivity(
+      userId,
+      application.user.name || 'Unknown User',
+      `a ${cardType} Card Application`
+    );
 
     // Create notification
     await prisma.notification.create({

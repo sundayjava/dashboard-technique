@@ -102,7 +102,11 @@ export default function MessagePage() {
 
     try {
       const response = await axios.get(`/api/messages?userId=${user.id}`);
-      setMessages(response.data.messages);
+      // Sort messages by creation date (oldest first)
+      const sortedMessages = response.data.messages.sort(
+        (a: Message, b: Message) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      setMessages(sortedMessages);
       
       // Mark unread messages as read
       const unreadMessages = response.data.messages.filter(

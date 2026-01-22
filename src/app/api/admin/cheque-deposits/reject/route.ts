@@ -21,8 +21,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Get deposit details
-    const deposit = await prisma.chequeDeposit.findUnique({
-      where: { id: depositId },
+    const deposit = await prisma.transaction.findUnique({
+      where: {
+        id: depositId,
+        transactionType: 'DEPOSIT',
+        channel: 'CHEQUE',
+      },
+      include: {
+        account: true,
+      },
     });
 
     if (!deposit) {
@@ -36,14 +43,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update cheque deposit status
-    const updatedDeposit = await prisma.chequeDeposit.update({
+    // Update deposit transaction status
+    const updatedDeposit = await prisma.transaction.update({
       where: { id: depositId },
       data: {
-        status: 'REJECTED',
+        status: 'FAILED',
         processedAt: new Date(),
         processedBy: adminId,
         adminNotes,
+        rejectionReason: adminNotes,
       },
     });
 
@@ -53,7 +61,7 @@ export async function POST(request: NextRequest) {
         userId: deposit.userId,
         type: 'SYSTEM',
         title: 'Cheque Deposit Rejected',
-        message: `Your cheque deposit of $${deposit.amount.toFixed(2)} has been rejected. Reason: ${adminNotes}`,
+        message: `Your cheque deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} has been rejected. Reason: ${adminNotes}`,
       },
     });
 
@@ -62,10 +70,11 @@ export async function POST(request: NextRequest) {
       data: {
         userId: deposit.userId,
         action: 'CHEQUE_DEPOSIT_REJECTED',
-        description: `Cheque deposit of $${deposit.amount.toFixed(2)} was rejected by admin`,
+        description: `Cheque deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} was rejected by admin`,
         metadata: {
           depositId: depositId,
           amount: deposit.amount,
+          currency: deposit.currency,
           processedBy: adminId,
           rejectionReason: adminNotes,
         },
@@ -77,11 +86,12 @@ export async function POST(request: NextRequest) {
       data: {
         userId: adminId,
         action: 'ADMIN_CHEQUE_REJECTED',
-        description: `Rejected cheque deposit of $${deposit.amount.toFixed(2)} for user ID: ${deposit.userId}`,
+        description: `Rejected cheque deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} for user ID: ${deposit.userId}`,
         metadata: {
           depositId: depositId,
           targetUserId: deposit.userId,
           amount: deposit.amount,
+          currency: deposit.currency,
           rejectionReason: adminNotes,
         },
       },

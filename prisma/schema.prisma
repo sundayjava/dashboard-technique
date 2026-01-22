@@ -37,12 +37,7 @@ model User {
   transferDisabled           Boolean              @default(false)
   accounts                   Account[]
   activityLogs               ActivityLog[]
-  processedBankDeposits      BankDeposit[]        @relation("ProcessedBankDeposits")
-  bankDeposits               BankDeposit[]
   cardApplications           CardApplication[]
-  processedChequeDeposits    ChequeDeposit[]      @relation("ProcessedCheques")
-  chequeDeposits             ChequeDeposit[]
-  cryptoDeposits             CryptoDeposit[]
   investmentAccess           InvestmentAccess[]
   investments                Investment[]
   kycSubmission              KYC?
@@ -53,7 +48,6 @@ model User {
   createdTradeKeys           TradeKey[]           @relation("CreatedTradeKeys")
   ownedTradeKeys             TradeKey[]           @relation("OwnedTradeKeys")
   transactions               Transaction[]
-  assignedBankAccounts       UserBankAccount[]
   depositAddresses           UserDepositAddress[]
 
   @@map("users")
@@ -148,45 +142,23 @@ model Loan {
 }
 
 model CryptoToken {
-  id           String          @id @default(cuid())
+  id           String   @id @default(cuid())
   name         String
   symbol       String
   network      String
   address      String
   icon         String?
-  isActive     Boolean         @default(true)
-  exchangeRate Float           @default(0)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  deposits     CryptoDeposit[]
+  isActive     Boolean  @default(true)
+  exchangeRate Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([symbol, network])
   @@index([isActive])
   @@map("crypto_tokens")
 }
 
-model CryptoDeposit {
-  id            String              @id @default(cuid())
-  userId        String
-  tokenId       String
-  amount        Float
-  transactionId String
-  status        CryptoDepositStatus @default(PENDING)
-  adminNotes    String?
-  verifiedBy    String?
-  verifiedAt    DateTime?
-  rejectedAt    DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  token         CryptoToken         @relation(fields: [tokenId], references: [id], onDelete: Cascade)
-  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([tokenId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("crypto_deposits")
-}
 
 model CardApplication {
   id            String     @id @default(cuid())
@@ -200,6 +172,14 @@ model CardApplication {
   approvedAt    DateTime?
   rejectedAt    DateTime?
   deliveredAt   DateTime?
+  // Issued card details
+  cardNumber    String?    @unique
+  cardBrand     String?    // VISA, MASTERCARD, AMEX
+  expiryMonth   Int?
+  expiryYear    Int?
+  cvv           String?
+  cardHolderName String?
+  issuedAt      DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -207,6 +187,7 @@ model CardApplication {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([cardNumber])
   @@map("card_applications")
 }
 
@@ -232,33 +213,64 @@ model Account {
 }
 
 model Transaction {
-  id               String            @id @default(cuid())
-  userId           String
-  accountId        String
-  transactionType  TransactionType
-  amount           Float
-  balanceAfter     Float
-  currency         String
-  description      String
-  reference        String            @unique
-  status           TransactionStatus @default(COMPLETED)
-  recipientName    String?
-  recipientAccount String?
-  senderName       String?
-  senderAccount    String?
-  fee              Float             @default(0)
-  metadata         Json?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  account          Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String              @id @default(cuid())
+  userId            String
+  accountId         String
+  transactionType   TransactionType
+  amount            Float
+  balanceAfter      Float
+  currency          String
+  description       String
+  reference         String              @unique
+  channel           TransactionChannel?
+  paymentMethod     PaymentMethodType?
+  originalReference String?
+  status            TransactionStatus   @default(COMPLETED)
+  recipientName     String?
+  recipientAccount  String?
+  recipientEmail    String?
+  recipientPhone    String?
+  recipientAddress  String?
+  recipientCountry  String?
+  senderName        String?
+  senderAccount     String?
+  fee               Float               @default(0)
+  // For crypto transactions
+  tokenName         String?
+  tokenSymbol       String?
+  network           String?
+  walletAddress     String?
+  transactionHash   String?
+  // For bank/cheque transactions
+  bankName          String?
+  bankCode          String?
+  accountNumber     String?
+  routingNumber     String?
+  swiftCode         String?
+  iban              String?
+  chequeImage       String?
+  proofImage        String?
+  // Admin/Processing fields
+  processedAt       DateTime?
+  processedBy       String?
+  adminNotes        String?
+  rejectionReason   String?
+  // General metadata
+  metadata          Json?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  account           Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([accountId])
+  @@index([channel])
+  @@index([paymentMethod])
   @@index([transactionType])
   @@index([status])
   @@index([createdAt])
   @@index([reference])
+  @@index([transactionHash])
   @@map("transactions")
 }
 
@@ -357,53 +369,15 @@ model TransferOTP {
   @@map("transfer_otps")
 }
 
-model InternationalTransfer {
-  id                    String    @id @default(cuid())
-  userId                String
-  transactionId         String    @unique
-  senderAccountId       String
-  amount                Float
-  currency              String
-  fee                   Float
-  beneficiaryName       String
-  beneficiaryEmail      String?
-  beneficiaryPhone      String?
-  beneficiaryAddress    String
-  beneficiaryCity       String?
-  beneficiaryState      String?
-  beneficiaryCountry    String
-  beneficiaryPostalCode String?
-  bankName              String
-  bankAddress           String
-  bankCity              String?
-  bankCountry           String
-  accountNumber         String
-  iban                  String?
-  swiftCode             String
-  routingNumber         String?
-  sortCode              String?
-  purpose               String
-  narration             String?
-  status                String    @default("PENDING")
-  rejectionReason       String?
-  processedBy           String?
-  processedAt           DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
 
-  @@index([userId, status])
-  @@index([transactionId])
-  @@map("international_transfers")
-}
 
 model Bank {
-  id               String            @id @default(cuid())
-  code             String            @unique
-  name             String
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  userBankAccounts UserBankAccount[]
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("banks")
 }
@@ -420,75 +394,11 @@ model Currency {
   @@map("currencies")
 }
 
-model ChequeDeposit {
-  id            String              @id @default(cuid())
-  userId        String
-  accountId     String
-  amount        Float
-  chequeImage   String
-  status        ChequeDepositStatus @default(PENDING)
-  submittedAt   DateTime            @default(now())
-  processedAt   DateTime?
-  processedBy   String?
-  adminNotes    String?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  processorUser User?               @relation("ProcessedCheques", fields: [processedBy], references: [id])
-  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([accountId])
-  @@index([status])
-  @@map("cheque_deposits")
-}
 
-model UserBankAccount {
-  id            String        @id @default(cuid())
-  userId        String
-  bankId        String
-  accountName   String
-  accountNumber String
-  bankBranch    String?
-  instructions  String?
-  isActive      Boolean       @default(true)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  deposits      BankDeposit[]
-  bank          Bank          @relation(fields: [bankId], references: [id], onDelete: Cascade)
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, bankId])
-  @@index([userId])
-  @@index([bankId])
-  @@index([isActive])
-  @@map("user_bank_accounts")
-}
 
-model BankDeposit {
-  id                String            @id @default(cuid())
-  userId            String
-  userBankAccountId String
-  accountId         String
-  amount            Float
-  referenceNumber   String
-  proofImage        String?
-  status            BankDepositStatus @default(PENDING)
-  submittedAt       DateTime          @default(now())
-  processedAt       DateTime?
-  processedBy       String?
-  adminNotes        String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  processorUser     User?             @relation("ProcessedBankDeposits", fields: [processedBy], references: [id])
-  userBankAccount   UserBankAccount   @relation(fields: [userBankAccountId], references: [id], onDelete: Cascade)
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([userBankAccountId])
-  @@index([accountId])
-  @@index([status])
-  @@map("bank_deposits")
-}
 
 model TradeKey {
   id               String             @id @default(cuid())
@@ -644,12 +554,7 @@ enum LoanStatus {
   CANCELLED
 }
 
-enum CryptoDepositStatus {
-  PENDING
-  VERIFIED
-  REJECTED
-  COMPLETED
-}
+
 
 enum CardType {
   DEBIT
@@ -687,8 +592,6 @@ enum TransactionType {
   LOAN_REPAYMENT
   CARD_PAYMENT
   CARD_REFUND
-  CRYPTO_DEPOSIT
-  CRYPTO_WITHDRAWAL
   INVESTMENT
   DIVIDEND
   BONUS
@@ -703,6 +606,16 @@ enum TransactionStatus {
   FAILED
   CANCELLED
   REVERSED
+}
+
+enum TransactionChannel {
+  BANK
+  CRYPTO
+  CHEQUE
+  DOMESTIC
+  INTERNATIONAL
+  INTERNAL
+  SYSTEM
 }
 
 enum DocumentType {
@@ -720,21 +633,22 @@ enum KYCStatus {
   RESUBMIT_REQUIRED
 }
 
-enum ChequeDepositStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
 
-enum BankDepositStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
+
+
 
 enum PaymentMethod {
   BANK_WALLET
   CRYPTO
+}
+
+enum PaymentMethodType {
+  BANK
+  CRYPTO
+  CHEQUE
+  CASH
+  CARD
+  WALLET
 }
 
 enum InvestmentStatus {
@@ -744,3 +658,5 @@ enum InvestmentStatus {
   CANCELLED
   FAILED
 }
+
+

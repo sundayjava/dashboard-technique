@@ -21,14 +21,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Get deposit details
-    const deposit = await prisma.bankDeposit.findUnique({
-      where: { id: depositId },
+    const deposit = await prisma.transaction.findUnique({
+      where: {
+        id: depositId,
+        transactionType: 'DEPOSIT',
+        channel: 'BANK',
+      },
       include: {
-        userBankAccount: {
-          include: {
-            bank: true,
-          },
-        },
+        account: true,
       },
     });
 
@@ -43,14 +43,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update bank deposit status
-    const updatedDeposit = await prisma.bankDeposit.update({
+    // Update deposit transaction status
+    const updatedDeposit = await prisma.transaction.update({
       where: { id: depositId },
       data: {
-        status: 'REJECTED',
+        status: 'FAILED',
         processedAt: new Date(),
         processedBy: adminId,
         adminNotes,
+        rejectionReason: adminNotes,
       },
     });
 
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
         userId: deposit.userId,
         type: 'SYSTEM',
         title: 'Bank Deposit Rejected',
-        message: `Your bank deposit of $${deposit.amount.toFixed(2)} via ${deposit.userBankAccount.bank.name} has been rejected. Reason: ${adminNotes}`,
+        message: `Your bank deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} has been rejected. Reason: ${adminNotes}`,
       },
     });
 
@@ -69,11 +70,11 @@ export async function POST(request: NextRequest) {
       data: {
         userId: deposit.userId,
         action: 'BANK_DEPOSIT_REJECTED',
-        description: `Bank deposit of $${deposit.amount.toFixed(2)} via ${deposit.userBankAccount.bank.name} was rejected`,
+        description: `Bank deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} was rejected`,
         metadata: {
           depositId: depositId,
           amount: deposit.amount,
-          bankName: deposit.userBankAccount.bank.name,
+          currency: deposit.currency,
           processedBy: adminId,
           rejectionReason: adminNotes,
         },
@@ -85,12 +86,12 @@ export async function POST(request: NextRequest) {
       data: {
         userId: adminId,
         action: 'ADMIN_BANK_DEPOSIT_REJECTED',
-        description: `Rejected bank deposit of $${deposit.amount.toFixed(2)} for user ID: ${deposit.userId}`,
+        description: `Rejected bank deposit of ${deposit.currency} ${deposit.amount.toFixed(2)} for user ID: ${deposit.userId}`,
         metadata: {
           depositId: depositId,
           targetUserId: deposit.userId,
           amount: deposit.amount,
-          bankName: deposit.userBankAccount.bank.name,
+          currency: deposit.currency,
           rejectionReason: adminNotes,
         },
       },
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       deposit: updatedDeposit,
-      message: 'Bank deposit rejected successfully',
+      message: 'Bank deposit rejected',
     });
   } catch (error) {
     console.error('Error rejecting bank deposit:', error);

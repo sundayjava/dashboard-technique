@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyAdminsOfUserActivity } from '@/lib/email';
 
 // GET - Get user's investments
 export async function GET(request: NextRequest) {
@@ -188,6 +189,13 @@ export async function POST(request: NextRequest) {
 
         return investment;
       });
+
+      // Notify admins via email (outside transaction)
+      notifyAdminsOfUserActivity(
+        userId,
+        user.name || 'Unknown User',
+        `an Investment of $${investmentAmount} in ${plan.planName}`
+      );
 
       return NextResponse.json(
         {

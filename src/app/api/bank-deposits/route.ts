@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyAdminsOfUserActivity } from '@/lib/email';
 
 // GET - Fetch user's bank deposit history
 export async function GET(request: NextRequest) {
@@ -14,22 +15,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const deposits = await prisma.bankDeposit.findMany({
-      where: { userId },
+    const deposits = await prisma.transaction.findMany({
+      where: {
+        userId,
+        transactionType: 'DEPOSIT',
+        channel: 'BANK',
+      },
       include: {
-        userBankAccount: {
-          include: {
-            bank: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-              },
-            },
+        account: {
+          select: {
+            id: true,
+            accountNumber: true,
+            currency: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
         },
       },
-      orderBy: { submittedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json({ deposits });
@@ -46,9 +54,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, userBankAccountId, accountId, amount, referenceNumber, proofImage } = body;
+    const { userId, accountId, amount, referenceNumber, proofImage, bankName, bankCode, accountNumber } = body;
 
-    if (!userId || !userBankAccountId || !accountId || !amount || !referenceNumber) {
+    if (!userId || !accountId || !amount || !referenceNumber) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -62,35 +70,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify the user bank account exists and belongs to the user
-    const userBankAccount = await prisma.userBankAccount.findFirst({
+    // Verify account belongs to user
+    const account = await prisma.account.findFirst({
       where: {
-        id: userBankAccountId,
+        id: accountId,
         userId,
-        isActive: true,
-      },
-      include: {
-        bank: true,
       },
     });
 
-    if (!userBankAccount) {
+    if (!account) {
       return NextResponse.json(
-        { error: 'Invalid bank account' },
+        { error: 'Invalid account' },
         { status: 400 }
       );
     }
 
-    // Create the deposit
-    const deposit = await prisma.bankDeposit.create({
+    // Generate unique reference
+    const txReference = `BANK-DEP-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+
+    // Create the deposit transaction
+    const deposit = await prisma.transaction.create({
       data: {
         userId,
-        userBankAccountId,
         accountId,
+        transactionType: 'DEPOSIT',
+        channel: 'BANK',
+        paymentMethod: 'BANK',
         amount: parseFloat(amount),
-        referenceNumber: referenceNumber.trim(),
-        proofImage: proofImage || null,
+        balanceAfter: account.balance, // Will be updated when approved
+        currency: account.currency,
+        description: `Bank deposit via ${bankName || 'Bank Transfer'}`,
+        reference: txReference,
         status: 'PENDING',
+        proofImage: proofImage || null,
+        bankName: bankName || null,
+        bankCode: bankCode || null,
+        accountNumber: accountNumber || null,
+        metadata: {
+          referenceNumber: referenceNumber.trim(),
+        },
       },
     });
 
@@ -106,7 +124,7 @@ export async function POST(request: NextRequest) {
           userId: admin.id,
           type: 'SYSTEM',
           title: 'New Bank Deposit',
-          message: `A new bank deposit of $${amount} has been submitted via ${userBankAccount.bank.name}`,
+          message: `A new bank deposit of ${account.currency} ${amount} has been submitted via ${bankName || 'Bank Transfer'}`,
           link: `/admin/bank-deposits`,
         },
       });
@@ -118,9 +136,22 @@ export async function POST(request: NextRequest) {
         userId,
         type: 'TRANSACTION',
         title: 'Bank Deposit Submitted',
-        message: `Your bank deposit of $${amount} via ${userBankAccount.bank.name} is awaiting admin verification`,
+        message: `Your bank deposit of ${account.currency} ${amount} via ${bankName || 'Bank Transfer'} is awaiting admin verification`,
       },
     });
+
+    // Get user details for admin email
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
+    // Notify admins via email
+    notifyAdminsOfUserActivity(
+      userId,
+      user?.name || 'Unknown User',
+      `a Bank Deposit of ${account.currency} ${amount}`
+    );
 
     return NextResponse.json({
       deposit,
