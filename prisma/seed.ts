@@ -296,7 +296,7 @@ async function seedInvestmentPlans() {
       planName: 'Starter Plan',
       minAmount: 1000,
       maxAmount: 10000,
-      arkIIAllocation: 30,
+      arkIIAllocation: 300000,
       duration: 30, // 30 days
       profitPercentage: 5,
     },
@@ -304,7 +304,7 @@ async function seedInvestmentPlans() {
       planName: 'Growth Plan',
       minAmount: 10000,
       maxAmount: 50000,
-      arkIIAllocation: 50,
+      arkIIAllocation: 500000,
       duration: 60, // 60 days
       profitPercentage: 12,
     },
@@ -312,7 +312,7 @@ async function seedInvestmentPlans() {
       planName: 'Premium Plan',
       minAmount: 50000,
       maxAmount: 200000,
-      arkIIAllocation: 70,
+      arkIIAllocation: 7000000,
       duration: 90, // 90 days
       profitPercentage: 20,
     },
@@ -320,7 +320,7 @@ async function seedInvestmentPlans() {
       planName: 'Elite Plan',
       minAmount: 200000,
       maxAmount: 1000000,
-      arkIIAllocation: 90,
+      arkIIAllocation: 90000000,
       duration: 180, // 180 days
       profitPercentage: 45,
     },

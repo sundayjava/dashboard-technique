@@ -13,16 +13,16 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: "Acredis plus", href: "/acredis-plus" },
+  { label: "Acredis plus", href: "/#how-it-works" },
   { label: "Banking", href: "/banking" },
   { 
     label: "Products", 
     href: "/products",
     submenu: [
-      { label: "Investment Strategy", href: "/products/investment-strategy" },
+      { label: "Investment Strategy", href: "/#investment-plans" },
     ]
   },
-  { label: "About", href: "/about" },
+  { label: "About", href: "/#why-acredis" },
   { label: "Contact", href: "/contact" },
   { label: "News", href: "/news" },
 ];
@@ -172,7 +172,7 @@ export function Header1() {
                     onMouseLeave={() => setActiveDropdown(null)}
                   >
                     <a
-                      href={item.href}
+                      href={item.label === "Banking" ? (isLoggedIn ? "/dashboard" : "/login") : item.href}
                       className={cn(
                         "px-4 py-2 text-sm font-medium text-white/80 hover:text-white transition-all cursor-pointer rounded-full whitespace-nowrap",
                         activeDropdown === item.label && "text-white bg-white/10"

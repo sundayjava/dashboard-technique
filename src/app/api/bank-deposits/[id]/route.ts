@@ -77,7 +77,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         // Case 1: Changing TO COMPLETED (from any other status) - Credit balance
         if (newStatus === 'COMPLETED' && oldStatus !== 'COMPLETED') {
           const updatedAccount = await tx.account.update({
-            where: { id: existingDeposit.accountId },
+            where: { id: existingDeposit.accountId! },
             data: {
               balance: { increment: depositAmount },
             },
@@ -94,7 +94,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         // Case 2: Changing FROM COMPLETED to FAILED/CANCELLED - Debit balance
         if (oldStatus === 'COMPLETED' && (newStatus === 'FAILED' || newStatus === 'CANCELLED')) {
           const updatedAccount = await tx.account.update({
-            where: { id: existingDeposit.accountId },
+            where: { id: existingDeposit.accountId! },
             data: {
               balance: { decrement: depositAmount },
             },

@@ -321,7 +321,7 @@ export default function AdminMessagesPage() {
                         </p>
                       </div>
                       {conversation.unreadCount > 0 && (
-                        <span className="flex-shrink-0 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        <span className="shrink-0 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
                           {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
                         </span>
                       )}
@@ -375,7 +375,7 @@ export default function AdminMessagesPage() {
                                 {message.subject}
                               </p>
                             )}
-                            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                            <p className="text-sm whitespace-pre-wrap wrap-break-word">{message.content}</p>
                           </div>
                           <div className={`flex items-center gap-2 mt-1 text-xs text-gray-500 ${isAdmin ? 'justify-end' : 'justify-start'}`}>
                             <Clock className="w-3 h-3" />

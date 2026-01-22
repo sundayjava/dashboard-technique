@@ -14,6 +14,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get user investment balance
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { investmentBalance: true }
+    });
+
     // Get all user investments
     const investments = await prisma.investment.findMany({
       where: { userId },
@@ -39,6 +45,7 @@ export async function GET(request: NextRequest) {
     }, 0);
 
     return NextResponse.json({
+      investmentBalance: user?.investmentBalance || 0,
       totalInvested,
       activeInvestments: activeInvestments.length,
       totalReturns,

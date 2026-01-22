@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
 import MiniLineChart from '@/components/MiniLineChart';
 import CardDisplay from '@/components/sections/CardDisplay';
+import AcredisPlusModal from '@/components/modals/AcredisPlusModal';
 import axios from 'axios';
 import { 
   TrendingUp, TrendingDown, Send, CreditCard, 
   ArrowUpRight, ArrowDownRight, DollarSign, Wallet,
   BarChart3, Activity, Clock, Calendar, MessageSquare,
-  ArrowRight, ExternalLink, Copy, Check
+  ArrowRight, ExternalLink, Copy, Check, Award
 } from 'lucide-react';
 
 interface User {
@@ -91,6 +92,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [cryptoUpdating, setCryptoUpdating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showTradeKeyModal, setShowTradeKeyModal] = useState(false);
+  const [tradeKey, setTradeKey] = useState('');
+  const [validatingKey, setValidatingKey] = useState(false);
+  const [showPlusModal, setShowPlusModal] = useState(false);
+  const [activatingPlus, setActivatingPlus] = useState(false);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -209,6 +215,64 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error fetching economic calendar:', error);
+    }
+  };
+
+  const handleViewInvestments = () => {
+    setShowTradeKeyModal(true);
+  };
+
+  const handleValidateTradeKey = async () => {
+    if (!tradeKey.trim()) {
+      alert('Please enter a trade key');
+      return;
+    }
+
+    if (!user) return;
+
+    setValidatingKey(true);
+    try {
+      const response = await axios.post('/api/trade-key/validate', {
+        userId: user.id,
+        tradeKey: tradeKey.trim()
+      });
+
+      if (response.data.message) {
+        setShowTradeKeyModal(false);
+        setTradeKey('');
+        router.push('/investment/my-investments');
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Invalid trade key');
+    } finally {
+      setValidatingKey(false);
+    }
+  };
+
+  const handleActivatePlus = async () => {
+    if (!user) return;
+
+    setActivatingPlus(true);
+    try {
+      const response = await axios.post('/api/acredis-plus/activate', {
+        userId: user.id
+      });
+
+      if (response.data.message) {
+        // Update user state
+        setUser({ ...user, isPlusUser: true });
+        setShowPlusModal(false);
+        
+        // Show success message
+        alert('🎉 Welcome to Acredis Plus! You now have access to exclusive premium benefits.');
+        
+        // Reload to update UI
+        window.location.reload();
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to activate Acredis Plus');
+    } finally {
+      setActivatingPlus(false);
     }
   };
 
@@ -492,7 +556,7 @@ export default function DashboardPage() {
                     </div>
                   ))}
                   <button 
-                    onClick={() => router.push('/investment/my-investments')}
+                    onClick={handleViewInvestments}
                     className="w-full py-1.5 text-xs text-purple-600 hover:bg-purple-50 rounded transition-colors flex items-center justify-center"
                   >
                     View All Investments <ArrowRight className="w-3 h-3 ml-1" />
@@ -811,8 +875,57 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-
       </div>
+
+      {/* Trade Key Modal */}
+      {showTradeKeyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Enter Trade Key</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Please enter your trade key to access the investment dashboard
+            </p>
+            
+            <input
+              type="text"
+              value={tradeKey}
+              onChange={(e) => setTradeKey(e.target.value)}
+              placeholder="Enter your trade key"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
+              onKeyDown={(e) => e.key === 'Enter' && handleValidateTradeKey()}
+              disabled={validatingKey}
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowTradeKeyModal(false);
+                  setTradeKey('');
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={validatingKey}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleValidateTradeKey}
+                disabled={validatingKey}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-400"
+              >
+                {validatingKey ? 'Validating...' : 'Verify'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Acredis Plus Modal */}
+      <AcredisPlusModal
+        isOpen={showPlusModal}
+        onClose={() => setShowPlusModal(false)}
+        onActivate={handleActivatePlus}
+        isActivating={activatingPlus}
+      />
     </DashboardLayoutWrapper>
   );
 }

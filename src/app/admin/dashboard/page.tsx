@@ -156,7 +156,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
               <button 
-                onClick={() => router.push('/admin/bank-deposits')}
+                onClick={() => router.push('/admin/finance/transactions')}
                 className="px-3 py-1 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">
                 View All
               </button>

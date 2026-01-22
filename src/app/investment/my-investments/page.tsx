@@ -170,7 +170,7 @@ export default function MyInvestmentsPage() {
       />
 
       <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
       }`}>
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">My Investments</h1>

@@ -51,9 +51,9 @@ export default function InvestNowPage() {
 
   const fetchPlanAndBalance = async (userId: string) => {
     try {
-      const [plansRes, accountsRes] = await Promise.all([
+      const [plansRes, statsRes] = await Promise.all([
         axios.get('/api/admin/investment-plans?activeOnly=true'),
-        axios.get(`/api/accounts?userId=${userId}`)
+        axios.get(`/api/investments/stats?userId=${userId}`)
       ]);
 
       const selectedPlan = plansRes.data.plans.find((p: any) => p.id === planId);
@@ -65,8 +65,9 @@ export default function InvestNowPage() {
 
       setPlan(selectedPlan);
 
-      if (accountsRes.data.accounts && accountsRes.data.accounts.length > 0) {
-        setUserBalance(accountsRes.data.accounts[0].availableBalance);
+      // Use investment balance instead of main account balance
+      if (statsRes.data) {
+        setUserBalance(statsRes.data.investmentBalance || 0);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -178,7 +179,7 @@ export default function InvestNowPage() {
         />
 
         <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
-          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
         }`}>
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
@@ -259,7 +260,7 @@ export default function InvestNowPage() {
       />
 
       <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
       }`}>
         <div className="max-w-4xl mx-auto">
           <button
@@ -414,7 +415,7 @@ export default function InvestNowPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">ARK_II Allocation</span>
-                    <span className="font-semibold">{plan.arkIIAllocation}%</span>
+                    <span className="font-semibold">{plan.arkIIAllocation.toLocaleString()}</span>
                   </div>
                 </div>
               </div>

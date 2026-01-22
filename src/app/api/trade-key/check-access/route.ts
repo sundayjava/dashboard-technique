@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       access: access
         ? {
             accessedAt: access.accessedAt,
-            keyOwner: access.tradeKey.user.name || access.tradeKey.user.email,
+            keyOwner: access.tradeKey.user?.name || access.tradeKey.user?.email || 'Unassigned',
           }
         : null,
     });

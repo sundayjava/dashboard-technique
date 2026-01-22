@@ -7,6 +7,8 @@ import Avatar from '@/components/ui/Avatar';
 import { toast } from 'react-hot-toast';
 import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
 import { COUNTRY_CODES } from '@/constants/countries';
+import AcredisPlusModal from '@/components/modals/AcredisPlusModal';
+import axios from 'axios';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -23,6 +25,8 @@ export default function ProfilePage() {
   });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showPlusModal, setShowPlusModal] = useState(false);
+  const [activatingPlus, setActivatingPlus] = useState(false);
 
   // Get user ID from localStorage (from login)
   const getUserId = () => {
@@ -76,6 +80,41 @@ export default function ProfilePage() {
       toast.error('Failed to load profile');
     } finally {
       setInitialLoading(false);
+    }
+  };
+
+  const handleActivatePlus = async () => {
+    if (!userId) return;
+
+    setActivatingPlus(true);
+    try {
+      const response = await axios.post('/api/acredis-plus/activate', {
+        userId
+      });
+
+      if (response.data.message) {
+        // Update profile data
+        setProfileData({ ...profileData, isPlusUser: true });
+        setShowPlusModal(false);
+        
+        // Update localStorage
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          userData.isPlusUser = true;
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+        
+        // Show success message
+        toast.success('🎉 Welcome to Acredis Plus! You now have access to exclusive premium benefits.');
+        
+        // Reload to update UI
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to activate Acredis Plus');
+    } finally {
+      setActivatingPlus(false);
     }
   };
 
@@ -269,11 +308,11 @@ export default function ProfilePage() {
                       {profileData.accountType === 'BUSINESS' ? 'Business Account' : 'Personal Account'}
                     </span>
                     {profileData.isPlusUser && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-linear-to-r from-purple-600 to-purple-800 text-white shadow-md">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5zm0 18.5c-4.28-1.04-7-5.46-7-9.5V8.3l7-3.11v15.31z"/>
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-linear-to-r from-purple-600 to-indigo-600 text-white shadow-md">
+                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                         </svg>
-                        Plus Member
+                        Acredis Plus Member
                       </span>
                     )}
                   </div>
@@ -295,7 +334,7 @@ export default function ProfilePage() {
                       <div className="flex flex-col gap-2">
                         <span className="text-sm font-medium text-gray-700">Standard</span>
                         <button
-                          onClick={() => router.push('/acredis-plus')}
+                          onClick={() => setShowPlusModal(true)}
                           className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -455,6 +494,14 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+      {/* Acredis Plus Modal */}
+      <AcredisPlusModal
+        isOpen={showPlusModal}
+        onClose={() => setShowPlusModal(false)}
+        onActivate={handleActivatePlus}
+        isActivating={activatingPlus}
+      />
     </DashboardLayoutWrapper>
   );
 }

@@ -155,7 +155,7 @@ export function MobileDrawer({ isOpen, onClose, navItems }: MobileDrawerProps) {
                   ) : (
                     // Regular item
                     <a
-                      href={item.href}
+                      href={item.label === "Banking" ? (isLoggedIn ? "/dashboard" : "/login") : item.href}
                       className="block px-4 py-3 text-base font-medium text-white/80 hover:text-white hover:bg-white/5 rounded-md transition-colors cursor-pointer"
                       onClick={onClose}
                     >

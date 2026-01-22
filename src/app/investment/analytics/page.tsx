@@ -146,7 +146,7 @@ export default function PortfolioAnalytics() {
         />
 
         <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
-          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
         }`}>
           <div className="max-w-2xl mx-auto">
             <div className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -194,7 +194,7 @@ export default function PortfolioAnalytics() {
       />
 
       <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
       }`}>
         <div className="max-w-400 mx-auto space-y-6">
           {/* Page Header */}

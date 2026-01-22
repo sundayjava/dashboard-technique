@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       // Credit the account
       const updatedAccount = await tx.account.update({
-        where: { id: deposit.accountId },
+        where: { id: deposit.accountId! },
         data: {
           balance: { increment: deposit.amount },
         },

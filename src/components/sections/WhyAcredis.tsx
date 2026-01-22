@@ -1,10 +1,18 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 
 export function WhyAcredis() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    setIsLoggedIn(!!userData);
+  }, []);
+
   return (
-    <section className="relative bg-white py-24 overflow-hidden">
+    <section id="why-acredis" className="relative bg-white py-24 overflow-hidden">
       {/* Animated gradient backgrounds */}
       <motion.div
         className="absolute top-20 left-20 w-96 h-96 bg-[#c1ff72] rounded-full mix-blend-multiply filter blur-3xl opacity-20"
@@ -131,7 +139,10 @@ export function WhyAcredis() {
               </p>
 
               {/* Know more link */}
-              <button className="inline-flex items-center gap-2 text-gray-900 font-semibold hover:gap-3 transition-all">
+              <button 
+                onClick={() => window.location.href = isLoggedIn ? "/banking" : "/create-account"}
+                className="inline-flex items-center gap-2 text-gray-900 font-semibold hover:gap-3 transition-all cursor-pointer"
+              >
                 Know more
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -172,7 +183,10 @@ export function WhyAcredis() {
               </p>
 
               {/* Know more link */}
-              <button className="inline-flex items-center gap-2 text-gray-900 font-semibold hover:gap-3 transition-all">
+              <button 
+                onClick={() => window.location.href = isLoggedIn ? "/investment" : "/create-account"}
+                className="inline-flex items-center gap-2 text-gray-900 font-semibold hover:gap-3 transition-all cursor-pointer"
+              >
                 Know more
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -213,7 +227,10 @@ export function WhyAcredis() {
               </p>
 
               {/* Know more link */}
-              <button className="inline-flex items-center gap-2 text-gray-900 font-semibold hover:gap-3 transition-all">
+              <button 
+                onClick={() => window.location.href = isLoggedIn ? "/banking" : "/create-account"}
+                className="inline-flex items-center gap-2 text-gray-900 font-semibold hover:gap-3 transition-all cursor-pointer"
+              >
                 Know more
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />

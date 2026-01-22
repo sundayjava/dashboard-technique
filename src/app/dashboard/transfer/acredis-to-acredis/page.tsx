@@ -650,7 +650,7 @@ Thank you for using Acredis Finance
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
               {/* Header */}
-              <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 text-white relative">
+              <div className="bg-linear-to-r from-green-500 to-green-600 p-6 text-white relative">
                 <button
                   onClick={handleCloseReceipt}
                   className="absolute top-4 right-4 text-white hover:text-gray-200"

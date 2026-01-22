@@ -8,7 +8,7 @@ import axios from 'axios';
 interface TradeKey {
   id: string;
   key: string;
-  userId: string;
+  userId: string | null;
   createdBy: string | null;
   isActive: boolean;
   maxUses: number | null;
@@ -19,7 +19,7 @@ interface TradeKey {
     id: string;
     name: string;
     email: string;
-  };
+  } | null;
   creator?: {
     id: string;
     name: string;
@@ -31,7 +31,6 @@ interface TradeKey {
 }
 
 interface CreateFormData {
-  userId: string;
   maxUses: string;
   expiresIn: string;
 }
@@ -40,12 +39,10 @@ export default function AdminTradeKeysPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [tradeKeys, setTradeKeys] = useState<TradeKey[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<CreateFormData>({
-    userId: '',
     maxUses: '',
     expiresIn: ''
   });
@@ -67,7 +64,6 @@ export default function AdminTradeKeysPage() {
 
     setUser(parsedUser);
     fetchTradeKeys();
-    fetchUsers();
   }, [router]);
 
   const fetchTradeKeys = async () => {
@@ -82,18 +78,8 @@ export default function AdminTradeKeysPage() {
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const response = await axios.get('/api/admin/users');
-      setUsers(response.data.users);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
-
   const handleOpenModal = () => {
     setFormData({
-      userId: '',
       maxUses: '',
       expiresIn: ''
     });
@@ -103,7 +89,6 @@ export default function AdminTradeKeysPage() {
   const handleCloseModal = () => {
     setShowModal(false);
     setFormData({
-      userId: '',
       maxUses: '',
       expiresIn: ''
     });
@@ -112,16 +97,10 @@ export default function AdminTradeKeysPage() {
   const handleCreateTradeKey = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.userId) {
-      toast.error('Please select a user');
-      return;
-    }
-
     setIsCreating(true);
 
     try {
       const payload: any = {
-        userId: formData.userId,
         createdBy: user.id
       };
 
@@ -167,6 +146,22 @@ export default function AdminTradeKeysPage() {
     } catch (error: any) {
       console.error('Error toggling trade key:', error);
       toast.error(error.response?.data?.error || 'Failed to update trade key');
+    }
+  };
+
+  const handleDeleteKey = async (tradeKey: TradeKey) => {
+    const owner = tradeKey.user ? (tradeKey.user.name || tradeKey.user.email) : 'Unassigned';
+    if (!confirm(`Are you sure you want to delete this trade key?\n\nKey: ${tradeKey.key}\nOwner: ${owner}\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`/api/admin/trade-keys?id=${tradeKey.id}`);
+      toast.success('Trade key deleted successfully');
+      fetchTradeKeys();
+    } catch (error: any) {
+      console.error('Error deleting trade key:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete trade key');
     }
   };
 
@@ -277,9 +272,11 @@ export default function AdminTradeKeysPage() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {tradeKey.user.name || tradeKey.user.email}
+                          {tradeKey.user ? (tradeKey.user.name || tradeKey.user.email) : 'Unassigned'}
                         </div>
-                        <div className="text-xs text-gray-500">{tradeKey.user.email}</div>
+                        {tradeKey.user && (
+                          <div className="text-xs text-gray-500">{tradeKey.user.email}</div>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm font-semibold text-gray-900">{tradeKey.currentUses}</div>
@@ -333,12 +330,24 @@ export default function AdminTradeKeysPage() {
                         )}
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <button
-                          onClick={() => handleToggleActive(tradeKey)}
-                          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          {tradeKey.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => handleToggleActive(tradeKey)}
+                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            {tradeKey.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteKey(tradeKey)}
+                            className="text-sm text-red-600 hover:text-red-800 font-medium flex items-center gap-1"
+                            title="Delete trade key"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -366,24 +375,11 @@ export default function AdminTradeKeysPage() {
             </div>
 
             <form onSubmit={handleCreateTradeKey} className="p-6 space-y-6">
-              {/* User Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Assign to User *
-                </label>
-                <select
-                  value={formData.userId}
-                  onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent"
-                  required
-                >
-                  <option value="">Select a user</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name || u.email} ({u.email})
-                    </option>
-                  ))}
-                </select>
+              {/* Info Message */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  Trade keys are created unassigned. Users can claim and use them to access investments.
+                </p>
               </div>
 
               {/* Max Uses */}

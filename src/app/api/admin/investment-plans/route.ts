@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (arkIIAllocation < 0 || arkIIAllocation > 100) {
+    if (arkIIAllocation < 0) {
       return NextResponse.json(
-        { error: 'ARK_II Allocation must be between 0 and 100' },
+        { error: 'ARK_II Allocation cannot be negative' },
         { status: 400 }
       );
     }

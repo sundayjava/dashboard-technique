@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { notifyAdminsOfUserActivity } from '@/lib/email';
+import bcrypt from 'bcryptjs';
 
 // GET - Get user's investments
 export async function GET(request: NextRequest) {
@@ -99,62 +100,46 @@ export async function POST(request: NextRequest) {
     // Handle payment method
     if (paymentMethod === 'BANK_WALLET') {
       // Verify transaction PIN
-      if (transactionPin !== user.transactionPin) {
+      const isPinValid = await bcrypt.compare(transactionPin, user.transactionPin);
+      if (!isPinValid) {
         return NextResponse.json(
           { error: 'Invalid transaction PIN' },
           { status: 401 }
         );
       }
 
-      // Get user's account
-      const account = await prisma.account.findFirst({
-        where: {
-          userId,
-          status: 'ACTIVE'
-        }
-      });
-
-      if (!account) {
+      // Check sufficient investment balance
+      if ((user.investmentBalance || 0) < investmentAmount) {
         return NextResponse.json(
-          { error: 'No active account found' },
-          { status: 404 }
-        );
-      }
-
-      // Check sufficient balance
-      if (account.availableBalance < investmentAmount) {
-        return NextResponse.json(
-          { error: 'Insufficient funds. Please top up your account or use crypto payment.' },
+          { error: 'Insufficient investment balance. Please deposit funds to your investment wallet first.' },
           { status: 400 }
         );
       }
 
-      // Create investment and deduct from account in a transaction
+      // Create investment and deduct from investment balance in a transaction
       const result = await prisma.$transaction(async (tx) => {
-        // Deduct from account
-        await tx.account.update({
-          where: { id: account.id },
+        // Deduct from investment balance
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
           data: {
-            balance: {
-              decrement: investmentAmount
-            },
-            availableBalance: {
+            investmentBalance: {
               decrement: investmentAmount
             }
-          }
+          },
+          select: { investmentBalance: true }
         });
 
         // Create transaction record
         const transactionRef = `INV-${Date.now()}`;
-        const newBalance = account.balance - investmentAmount;
+        const newBalance = updatedUser.investmentBalance;
         await tx.transaction.create({
           data: {
             userId,
-            accountId: account.id,
+            accountId: undefined, // No account needed for investment balance transactions
             transactionType: 'INVESTMENT',
             amount: investmentAmount,
             balanceAfter: newBalance,
-            currency: account.currency,
+            currency: 'USD',
             status: 'COMPLETED',
             description: `Investment in ${plan.planName}`,
             reference: transactionRef

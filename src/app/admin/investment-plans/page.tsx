@@ -136,8 +136,8 @@ export default function AdminInvestmentPlansPage() {
       return;
     }
 
-    if (arkIIAllocation < 0 || arkIIAllocation > 100) {
-      toast.error('ARK_II allocation must be between 0 and 100');
+    if (arkIIAllocation < 0) {
+      toast.error('ARK_II allocation cannot be negative');
       return;
     }
 
@@ -256,7 +256,7 @@ export default function AdminInvestmentPlansPage() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount Range</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Duration</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Profit %</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ARK_II %</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ARK_II</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Investors</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
@@ -285,7 +285,7 @@ export default function AdminInvestmentPlansPage() {
                       <td className="px-6 py-4">
                         <span className="text-sm font-semibold text-green-600">{plan.profitPercentage}%</span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{plan.arkIIAllocation}%</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{plan.arkIIAllocation.toLocaleString()}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">
                         {plan._count?.investments || 0}
                       </td>
@@ -404,17 +404,16 @@ export default function AdminInvestmentPlansPage() {
                 {/* ARK_II Allocation */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ARK_II Allocation (%) *
+                    ARK_II Allocation *
                   </label>
                   <input
                     type="number"
                     value={formData.arkIIAllocation}
                     onChange={(e) => setFormData({ ...formData, arkIIAllocation: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent"
-                    placeholder="50"
+                    placeholder="1000000"
                     step="0.01"
                     min="0"
-                    max="100"
                     required
                   />
                 </div>

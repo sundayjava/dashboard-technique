@@ -88,7 +88,9 @@ export async function PUT(request: NextRequest) {
 
     let notificationMessage = '';
     let shouldCreditAccount = false;
+    let shouldCreditInvestmentBalance = false;
     let amountToCredit = 0;
+    let investmentBalanceAmount = 0;
 
     // Handle status-specific logic
     if (status === 'ACTIVE' && investment.status === 'PENDING') {
@@ -99,15 +101,15 @@ export async function PUT(request: NextRequest) {
       updateData.endDate = endDate;
       notificationMessage = `Your investment of $${investment.amount} in ${investment.plan.planName} has been approved and is now active!`;
     } else if (status === 'COMPLETED') {
-      // Completing investment - calculate profit and credit account
+      // Completing investment - calculate profit and credit ONLY investmentBalance
       const profitEarned = investment.amount * (investment.plan.profitPercentage / 100);
       updateData.profitEarned = profitEarned;
       updateData.completedAt = new Date();
-      shouldCreditAccount = true;
-      amountToCredit = investment.amount + profitEarned;
-      notificationMessage = `Your investment of $${investment.amount} in ${investment.plan.planName} has been completed. Total return: $${amountToCredit.toFixed(2)} (Profit: $${profitEarned.toFixed(2)})`;
+      shouldCreditInvestmentBalance = true;
+      investmentBalanceAmount = investment.amount + profitEarned;
+      notificationMessage = `Your investment of $${investment.amount} in ${investment.plan.planName} has been completed. Total return: $${investmentBalanceAmount.toFixed(2)} (Profit: $${profitEarned.toFixed(2)}) has been added to your investment balance.`;
     } else if (status === 'CANCELLED' || status === 'FAILED') {
-      // Refund the investment amount
+      // Refund the investment amount to main account
       shouldCreditAccount = true;
       amountToCredit = investment.amount;
       notificationMessage = `Your investment of $${investment.amount} in ${investment.plan.planName} has been ${status.toLowerCase()}. Amount refunded to your account.`;
@@ -123,7 +125,7 @@ export async function PUT(request: NextRequest) {
         data: updateData
       });
 
-      // Credit account if needed
+      // Credit main account if needed (for refunds only)
       if (shouldCreditAccount) {
         const account = await tx.account.findFirst({
           where: {
@@ -148,18 +150,28 @@ export async function PUT(request: NextRequest) {
             data: {
               userId: investment.userId,
               accountId: account.id,
-              transactionType: status === 'COMPLETED' ? 'DIVIDEND' : 'REFUND',
+              transactionType: 'REFUND',
               amount: amountToCredit,
               balanceAfter: newBalance,
               currency: account.currency,
               status: 'COMPLETED',
-              description: status === 'COMPLETED' 
-                ? `Investment return from ${investment.plan.planName}` 
-                : `Refund for ${status.toLowerCase()} investment in ${investment.plan.planName}`,
+              description: `Refund for ${status.toLowerCase()} investment in ${investment.plan.planName}`,
               reference: `INV-${status}-${Date.now()}`
             }
           });
         }
+      }
+
+      // Update user's investmentBalance when investment is completed (NOT main account)
+      if (shouldCreditInvestmentBalance) {
+        await tx.user.update({
+          where: { id: investment.userId },
+          data: {
+            investmentBalance: {
+              increment: investmentBalanceAmount
+            }
+          }
+        });
       }
 
       // Create notification
@@ -208,6 +220,58 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating investment:', error);
     return NextResponse.json(
       { error: 'Failed to update investment status' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Delete an investment
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Investment ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get investment to verify it exists and is completed
+    const investment = await prisma.investment.findUnique({
+      where: { id },
+      include: { plan: true, user: true }
+    });
+
+    if (!investment) {
+      return NextResponse.json(
+        { error: 'Investment not found' },
+        { status: 404 }
+      );
+    }
+
+    // Only allow deletion of completed investments
+    if (investment.status !== 'COMPLETED') {
+      return NextResponse.json(
+        { error: 'Only completed investments can be deleted' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the investment
+    await prisma.investment.delete({
+      where: { id }
+    });
+
+    return NextResponse.json({
+      message: 'Investment deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting investment:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete investment' },
       { status: 500 }
     );
   }

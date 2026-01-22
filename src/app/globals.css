@@ -133,3 +133,28 @@ body {
 .animate-fade-in {
   animation: fade-in 1s ease-out;
 }
+
+/* Print styles for transaction modal */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #transaction-print,
+  #transaction-print * {
+    visibility: visible;
+  }
+  
+  #transaction-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  
+  /* Hide buttons and modals background when printing */
+  button,
+  .fixed.inset-0 {
+    display: none !important;
+  }
+}

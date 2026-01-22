@@ -1,10 +1,18 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 
 export function InvestmentPlans() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    setIsLoggedIn(!!userData);
+  }, []);
+
   return (
-    <section className="relative bg-white py-24 overflow-hidden">
+    <section id="investment-plans" className="relative bg-white py-24 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -172,9 +180,10 @@ export function InvestmentPlans() {
           className="text-center"
         >
           <motion.button
+            onClick={() => window.location.href = isLoggedIn ? "/investment" : "/create-account"}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-colors"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
           >
             Explore Our Plans
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -58,7 +58,7 @@ export async function PATCH(
           if (newStatus === 'COMPLETED' && oldStatus === 'PENDING') {
             // Approve: Balance was already deducted when transfer was created, no action needed
             const account = await tx.account.findUnique({
-              where: { id: existingTransaction.accountId },
+              where: { id: existingTransaction.accountId! },
             });
             if (!account) {
               throw new Error('Account not found');
@@ -67,7 +67,7 @@ export async function PATCH(
           } else if ((newStatus === 'FAILED' || newStatus === 'CANCELLED') && oldStatus === 'PENDING') {
             // Reject/Cancel: Refund the amount back to balance
             updatedAccount = await tx.account.update({
-              where: { id: existingTransaction.accountId },
+              where: { id: existingTransaction.accountId! },
               data: {
                 balance: { increment: totalAmount },
               },
@@ -80,7 +80,7 @@ export async function PATCH(
           if (newStatus === 'COMPLETED' && oldStatus === 'PENDING') {
             // Credit recipient account
             updatedAccount = await tx.account.update({
-              where: { id: existingTransaction.accountId },
+              where: { id: existingTransaction.accountId! },
               data: {
                 balance: { increment: transactionAmount },
                 availableBalance: { increment: transactionAmount },

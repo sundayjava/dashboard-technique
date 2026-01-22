@@ -1,8 +1,16 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 
 export function SmartCard() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    setIsLoggedIn(!!userData);
+  }, []);
+
   return (
     <section className="relative bg-[#0a0e1a] py-24 overflow-hidden">
       {/* Animated gradient backgrounds */}
@@ -90,6 +98,7 @@ export function SmartCard() {
             {/* CTA Buttons */}
             <div className="flex flex-wrap gap-4">
               <motion.button
+                onClick={() => window.location.href = isLoggedIn ? "/banking" : "/create-account"}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-8 py-4 bg-[#c1ff72] text-[#0a0e1a] cursor-pointer font-semibold rounded-lg hover:bg-[#c1ff72]/90 transition-colors"
@@ -97,6 +106,7 @@ export function SmartCard() {
                 Request Card
               </motion.button>
               <motion.button
+                onClick={() => window.location.href = "/products"}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-8 py-4 border-2 border-white/20 text-white cursor-pointer font-semibold rounded-lg hover:border-[#c1ff72] hover:text-[#c1ff72] transition-colors"

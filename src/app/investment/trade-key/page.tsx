@@ -35,6 +35,7 @@ export default function TradeKeyPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedKey, setSelectedKey] = useState<TradeKey | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -63,7 +64,7 @@ export default function TradeKeyPage() {
 
   const handleCopyKey = (key: string) => {
     navigator.clipboard.writeText(key);
-    toast.success('Trade key copied to clipboard!');
+    toast.success('Referral key copied to clipboard!');
   };
 
   const handleShowDetails = (tradeKey: TradeKey) => {
@@ -74,6 +75,34 @@ export default function TradeKeyPage() {
   const handleCloseModal = () => {
     setShowDetailsModal(false);
     setSelectedKey(null);
+  };
+
+  const handleCreateReferralKey = async () => {
+    if (!user?.id) return;
+    
+    // Check if user already has a key
+    if (tradeKeys.length > 0) {
+      toast.error('You already have a referral key');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const response = await axios.post('/api/admin/trade-keys', {
+        userId: user.id,
+        createdBy: user.id,
+        maxUses: null, // No limit
+        expiresAt: null, // Never expires
+      });
+
+      toast.success('Referral key created successfully!');
+      await fetchTradeKeys(user.id);
+    } catch (error: any) {
+      console.error('Error creating referral key:', error);
+      toast.error(error.response?.data?.error || 'Failed to create referral key');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const getStatusBadge = (tradeKey: TradeKey) => {
@@ -121,13 +150,13 @@ export default function TradeKeyPage() {
       />
 
       <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
       }`}>
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">My Trade Keys</h1>
-            <p className="text-gray-600 mt-1">Manage your investment access keys and track referrals</p>
+            <h1 className="text-3xl font-bold text-gray-900">My Referral Key</h1>
+            <p className="text-gray-600 mt-1">Share your referral key to grant investment access and track your referrals</p>
           </div>
 
           {/* Info Banner */}
@@ -137,15 +166,15 @@ export default function TradeKeyPage() {
                 <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
               <div>
-                <h3 className="text-lg font-semibold text-blue-900 mb-2">What are Trade Keys?</h3>
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">What is a Referral Key?</h3>
                 <p className="text-sm text-blue-800 mb-2">
-                  Trade keys allow you to grant investment access to other users. When someone uses your trade key, 
-                  they gain access to the investment platform, and you can track all uses of your key.
+                  Your referral key allows you to grant investment access to other users. When someone uses your referral key, 
+                  they gain access to the investment platform, and you can track all your referrals.
                 </p>
                 <ul className="list-disc list-inside space-y-1 text-sm text-blue-800">
                   <li>Share your key with friends and family</li>
                   <li>Track who used your key and when</li>
-                  <li>Each key may have usage limits and expiration dates</li>
+                  <li>Your key has unlimited uses and never expires</li>
                 </ul>
               </div>
             </div>
@@ -157,8 +186,27 @@ export default function TradeKeyPage() {
               <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
-              <p className="text-gray-600 mb-2">No trade keys found</p>
-              <p className="text-sm text-gray-500">Contact an administrator to get your trade key</p>
+              <p className="text-gray-600 mb-4 text-lg font-semibold">You don't have a referral key yet</p>
+              <p className="text-sm text-gray-500 mb-6">Create your referral key to start inviting others to the investment platform</p>
+              <button
+                onClick={handleCreateReferralKey}
+                disabled={isCreating}
+                className="px-6 py-3 bg-[#c1ff72] text-black font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              >
+                {isCreating ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Create Referral Key
+                  </>
+                )}
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -171,7 +219,7 @@ export default function TradeKeyPage() {
                         <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                         </svg>
-                        <h3 className="font-semibold text-gray-900">Trade Key</h3>
+                        <h3 className="font-semibold text-gray-900">Referral Key</h3>
                       </div>
                       {getStatusBadge(tradeKey)}
                     </div>
@@ -186,7 +234,7 @@ export default function TradeKeyPage() {
                       <button
                         onClick={() => handleCopyKey(tradeKey.key)}
                         className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
-                        title="Copy key"
+                        title="Copy referral key"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -253,7 +301,7 @@ export default function TradeKeyPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Trade Key Details</h2>
+              <h2 className="text-xl font-bold text-gray-900">Referral Key Details</h2>
               <button
                 onClick={handleCloseModal}
                 className="text-gray-400 hover:text-gray-600"
@@ -267,7 +315,7 @@ export default function TradeKeyPage() {
             <div className="p-6 space-y-6">
               {/* Key Info */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-600 mb-2">Trade Key</p>
+                <p className="text-xs text-gray-600 mb-2">Referral Key</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 text-sm font-mono bg-white px-3 py-2 rounded border border-gray-200">
                     {selectedKey.key}

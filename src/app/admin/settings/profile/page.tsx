@@ -170,7 +170,7 @@ export default function AdminProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading profile...</p>
@@ -192,7 +192,7 @@ export default function AdminProfilePage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Profile Picture</h2>
         <div className="flex items-center gap-6">
           <div className="relative">
-            <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
+            <div className="w-24 h-24 rounded-full overflow-hidden bg-linear-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
               {user?.avatar ? (
                 <img
                   src={user.avatar}

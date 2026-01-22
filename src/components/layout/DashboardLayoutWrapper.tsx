@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { DashboardTopBar } from '@/components/layout/DashboardTopBar';
 import { TradeKeyModal } from '@/components/modals/TradeKeyModal';
+import AcredisPlusModal from '@/components/modals/AcredisPlusModal';
 import { sidebarItems } from '@/config/sidebar.config';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
@@ -20,12 +21,42 @@ export function DashboardLayoutWrapper({ children }: DashboardLayoutWrapperProps
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tradeKeyModalOpen, setTradeKeyModalOpen] = useState(false);
+  const [showPlusModal, setShowPlusModal] = useState(false);
+  const [activatingPlus, setActivatingPlus] = useState(false);
 
   const handleInvestmentClick = async () => {
     if (!user?.id) return;
 
     // Always show trade key modal when clicking Investment
     setTradeKeyModalOpen(true);
+  };
+
+  const handleActivatePlus = async () => {
+    if (!user) return;
+
+    setActivatingPlus(true);
+    try {
+      const response = await axios.post('/api/acredis-plus/activate', {
+        userId: user.id
+      });
+
+      if (response.data.message) {
+        // Update user state
+        const updatedUser = { ...user, isPlusUser: true };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setShowPlusModal(false);
+        
+        toast.success('🎉 Welcome to Acredis Plus!');
+        
+        // Reload to update UI
+        window.location.reload();
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to activate Acredis Plus');
+    } finally {
+      setActivatingPlus(false);
+    }
   };
 
   const getUserId = () => {
@@ -104,10 +135,12 @@ export function DashboardLayoutWrapper({ children }: DashboardLayoutWrapperProps
       <DashboardSidebar 
         items={sidebarItems}
         userId={getUserId() || undefined}
+        user={user}
         onCollapseChange={setSidebarCollapsed}
         isMobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
         onInvestmentClick={handleInvestmentClick}
+        onPlusUpgrade={() => setShowPlusModal(true)}
       />
       
       <TradeKeyModal
@@ -115,6 +148,14 @@ export function DashboardLayoutWrapper({ children }: DashboardLayoutWrapperProps
         onClose={() => setTradeKeyModalOpen(false)}
         userId={user.id}
       />
+      
+      <AcredisPlusModal
+        isOpen={showPlusModal}
+        onClose={() => setShowPlusModal(false)}
+        onActivate={handleActivatePlus}
+        isActivating={activatingPlus}
+      />
+      
       <DashboardTopBar 
         user={user}
         sidebarCollapsed={sidebarCollapsed}

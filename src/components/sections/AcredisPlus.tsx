@@ -1,10 +1,18 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 
 export function AcredisPlus() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    setIsLoggedIn(!!userData);
+  }, []);
+
   return (
-    <section className="relative bg-[#0a0e1a] py-24 overflow-hidden">
+    <section id="how-it-works" className="relative bg-[#0a0e1a] py-24 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* How it works section */}
         <div className="mb-32">
@@ -166,9 +174,10 @@ export function AcredisPlus() {
             </div>
 
             <motion.button
+              onClick={() => window.location.href = isLoggedIn ? "/acredis-plus" : "/create-account"}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="mt-8 px-8 py-4 bg-[#c1ff72] text-[#0a0e1a] font-semibold rounded-lg hover:bg-[#c1ff72]/90 transition-colors"
+              className="mt-8 px-8 py-4 bg-[#c1ff72] text-[#0a0e1a] font-semibold rounded-lg hover:bg-[#c1ff72]/90 transition-colors cursor-pointer"
             >
               Get Acredis Plus
             </motion.button>

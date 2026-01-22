@@ -43,6 +43,7 @@ export default function AdminInvestmentsPage() {
   const [newStatus, setNewStatus] = useState<string>('');
   const [adminNote, setAdminNote] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -123,6 +124,24 @@ export default function AdminInvestmentsPage() {
       toast.error(error.response?.data?.error || 'Failed to update investment status');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async (investment: Investment) => {
+    if (!confirm(`Are you sure you want to delete this completed investment for ${investment.user.name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await axios.delete(`/api/admin/investments?id=${investment.id}`);
+      toast.success('Investment deleted successfully');
+      fetchInvestments();
+    } catch (error: any) {
+      console.error('Error deleting investment:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete investment');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -286,12 +305,22 @@ export default function AdminInvestmentsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <button
-                          onClick={() => handleOpenModal(investment)}
-                          className="px-3 py-1.5 bg-[#c1ff72] text-black text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity"
-                        >
-                          Manage
-                        </button>
+                        {investment.status === 'COMPLETED' ? (
+                          <button
+                            onClick={() => handleDelete(investment)}
+                            disabled={isDeleting}
+                            className="px-3 py-1.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isDeleting ? 'Deleting...' : 'Delete'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleOpenModal(investment)}
+                            className="px-3 py-1.5 bg-[#c1ff72] text-black text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity"
+                          >
+                            Manage
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

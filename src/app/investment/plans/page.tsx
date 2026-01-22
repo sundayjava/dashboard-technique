@@ -85,7 +85,7 @@ export default function InvestmentPlansPage() {
       />
 
       <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
       }`}>
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Investment Plans</h1>
@@ -128,7 +128,7 @@ export default function InvestmentPlansPage() {
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">ARK_II Allocation</span>
-                    <span className="font-semibold text-gray-900">{plan.arkIIAllocation}%</span>
+                    <span className="font-semibold text-gray-900">{plan.arkIIAllocation.toLocaleString()}</span>
                   </div>
 
                   <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-200">

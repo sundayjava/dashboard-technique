@@ -1,8 +1,16 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 
 export function CryptoRewards() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    setIsLoggedIn(!!userData);
+  }, []);
+
   return (
     <section className="relative bg-white pt-24 md:pb-24 pb-4 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -76,7 +84,10 @@ export function CryptoRewards() {
                 </div>
 
                 {/* Buy Button */}
-                <button className="w-full bg-[#c1ff72] hover:bg-[#c1ff72] text-black cursor-pointer font-semibold py-4 rounded-xl transition-colors">
+                <button 
+                  onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/create-account"}
+                  className="w-full bg-[#c1ff72] hover:bg-[#c1ff72] text-black cursor-pointer font-semibold py-4 rounded-xl transition-colors"
+                >
                   Buy BTC
                 </button>
               </div>
@@ -110,6 +121,7 @@ export function CryptoRewards() {
             </div>
 
             <motion.button
+              onClick={() => window.location.href = isLoggedIn ? "/dashboard" : "/create-account"}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="inline-flex items-center gap-2 px-8 py-4 bg-[#c1ff72] text-black cursor-pointer font-semibold rounded-xl hover:bg-[#c1ff72] transition-colors"

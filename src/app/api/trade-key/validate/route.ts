@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         message: 'Access already granted',
         alreadyHasAccess: true,
         tradeKey: {
-          owner: key.user.name || key.user.email,
+          owner: key.user?.name || key.user?.email || 'Unassigned',
           accessedAt: existingAccess.accessedAt,
         },
       });
@@ -101,10 +101,10 @@ export async function POST(request: NextRequest) {
         data: {
           userId,
           action: 'INVESTMENT_ACCESS_GRANTED',
-          description: `Investment access granted using trade key from ${key.user.name || key.user.email}`,
+          description: `Investment access granted using trade key from ${key.user?.name || key.user?.email || 'Unassigned'}`,
           metadata: {
             tradeKeyId: key.id,
-            keyOwner: key.user.email,
+            keyOwner: key.user?.email || 'unassigned',
           },
         },
       }),
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       message: 'Investment access granted successfully',
       alreadyHasAccess: false,
       tradeKey: {
-        owner: key.user.name || key.user.email,
+        owner: key.user?.name || key.user?.email || 'Unassigned',
       },
     });
   } catch (error) {

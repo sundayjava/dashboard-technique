@@ -123,9 +123,9 @@ export default function CardDisplay({ userId }: CardDisplayProps) {
             Apply for Card
           </a>
         </div>
-        <div className="relative w-full aspect-[1.586/1] max-w-[400px] mx-auto">
+        <div className="relative w-full aspect-[1.586/1] max-w-100 mx-auto">
           {/* Placeholder Card */}
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 p-6 text-white shadow-2xl border-2 border-dashed border-gray-300">
+          <div className="absolute inset-0 rounded-xl bg-linear-to-br from-gray-400 via-gray-500 to-gray-600 p-6 text-white shadow-2xl border-2 border-dashed border-gray-300">
             <div className="flex justify-between items-start mb-8">
               <div className="w-12 h-10 bg-white/20 rounded"></div>
               <CreditCard className="w-8 h-8 opacity-30" />
@@ -174,7 +174,7 @@ export default function CardDisplay({ userId }: CardDisplayProps) {
         </a>
       </div>
 
-      <div className="relative w-full aspect-[1.586/1] max-w-[400px] mx-auto">
+      <div className="relative w-full aspect-[1.586/1] max-w-100 mx-auto">
         <motion.div
           key={currentCard.id}
           initial={{ opacity: 0, scale: 0.95 }}
@@ -186,7 +186,7 @@ export default function CardDisplay({ userId }: CardDisplayProps) {
           }}
         >
           {/* Card shine effect */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/10 to-transparent" />
           
           {/* Card content */}
           <div className="relative h-full p-6 flex flex-col justify-between text-white">
