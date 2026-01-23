@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { notifyAdminsOfUserActivity } from '@/lib/email';
 
 // Generate unique 10-digit account number
 async function generateAccountNumber(): Promise<string> {
@@ -148,6 +149,18 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error('Failed to send verification email:', emailError);
       // Don't fail the registration if email fails
+    }
+
+    // Notify admins of new signup
+    try {
+      await notifyAdminsOfUserActivity(
+        result.user.id,
+        email,
+        `a New Account Registration (Account: ${accountNumber})`
+      );
+    } catch (emailError) {
+      console.error('Failed to send admin notification:', emailError);
+      // Don't fail the registration if admin notification fails
     }
 
     return NextResponse.json(

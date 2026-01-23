@@ -21,7 +21,7 @@ export const investmentSidebarItems: InvestmentSidebarItem[] = [
     ),
   },
   {
-    label: 'Investment Plans',
+    label: 'Trade Model',
     href: '/investment/plans',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,7 +30,7 @@ export const investmentSidebarItems: InvestmentSidebarItem[] = [
     ),
   },
   {
-    label: 'My Investments',
+    label: 'My Trades',
     href: '/investment/my-investments',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

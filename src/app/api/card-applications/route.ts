@@ -74,6 +74,29 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if user is a premium/plus user
+    if (!user.isPlusUser) {
+      return NextResponse.json(
+        { error: 'Card applications are only available for Acredis Plus users. Please upgrade your account to apply for a card.' },
+        { status: 403 }
+      );
+    }
+
+    // Check if user has a positive balance in any account
+    const accounts = await prisma.account.findMany({
+      where: { userId },
+      select: { balance: true }
+    });
+
+    const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+
+    if (totalBalance <= 0) {
+      return NextResponse.json(
+        { error: 'You must have a positive account balance to apply for a card. Please fund your account first.' },
+        { status: 403 }
+      );
+    }
+
     // Create card application
     const application = await prisma.cardApplication.create({
       data: {

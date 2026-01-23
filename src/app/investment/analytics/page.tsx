@@ -196,38 +196,38 @@ export default function PortfolioAnalytics() {
       <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
         sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
       }`}>
-        <div className="max-w-400 mx-auto space-y-6">
+        <div className="max-w-400 mx-auto space-y-4">
           {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Portfolio Analytics</h1>
-            <p className="text-gray-600">Track your investment performance and returns</p>
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Portfolio Analytics</h1>
+            <p className="text-sm text-gray-600">Track your investment performance and returns</p>
           </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-linear-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <DollarSign className="w-10 h-10 text-blue-200" />
-            <span className="text-xs bg-blue-400/30 px-2 py-1 rounded-full">Total</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-linear-to-br from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow">
+          <div className="flex items-center justify-between mb-3">
+            <DollarSign className="w-7 h-7 text-blue-200" />
+            <span className="text-xs bg-blue-400/30 px-2 py-0.5 rounded-full">Total</span>
           </div>
-          <p className="text-blue-100 text-sm font-medium">Total Invested</p>
-          <h3 className="text-3xl font-bold mt-2">${analytics.overview.totalInvested.toLocaleString()}</h3>
-          <p className="text-blue-100 text-xs mt-2">{analytics.counts.total} investments</p>
+          <p className="text-blue-100 text-xs font-medium">Total Invested</p>
+          <h3 className="text-2xl font-bold mt-1">${analytics.overview.totalInvested.toLocaleString()}</h3>
+          <p className="text-blue-100 text-xs mt-1">{analytics.counts.total} investments</p>
         </div>
 
-        <div className="bg-linear-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <Activity className="w-10 h-10 text-green-200" />
-            <span className="text-xs bg-green-400/30 px-2 py-1 rounded-full">Active</span>
+        <div className="bg-linear-to-br from-green-500 to-green-600 rounded-lg p-4 text-white shadow">
+          <div className="flex items-center justify-between mb-3">
+            <Activity className="w-7 h-7 text-green-200" />
+            <span className="text-xs bg-green-400/30 px-2 py-0.5 rounded-full">Active</span>
           </div>
-          <p className="text-green-100 text-sm font-medium">Active Value</p>
-          <h3 className="text-3xl font-bold mt-2">${analytics.overview.activeValue.toLocaleString()}</h3>
-          <p className="text-green-100 text-xs mt-2">{analytics.counts.active} active investments</p>
+          <p className="text-green-100 text-xs font-medium">Active Value</p>
+          <h3 className="text-2xl font-bold mt-1">${analytics.overview.activeValue.toLocaleString()}</h3>
+          <p className="text-green-100 text-xs mt-1">{analytics.counts.active} active investments</p>
         </div>
 
-        <div className="bg-linear-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <TrendingUp className="w-10 h-10 text-purple-200" />
+        <div className="bg-linear-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-white shadow">
+          <div className="flex items-center justify-between mb-3">
+            <TrendingUp className="w-7 h-7 text-purple-200" />
             <div className="flex items-center">
               {profitChange >= 0 ? (
                 <ArrowUpRight className="w-4 h-4 text-purple-200" />
@@ -236,35 +236,35 @@ export default function PortfolioAnalytics() {
               )}
             </div>
           </div>
-          <p className="text-purple-100 text-sm font-medium">Total Returns</p>
-          <h3 className="text-3xl font-bold mt-2">${analytics.overview.totalReturns.toLocaleString()}</h3>
-          <p className="text-purple-100 text-xs mt-2">
+          <p className="text-purple-100 text-xs font-medium">Total Returns</p>
+          <h3 className="text-2xl font-bold mt-1">${analytics.overview.totalReturns.toLocaleString()}</h3>
+          <p className="text-purple-100 text-xs mt-1">
             +${analytics.overview.totalProfit.toLocaleString()} profit
           </p>
         </div>
 
-        <div className="bg-linear-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <Percent className="w-10 h-10 text-orange-200" />
-            <span className="text-xs bg-orange-400/30 px-2 py-1 rounded-full">ROI</span>
+        <div className="bg-linear-to-br from-orange-500 to-orange-600 rounded-lg p-4 text-white shadow">
+          <div className="flex items-center justify-between mb-3">
+            <Percent className="w-7 h-7 text-orange-200" />
+            <span className="text-xs bg-orange-400/30 px-2 py-0.5 rounded-full">ROI</span>
           </div>
-          <p className="text-orange-100 text-sm font-medium">Return on Investment</p>
-          <h3 className="text-3xl font-bold mt-2">{analytics.overview.roi.toFixed(2)}%</h3>
-          <p className="text-orange-100 text-xs mt-2">
+          <p className="text-orange-100 text-xs font-medium">Return on Investment</p>
+          <h3 className="text-2xl font-bold mt-1">{analytics.overview.roi.toFixed(2)}%</h3>
+          <p className="text-orange-100 text-xs mt-1">
             {analytics.overview.successRate.toFixed(1)}% success rate
           </p>
         </div>
       </div>
 
       {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Monthly Performance */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-            <Target className="w-5 h-5 mr-2 text-blue-600" />
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-base font-bold text-gray-900 mb-3 flex items-center">
+            <Target className="w-4 h-4 mr-2 text-blue-600" />
             Monthly Investment Performance
           </h2>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={analytics.monthlyPerformance}>
               <defs>
                 <linearGradient id="colorInvested" x1="0" y1="0" x2="0" y2="1">
@@ -309,9 +309,9 @@ export default function PortfolioAnalytics() {
         </div>
 
         {/* Status Distribution */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Investment Status</h2>
-          <ResponsiveContainer width="100%" height={300}>
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-base font-bold text-gray-900 mb-3">Investment Status</h2>
+          <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
                 data={statusData}
@@ -319,7 +319,7 @@ export default function PortfolioAnalytics() {
                 cy="50%"
                 labelLine={false}
                 label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                outerRadius={100}
+                outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -334,9 +334,9 @@ export default function PortfolioAnalytics() {
       </div>
 
       {/* Plans Distribution */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Investment by Plan</h2>
-        <ResponsiveContainer width="100%" height={300}>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-base font-bold text-gray-900 mb-3">Investment by Plan</h2>
+        <ResponsiveContainer width="100%" height={240}>
           <BarChart data={planData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis dataKey="name" stroke="#6b7280" style={{ fontSize: '12px' }} />
@@ -356,9 +356,9 @@ export default function PortfolioAnalytics() {
       </div>
 
       {/* Monthly Profit Trend */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Profit Growth Trend</h2>
-        <ResponsiveContainer width="100%" height={300}>
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-base font-bold text-gray-900 mb-3">Profit Growth Trend</h2>
+        <ResponsiveContainer width="100%" height={240}>
           <LineChart data={analytics.monthlyPerformance}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis dataKey="month" stroke="#6b7280" />
@@ -375,28 +375,28 @@ export default function PortfolioAnalytics() {
               type="monotone" 
               dataKey="profit" 
               stroke="#10b981" 
-              strokeWidth={3}
+              strokeWidth={2}
               name="Monthly Profit ($)" 
-              dot={{ r: 5 }}
-              activeDot={{ r: 7 }}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
       {/* Active Investments Progress */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-          <Clock className="w-5 h-5 mr-2 text-blue-600" />
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-base font-bold text-gray-900 mb-3 flex items-center">
+          <Clock className="w-4 h-4 mr-2 text-blue-600" />
           Active Investments Progress
         </h2>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {analytics.activeInvestments.length > 0 ? (
             analytics.activeInvestments.map((investment) => (
-              <div key={investment.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
-                <div className="flex justify-between items-start mb-3">
+              <div key={investment.id} className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
+                <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h3 className="font-semibold text-gray-900">{investment.planName}</h3>
+                    <h3 className="text-sm font-semibold text-gray-900">{investment.planName}</h3>
                     <p className="text-sm text-gray-600">${investment.amount.toLocaleString()} invested</p>
                   </div>
                   <div className="text-right">
@@ -405,9 +405,9 @@ export default function PortfolioAnalytics() {
                   </div>
                 </div>
                 
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3">
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                   <div 
-                    className="bg-linear-to-r from-blue-500 to-blue-600 h-2.5 rounded-full transition-all duration-500"
+                    className="bg-linear-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
                     style={{ width: `${investment.progress}%` }}
                   ></div>
                 </div>
@@ -441,10 +441,10 @@ export default function PortfolioAnalytics() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Expected Returns</h3>
-          <p className="text-3xl font-bold text-gray-900">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+          <h3 className="text-xs font-medium text-gray-600 mb-1">Expected Returns</h3>
+          <p className="text-2xl font-bold text-gray-900">
             ${analytics.overview.expectedReturns.toLocaleString()}
           </p>
           <p className="text-sm text-gray-600 mt-2">
@@ -452,9 +452,9 @@ export default function PortfolioAnalytics() {
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Average Investment</h3>
-          <p className="text-3xl font-bold text-gray-900">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+          <h3 className="text-xs font-medium text-gray-600 mb-1">Average Investment</h3>
+          <p className="text-2xl font-bold text-gray-900">
             ${analytics.overview.avgInvestmentSize.toLocaleString()}
           </p>
           <p className="text-sm text-gray-600 mt-2">
@@ -462,9 +462,9 @@ export default function PortfolioAnalytics() {
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Completed Investments</h3>
-          <p className="text-3xl font-bold text-gray-900">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+          <h3 className="text-xs font-medium text-gray-600 mb-1">Completed Investments</h3>
+          <p className="text-2xl font-bold text-gray-900">
             {analytics.counts.completed}
           </p>
           <p className="text-sm text-gray-600 mt-2">

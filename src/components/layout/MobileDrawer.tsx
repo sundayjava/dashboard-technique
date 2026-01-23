@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 interface NavItem {
   label: string;
   href: string;
-  submenu?: { label: string; href: string }[];
+  submenu?: { label: string; href: string; icon?: string }[];
+  gridLayout?: boolean;
 }
 
 interface MobileDrawerProps {
@@ -141,7 +142,7 @@ export function MobileDrawer({ isOpen, onClose, navItems }: MobileDrawerProps) {
                             {item.submenu.map((subItem) => (
                               <a
                                 key={subItem.label}
-                                href={subItem.href}
+                                href={item.label === "Services" ? (isLoggedIn ? "/dashboard" : "/login") : subItem.href}
                                 className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-primary/5 rounded-md transition-colors cursor-pointer"
                                 onClick={onClose}
                               >

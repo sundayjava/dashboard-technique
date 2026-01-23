@@ -9,12 +9,32 @@ import { MobileDrawer } from "./MobileDrawer";
 interface NavItem {
   label: string;
   href: string;
-  submenu?: { label: string; href: string }[];
+  submenu?: { label: string; href: string; icon?: string }[];
+  gridLayout?: boolean; // For multi-column dropdown
 }
 
 const navItems: NavItem[] = [
   { label: "Acredis plus", href: "/#how-it-works" },
   { label: "Banking", href: "/banking" },
+  { 
+    label: "Services", 
+    href: "/services",
+    gridLayout: true,
+    submenu: [
+      { label: "Personal Banking", href: "" },
+      { label: "Business Banking", href: "" },
+      { label: "Investment Services", href: "" },
+      { label: "Digital Banking", href: "" },
+      { label: "Cross-border Banking", href: "" },
+      { label: "Support & Resources", href: "" },
+      { label: "Wealth Management", href: "" },
+      { label: "Credit Services", href: "" },
+      { label: "Insurance Services", href: "" },
+      { label: "Foreign Exchange", href: "" },
+      { label: "Trade Finance", href: "" },
+      { label: "Advisory Services", href: "" },
+    ]
+  },
   { 
     label: "Products", 
     href: "/products",
@@ -196,21 +216,38 @@ export function Header1() {
                       <AnimatePresence>
                         {activeDropdown === item.label && (
                           <motion.div
-                            className="absolute top-full left-0 mt-2 w-56 bg-[#c1ff72] border-2 text-black border-white/20 rounded-md shadow-2xl overflow-hidden z-9999"
+                            className={cn(
+                              "absolute top-full mt-2 bg-white border-2 text-black border-white/20 rounded-md shadow-2xl overflow-hidden z-9999",
+                              item.gridLayout ? "left-1/2 -translate-x-1/2 w-180" : "left-0 w-56"
+                            )}
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2 }}
                           >
-                            {item.submenu.map((subItem) => (
-                              <a
-                                key={subItem.label}
-                                href={subItem.href}
-                                className="block px-4 py-3 text-sm font-medium text-black/80 hover:text-black hover:bg-[#a6d64a]/20 transition-colors cursor-pointer border-b border-white/10 last:border-b-0"
-                              >
-                                {subItem.label}
-                              </a>
-                            ))}
+                            {item.gridLayout ? (
+                              <div className="grid grid-cols-4 gap-0">
+                                {item.submenu.map((subItem) => (
+                                  <a
+                                    key={subItem.label}
+                                    href={isLoggedIn ? "/dashboard" : "/login"}
+                                    className="block px-4 py-3 text-sm font-medium text-black/80 hover:text-black hover:bg-[#a6d64a]/30 transition-colors cursor-pointer border-b border-r border-white/10 last:border-b-0"
+                                  >
+                                    {subItem.label}
+                                  </a>
+                                ))}
+                              </div>
+                            ) : (
+                              item.submenu.map((subItem) => (
+                                <a
+                                  key={subItem.label}
+                                  href={subItem.href}
+                                  className="block px-4 py-3 text-sm font-medium text-black/80 hover:text-black hover:bg-[#a6d64a]/20 transition-colors cursor-pointer border-b border-white/10 last:border-b-0"
+                                >
+                                  {subItem.label}
+                                </a>
+                              ))
+                            )}
                           </motion.div>
                         )}
                       </AnimatePresence>

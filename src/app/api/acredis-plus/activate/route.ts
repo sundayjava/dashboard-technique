@@ -33,6 +33,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if user has a positive balance in any account
+    const accounts = await prisma.account.findMany({
+      where: { userId },
+      select: { balance: true }
+    });
+
+    const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+
+    if (totalBalance <= 0) {
+      return NextResponse.json(
+        { error: 'You must have a positive account balance to upgrade to Acredis Plus. Please fund your account first.' },
+        { status: 403 }
+      );
+    }
+
     // Activate Acredis Plus
     const updatedUser = await prisma.user.update({
       where: { id: userId },

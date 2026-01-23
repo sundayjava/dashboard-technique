@@ -308,7 +308,7 @@ export default function InvestmentDashboardPage() {
         <div className="space-y-4">
           {/* Welcome Banner with Gradient */}
           <div className="bg-linear-to-r from-purple-900 via-purple-800 to-indigo-900 rounded-lg p-4 text-white">
-            <h1 className="text-lg font-bold mb-1">Investment Portfolio Dashboard 📈</h1>
+            <h1 className="text-lg font-bold mb-1">Acredis Secure Stake 📈</h1>
             <p className="text-sm text-purple-200">Track your investments and grow your wealth</p>
           </div>
 
@@ -376,7 +376,7 @@ export default function InvestmentDashboardPage() {
           {/* Quick Investment Actions */}
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="text-base font-bold text-gray-900 mb-3">Quick Actions</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => setShowDepositModal(true)}
                 className="p-3 rounded-lg border-2 border-green-200 hover:border-green-500 hover:bg-green-50 transition-all duration-200 group"
@@ -395,6 +395,16 @@ export default function InvestmentDashboardPage() {
                   <ArrowUpCircle className="w-5 h-5 text-blue-600" />
                 </div>
                 <p className="text-xs font-semibold text-gray-900 text-center">Withdraw</p>
+              </button>
+
+              <button
+                onClick={() => router.push('/investment/plans')}
+                className="p-3 rounded-lg border-2 border-purple-200 hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 group"
+              >
+                <div className="w-10 h-10 bg-purple-100 group-hover:bg-purple-200 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <BarChart3 className="w-5 h-5 text-purple-600" />
+                </div>
+                <p className="text-xs font-semibold text-gray-900 text-center">AI Trade</p>
               </button>
             </div>
           </div>

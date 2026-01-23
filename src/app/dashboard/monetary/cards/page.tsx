@@ -14,6 +14,7 @@ interface User {
   role: string;
   currency: string;
   authorizationCode: string;
+  isPlusUser: boolean;
 }
 
 interface CardApplication {
@@ -51,6 +52,7 @@ export default function CardsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [totalBalance, setTotalBalance] = useState(0);
 
   // Form fields
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -78,8 +80,22 @@ export default function CardsPage() {
   useEffect(() => {
     if (user) {
       fetchApplications();
+      fetchBalance();
     }
   }, [user]);
+
+  const fetchBalance = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await axios.get(`/api/accounts?userId=${user.id}`);
+      const accounts = response.data.accounts || [];
+      const total = accounts.reduce((sum: number, acc: any) => sum + (acc.balance || 0), 0);
+      setTotalBalance(total);
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+    }
+  };
 
   const fetchApplications = async () => {
     if (!user) return;
@@ -191,7 +207,12 @@ export default function CardsPage() {
               </div>
               <button
                 onClick={() => setShowApplicationForm(!showApplicationForm)}
-                className="px-4 py-2 bg-[#c1ff72] text-black font-bold rounded-lg hover:bg-[#b0ef62] transition-colors flex items-center gap-2"
+                disabled={!user.isPlusUser || totalBalance <= 0}
+                className={`px-4 py-2 font-bold rounded-lg transition-colors flex items-center gap-2 ${
+                  user.isPlusUser && totalBalance > 0
+                    ? 'bg-[#c1ff72] text-black hover:bg-[#b0ef62]' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -201,6 +222,60 @@ export default function CardsPage() {
               </button>
             </div>
           </div>
+
+          {/* Premium Restriction Notice */}
+          {!user.isPlusUser && (
+            <div className="bg-linear-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6 mb-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    Upgrade to Acredis Plus to Apply for Cards
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Card applications are exclusive to Acredis Plus members. Upgrade your account to unlock virtual and physical cards with premium benefits.
+                  </p>
+                  <button
+                    onClick={() => router.push('/acredis-plus')}
+                    className="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Upgrade to Acredis Plus
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Balance Restriction Notice */}
+          {user.isPlusUser && totalBalance <= 0 && (
+            <div className="bg-linear-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-6 mb-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    Fund Your Account to Apply for Cards
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    You must have a positive account balance to apply for cards. Please deposit funds into your account to continue.
+                  </p>
+                  <button
+                    onClick={() => router.push('/dashboard/deposit')}
+                    className="px-6 py-2 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition-colors"
+                  >
+                    Deposit Funds
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Success Message */}
           {success && (

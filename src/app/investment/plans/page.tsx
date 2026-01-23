@@ -87,30 +87,30 @@ export default function InvestmentPlansPage() {
       <main className={`pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ${
         sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
       }`}>
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Investment Plans</h1>
-          <p className="text-gray-600">Choose a plan that fits your investment goals</p>
+        <div className="mb-4">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">AI Trade Model System</h1>
+          <p className="text-sm text-gray-600">Choose a plan that fits your investment goals</p>
         </div>
 
         {plans.length === 0 ? (
-          <div className="bg-white rounded-xl p-12 text-center shadow-sm">
-            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg p-8 text-center shadow-sm">
+            <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Plans Available</h3>
-            <p className="text-gray-600">There are currently no active investment plans. Please check back later.</p>
+            <h3 className="text-base font-semibold text-gray-900 mb-1">No Plans Available</h3>
+            <p className="text-sm text-gray-600">There are currently no active investment plans. Please check back later.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {plans.map((plan) => (
-              <div key={plan.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                <div className="bg-linear-to-r from-[#c1ff72] to-[#8fd04f] p-6 text-black">
-                  <h3 className="text-xl font-bold mb-2">{plan.planName}</h3>
-                  <div className="text-2xl font-bold">{plan.profitPercentage}%</div>
-                  <p className="text-sm opacity-90">Expected Returns</p>
+              <div key={plan.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div className="bg-linear-to-r from-[#c1ff72] to-[#8fd04f] p-4 text-black">
+                  <h3 className="text-lg font-bold mb-1">{plan.planName}</h3>
+                  <div className="text-xl font-bold">{plan.profitPercentage}%</div>
+                  <p className="text-xs opacity-90">Expected Returns</p>
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Duration</span>
                     <span className="font-semibold text-gray-900">{plan.duration} days</span>
@@ -138,9 +138,9 @@ export default function InvestmentPlansPage() {
 
                   <button
                     onClick={() => router.push(`/investment/invest/${plan.id}`)}
-                    className="w-full mt-4 px-6 py-3 bg-linear-to-r from-[#c1ff72] to-[#8fd04f] text-black font-semibold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    className="w-full mt-3 px-4 py-2.5 bg-linear-to-r from-[#c1ff72] to-[#8fd04f] text-black font-semibold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                     Invest Now

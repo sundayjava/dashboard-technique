@@ -534,9 +534,9 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-1.5">
-              {activeInvestments.length > 0 ? (
+              {activeInvestments.filter(inv => inv.status === 'ACTIVE').length > 0 ? (
                 <>
-                  {activeInvestments.map((investment) => (
+                  {activeInvestments.filter(inv => inv.status === 'ACTIVE').map((investment) => (
                     <div key={investment.id} className="p-1.5 rounded border-2 border-purple-100 hover:border-purple-300 transition-colors">
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-xs font-bold text-gray-900">{investment.planName}</p>
