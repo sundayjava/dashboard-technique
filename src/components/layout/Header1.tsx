@@ -5,6 +5,8 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { MobileDrawer } from "./MobileDrawer";
+import { useUIStore } from "@/store";
+import { useRouter } from "next/navigation";
 
 interface NavItem {
   label: string;
@@ -21,30 +23,28 @@ const navItems: NavItem[] = [
     href: "/services",
     gridLayout: true,
     submenu: [
-      { label: "Personal Banking", href: "" },
-      { label: "Business Banking", href: "" },
-      { label: "Investment Services", href: "" },
-      { label: "Digital Banking", href: "" },
-      { label: "Cross-border Banking", href: "" },
-      { label: "Support & Resources", href: "" },
-      { label: "Wealth Management", href: "" },
-      { label: "Credit Services", href: "" },
-      { label: "Insurance Services", href: "" },
-      { label: "Foreign Exchange", href: "" },
-      { label: "Trade Finance", href: "" },
-      { label: "Advisory Services", href: "" },
-    ]
-  },
-  { 
-    label: "Products", 
-    href: "/products",
-    submenu: [
-      { label: "Investment Strategy", href: "/#investment-plans" },
+      { label: "Personal Banking", href: "banking" },
+      { label: "Business Banking", href: "banking" },
+      { label: "Investment Services", href: "support" },
+      { label: "Digital Banking", href: "banking" },
+      { label: "Cross-border Banking", href: "banking" },
+      { label: "Support & Resources", href: "support" },
+      { label: "Wealth Management", href: "support" },
+      { label: "Credit Services", href: "support" },
+      { label: "Insurance Services", href: "support" },
+      { label: "Foreign Exchange", href: "support" },
+      { label: "Trade Finance", href: "support" },
+      { label: "Advisory Services", href: "support" },
+      { label: "Investment Loans", href: "support" },
+      { label: "B2B Banking", href: "banking" },
+      { label: "Financial Insights", href: "support" },
+      { label: "Crypto", href: "support" },
+      { label: "Acredis Invest", href: "support" },
     ]
   },
   { label: "About", href: "/#why-acredis" },
   { label: "Contact", href: "/contact" },
-  { label: "News", href: "/news" },
+  { label: "Investment Strategy", href: "/investment-strategy" },
 ];
 
 export function Header1() {
@@ -52,6 +52,8 @@ export function Header1() {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = React.useState(false);
   const [isScrolled, setIsScrolled] = React.useState(false);
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const { setSelectedService } = useUIStore();
+  const router = useRouter();
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -217,8 +219,8 @@ export function Header1() {
                         {activeDropdown === item.label && (
                           <motion.div
                             className={cn(
-                              "absolute top-full mt-2 bg-white border-2 text-black border-white/20 rounded-md shadow-2xl overflow-hidden z-9999",
-                              item.gridLayout ? "left-1/2 -translate-x-1/2 w-180" : "left-0 w-56"
+                              "absolute top-full mt-2 bg-white border-2 text-black border-white/20 rounded-sm p-4 shadow-2xl overflow-hidden z-9999",
+                              item.gridLayout ? "left-1/2 -translate-x-1/2 w-200" : "left-0 w-56"
                             )}
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -228,13 +230,25 @@ export function Header1() {
                             {item.gridLayout ? (
                               <div className="grid grid-cols-4 gap-0">
                                 {item.submenu.map((subItem) => (
-                                  <a
+                                  <div
                                     key={subItem.label}
-                                    href={isLoggedIn ? "/dashboard" : "/login"}
+                                    onClick={() => {
+                                      setActiveDropdown(null);
+                                      setSelectedService(subItem.label);
+                                      // Navigate to home page and scroll to services section
+                                      router.push("/#services");
+                                      // Small delay to ensure navigation completes before scrolling
+                                      setTimeout(() => {
+                                        const element = document.getElementById("services");
+                                        if (element) {
+                                          element.scrollIntoView({ behavior: "smooth", block: "start" });
+                                        }
+                                      }, 100);
+                                    }}
                                     className="block px-4 py-3 text-sm font-medium text-black/80 hover:text-black hover:bg-[#a6d64a]/30 transition-colors cursor-pointer border-b border-r border-white/10 last:border-b-0"
                                   >
                                     {subItem.label}
-                                  </a>
+                                  </div>
                                 ))}
                               </div>
                             ) : (

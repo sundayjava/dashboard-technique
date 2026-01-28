@@ -103,6 +103,27 @@ model FAQ {
   @@map("faqs")
 }
 
+model SupportRequest {
+  id             String        @id @default(cuid())
+  accountNumber  String
+  email          String
+  countryCode    String
+  phoneNumber    String
+  topic          String
+  message        String        @db.Text
+  status         ContactStatus @default(PENDING)
+  adminReply     String?       @db.Text
+  repliedAt      DateTime?
+  repliedBy      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+  @@map("support_requests")
+}
+
 model Message {
   id         String   @id @default(cuid())
   subject    String?

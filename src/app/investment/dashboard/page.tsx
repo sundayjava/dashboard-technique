@@ -93,7 +93,7 @@ export default function InvestmentDashboardPage() {
   const fetchCryptoData = async () => {
     try {
       setCryptoUpdating(true);
-      const response = await axios.get('/api/crypto/prices');
+      const response = await axios.get('/api/investment/crypto-prices');
       if (response.data.success) {
         setCryptoData(response.data.data);
       }
@@ -503,14 +503,14 @@ export default function InvestmentDashboardPage() {
             )}
           </div>
 
-          {/* Main Content Grid - Crypto Markets + Economic Calendar + Market Timeline */}
+          {/* Main Content Grid - Market Data + Economic Calendar + Market Timeline */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            {/* Live Crypto - 3x3 Grid */}
+            {/* Live Markets - 3x3 Grid */}
             <div className="bg-white rounded-lg shadow p-3">
               <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-blue-600" />
-                  <h2 className="text-sm font-bold text-gray-900">Live Crypto</h2>
+                  <h2 className="text-sm font-bold text-gray-900">Live Markets</h2>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={`w-1.5 h-1.5 rounded-full ${cryptoUpdating ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
@@ -700,7 +700,7 @@ export default function InvestmentDashboardPage() {
                     const globalMin = Math.min(...allPrices);
                     const range = globalMax - globalMin || 1;
 
-                    // Normalize this crypto's prices
+                    // Normalize this instrument's prices
                     const prices = crypto.priceHistory.map(item => item.price);
                     const points = prices.map((price, i) => {
                       const x = (i / (prices.length - 1)) * 100;
@@ -767,6 +767,51 @@ export default function InvestmentDashboardPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Tokenization Section */}
+          <div className="bg-linear-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-xl shadow-lg p-6 text-white">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-blue-400/20 rounded-xl flex items-center justify-center shrink-0">
+                <Award className="w-6 h-6 text-blue-200" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold mb-3">Tokenization</h2>
+                <p className="text-blue-100 leading-relaxed">
+                  Explore unique investment opportunities and raise capital with bank-grade tokenization for a variety of asset classes, such as traditional securities, private markets and art and collectibles.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Asset Management Section */}
+          <div className="bg-linear-to-br from-white via-purple-800 to-white rounded-xl shadow-lg p-6 text-white">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-purple-400/20 rounded-xl flex items-center justify-center shrink-0">
+                <PieChart className="w-6 h-6 text-purple-200" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold mb-3">Asset Management</h2>
+                <p className="text-purple-100 leading-relaxed">
+                  Access a range of passive and active investment products to gain exposure to growth, trends and excess return opportunities in the crypto market.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Timeline Section */}
+          <div className="bg-linear-to-br from-[#c1ff72] via-green-800 to-[#c1ff72] rounded-xl shadow-lg p-6 text-white">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-green-400/20 rounded-xl flex items-center justify-center shrink-0">
+                <Clock className="w-6 h-6 text-green-200" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold mb-3">Timeline</h2>
+                <p className="text-green-100 leading-relaxed">
+                  For 17 years, Acredis has built a track record of generating sustainable investment yields and exponential growth for our clients. We are a guaranteed partner for long-term value.
+                </p>
+              </div>
             </div>
           </div>
 

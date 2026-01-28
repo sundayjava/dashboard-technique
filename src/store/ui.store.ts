@@ -9,6 +9,7 @@ interface UIState {
   isModalOpen: boolean;
   modalContent: React.ReactNode | null;
   theme: "light" | "dark" | "system";
+  selectedService: string | null;
 }
 
 /**
@@ -20,6 +21,7 @@ interface UIActions {
   openModal: (content: React.ReactNode) => void;
   closeModal: () => void;
   setTheme: (theme: UIState["theme"]) => void;
+  setSelectedService: (service: string | null) => void;
 }
 
 /**
@@ -35,6 +37,7 @@ const initialState: UIState = {
   isModalOpen: false,
   modalContent: null,
   theme: "system",
+  selectedService: null,
 };
 
 /**
@@ -72,6 +75,9 @@ export const useUIStore = create<UIStore>()(
 
       setTheme: (theme) =>
         set({ theme }, false, "setTheme"),
+
+      setSelectedService: (service) =>
+        set({ selectedService: service }, false, "setSelectedService"),
     }),
     { name: "UIStore" }
   )

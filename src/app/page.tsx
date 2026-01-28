@@ -1,6 +1,6 @@
 "use client";
 
-import { Hero, AcredisPlus, CryptoRewards, WhyAcredis, SmartCard, InvestmentPlans, FAQ } from "@/components/sections";
+import { Hero, AcredisPlus, CryptoRewards, WhyAcredis, BlockchainWealth, SmartCard, InvestmentPlans, FAQ, ServicesShowcase } from "@/components/sections";
 import { Footer } from "@/components/Footer";
 
 export default function Home() {
@@ -8,8 +8,10 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       <Hero />
       <AcredisPlus />
+      <ServicesShowcase />
       <CryptoRewards />
       <WhyAcredis />
+      <BlockchainWealth />
       <SmartCard />
       <InvestmentPlans />
       <FAQ />

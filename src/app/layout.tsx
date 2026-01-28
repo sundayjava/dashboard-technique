@@ -21,11 +21,12 @@ export default function RootLayout({
 }>) {
   const pathname = usePathname();
 
-  // Hide header in dashboard routes, admin routes, investment routes, PIN verification, and password reset pages
+  // Hide header in dashboard routes, admin routes, investment dashboard route, PIN verification, and password reset pages
   const hideHeader =
     pathname?.startsWith("/dashboard") ||
     pathname?.startsWith("/admin") ||
-    pathname?.startsWith("/investment") ||
+    pathname === "/investment" ||
+    pathname?.startsWith("/investment/") ||
     pathname?.startsWith("/verify-pin") ||
     pathname?.startsWith("/forgot-password") ||
     pathname?.startsWith("/reset-password");
