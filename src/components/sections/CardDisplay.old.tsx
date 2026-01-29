@@ -124,32 +124,32 @@ const CardDisplay = ({ userId }: CardDisplayProps) => {
             Apply for Card
           </a>
         </div>
-        <div className="relative w-full aspect-[1.586/1] max-w-[400px] mx-auto">
+        <div className="relative w-full aspect-[1.586/1] max-w-100 mx-auto">
           {/* Placeholder Card */}
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 p-6 text-white shadow-2xl border-2 border-dashed border-gray-300">
-            <div className="flex justify-between items-start mb-8">
-              <div className="w-12 h-10 bg-white/20 rounded"></div>
-              <CreditCard className="w-8 h-8 opacity-30" />
+          <div className="absolute inset-0 rounded-xl bg-linear-to-br from-gray-400 via-gray-500 to-gray-600 p-4 sm:p-6 text-white shadow-2xl border-2 border-dashed border-gray-300 flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+              <div className="w-10 h-8 sm:w-12 sm:h-10 bg-white/20 rounded"></div>
+              <CreditCard className="w-6 h-6 sm:w-8 sm:h-8 opacity-30" />
             </div>
-            <div className="mb-6">
-              <div className="text-2xl font-mono tracking-wider mb-1">**** **** **** ****</div>
+            <div className="flex-1 flex items-center">
+              <div className="text-lg sm:text-2xl font-mono tracking-wider">**** **** **** ****</div>
             </div>
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-xs opacity-70 mb-1">CARD HOLDER</div>
-                <div className="font-semibold">NO CARD ISSUED</div>
+            <div className="flex justify-between items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] sm:text-xs opacity-70 mb-0.5 sm:mb-1">CARD HOLDER</div>
+                <div className="font-semibold text-xs sm:text-base">NO CARD ISSUED</div>
               </div>
-              <div className="text-right">
-                <div className="text-xs opacity-70 mb-1">EXPIRES</div>
-                <div className="font-semibold">--/--</div>
+              <div className="text-right shrink-0">
+                <div className="text-[10px] sm:text-xs opacity-70 mb-0.5 sm:mb-1">EXPIRES</div>
+                <div className="font-semibold text-xs sm:text-base">--/--</div>
               </div>
             </div>
             
             {/* Center message */}
             <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-xl">
-              <div className="text-center">
-                <CreditCard className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm font-semibold">Apply for a Virtual Card</p>
+              <div className="text-center px-4">
+                <CreditCard className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 opacity-50" />
+                <p className="text-xs sm:text-sm font-semibold">Apply for a Virtual Card</p>
               </div>
             </div>
           </div>
@@ -180,77 +180,77 @@ const CardDisplay = ({ userId }: CardDisplayProps) => {
 
       <div className="relative">
         {/* Card Display */}
-        <div className="relative w-full aspect-[1.586/1] max-w-[400px] mx-auto">
+        <div className="relative w-full aspect-[1.586/1] max-w-100 mx-auto">
           {cardBrand === 'visa' ? (
             // Visa Card Design
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 p-6 text-white shadow-2xl">
-              <div className="flex justify-between items-start mb-8">
-                <div className="w-12 h-10 bg-gradient-to-br from-yellow-200 to-yellow-400 rounded"></div>
+            <div className="absolute inset-0 rounded-xl bg-linear-to-br from-blue-600 via-blue-700 to-blue-900 p-4 sm:p-6 text-white shadow-2xl flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <div className="w-10 h-8 sm:w-12 sm:h-10 bg-linear-to-br from-yellow-200 to-yellow-400 rounded"></div>
                 <div className="text-right">
-                  <svg className="w-16 h-5" viewBox="0 0 141 48" fill="currentColor">
+                  <svg className="w-12 h-4 sm:w-16 sm:h-5" viewBox="0 0 141 48" fill="currentColor">
                     <path d="M34.5 23.7l-6.8-16.8h-4.5l-6.8 16.8h4.2l1.3-3.4h6.9l1.3 3.4h4.4zm-9.7-6.5l2.2-5.8 2.2 5.8h-4.4zm18.8 6.5h4.1V6.9h-4.1v16.8zm14.3.4c2.4 0 4.4-.8 5.8-2.4l.1 2h3.7V13.5c0-4-3-6.6-7.2-6.6-3.9 0-6.9 2.3-7.5 5.5l3.8.5c.4-1.7 1.7-2.7 3.6-2.7 2.1 0 3.4 1.1 3.4 2.9v.2l-4.8.3c-4.4.3-7.2 2.2-7.2 5.6-.1 3.2 2.4 5.4 6.3 5.4zm.9-3.3c-1.8 0-3-.9-3-2.3 0-1.5 1.2-2.3 3.4-2.5l4-.3v1.1c0 2.4-2 4-4.4 4z"/>
                   </svg>
                 </div>
               </div>
-              <div className="mb-6">
-                <div className="text-2xl font-mono tracking-wider mb-1">{cardNumber}</div>
+              <div className="flex-1 flex items-center">
+                <div className="text-lg sm:text-2xl font-mono tracking-wider">{cardNumber}</div>
               </div>
-              <div className="flex justify-between items-end">
-                <div>
-                  <div className="text-xs opacity-70 mb-1">CARD HOLDER</div>
-                  <div className="font-semibold uppercase">{currentCard.user.name}</div>
+              <div className="flex justify-between items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] sm:text-xs opacity-70 mb-0.5 sm:mb-1">CARD HOLDER</div>
+                  <div className="font-semibold uppercase text-xs sm:text-base truncate">{currentCard.user.name}</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs opacity-70 mb-1">EXPIRES</div>
-                  <div className="font-semibold">{expiryDate}</div>
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] sm:text-xs opacity-70 mb-0.5 sm:mb-1">EXPIRES</div>
+                  <div className="font-semibold text-xs sm:text-base">{expiryDate}</div>
                 </div>
               </div>
             </div>
           ) : cardBrand === 'mastercard' ? (
             // Mastercard Design
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-gray-800 via-gray-900 to-black p-6 text-white shadow-2xl">
-              <div className="flex justify-between items-start mb-8">
-                <div className="w-12 h-10 bg-gradient-to-br from-yellow-200 to-yellow-400 rounded"></div>
+            <div className="absolute inset-0 rounded-xl bg-linear-to-br from-gray-800 via-gray-900 to-black p-4 sm:p-6 text-white shadow-2xl flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <div className="w-10 h-8 sm:w-12 sm:h-10 bg-linear-to-br from-yellow-200 to-yellow-400 rounded"></div>
                 <div className="flex gap-[-8px]">
-                  <div className="w-8 h-8 rounded-full bg-red-500 opacity-90"></div>
-                  <div className="w-8 h-8 rounded-full bg-yellow-500 opacity-90 -ml-3"></div>
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-red-500 opacity-90"></div>
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-yellow-500 opacity-90 -ml-3"></div>
                 </div>
               </div>
-              <div className="mb-6">
-                <div className="text-2xl font-mono tracking-wider mb-1">{cardNumber}</div>
+              <div className="flex-1 flex items-center">
+                <div className="text-lg sm:text-2xl font-mono tracking-wider">{cardNumber}</div>
               </div>
-              <div className="flex justify-between items-end">
-                <div>
-                  <div className="text-xs opacity-70 mb-1">CARD HOLDER</div>
-                  <div className="font-semibold uppercase">{currentCard.user.name}</div>
+              <div className="flex justify-between items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] sm:text-xs opacity-70 mb-0.5 sm:mb-1">CARD HOLDER</div>
+                  <div className="font-semibold uppercase text-xs sm:text-base truncate">{currentCard.user.name}</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs opacity-70 mb-1">EXPIRES</div>
-                  <div className="font-semibold">{expiryDate}</div>
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] sm:text-xs opacity-70 mb-0.5 sm:mb-1">EXPIRES</div>
+                  <div className="font-semibold text-xs sm:text-base">{expiryDate}</div>
                 </div>
               </div>
             </div>
           ) : (
             // American Express Design
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 p-6 text-white shadow-2xl">
-              <div className="flex justify-between items-start mb-8">
-                <div className="w-12 h-10 bg-gradient-to-br from-yellow-200 to-yellow-400 rounded"></div>
+            <div className="absolute inset-0 rounded-xl bg-linear-to-br from-blue-400 via-blue-500 to-blue-600 p-4 sm:p-6 text-white shadow-2xl flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <div className="w-10 h-8 sm:w-12 sm:h-10 bg-linear-to-br from-yellow-200 to-yellow-400 rounded"></div>
                 <div className="text-right">
-                  <div className="text-lg font-bold tracking-tight">AMERICAN</div>
-                  <div className="text-lg font-bold tracking-tight -mt-1">EXPRESS</div>
+                  <div className="text-sm sm:text-lg font-bold tracking-tight">AMERICAN</div>
+                  <div className="text-sm sm:text-lg font-bold tracking-tight -mt-1">EXPRESS</div>
                 </div>
               </div>
-              <div className="mb-6">
-                <div className="text-xl font-mono tracking-wider mb-1">{cardNumber}</div>
+              <div className="flex-1 flex items-center">
+                <div className="text-base sm:text-xl font-mono tracking-wider">{cardNumber}</div>
               </div>
-              <div className="flex justify-between items-end">
-                <div>
-                  <div className="text-xs opacity-70 mb-1">CARD MEMBER</div>
-                  <div className="font-semibold uppercase">{currentCard.user.name}</div>
+              <div className="flex justify-between items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] sm:text-xs opacity-70 mb-0.5 sm:mb-1">CARD MEMBER</div>
+                  <div className="font-semibold uppercase text-xs sm:text-base truncate">{currentCard.user.name}</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs opacity-70 mb-1">VALID THRU</div>
-                  <div className="font-semibold">{expiryDate}</div>
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] sm:text-xs opacity-70 mb-0.5 sm:mb-1">VALID THRU</div>
+                  <div className="font-semibold text-xs sm:text-base">{expiryDate}</div>
                 </div>
               </div>
             </div>

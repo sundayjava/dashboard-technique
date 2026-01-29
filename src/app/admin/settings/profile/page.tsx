@@ -56,9 +56,9 @@ export default function AdminProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+    // Validate file size (max 2MB for base64 storage)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('File size must be less than 2MB');
       return;
     }
 
@@ -71,22 +71,19 @@ export default function AdminProfilePage() {
     try {
       setUploadingAvatar(true);
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', 'avatars');
+      formData.append('avatar', file);
+      formData.append('userId', user?.id || '');
 
-      const response = await axios.post('/api/upload', formData);
+      const response = await axios.post('/api/upload-avatar', formData);
       
-      await axios.patch(`/api/users/${user?.id}`, {
-        avatar: response.data.url,
-      });
-
       toast.success('Profile picture updated successfully');
       fetchProfile();
       
       // Update localStorage
       if (user) {
-        const updatedUser = { ...user, avatar: response.data.url };
+        const updatedUser = { ...user, avatar: response.data.avatarUrl };
         localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
       }
     } catch (error: any) {
       console.error('Error uploading avatar:', error);

@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,35 +15,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
     }
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File size must be less than 5MB' }, { status: 400 });
+    // Validate file size (2MB max for base64 storage)
+    if (file.size > 2 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File size must be less than 2MB' }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Create unique filename
-    const timestamp = Date.now();
-    const ext = path.extname(file.name);
-    const filename = `cheque_${timestamp}${ext}`;
-
-    // Determine upload directory
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', type || 'cheques');
-    
-    // Ensure directory exists
-    await mkdir(uploadDir, { recursive: true });
-
-    // Save file
-    const filepath = path.join(uploadDir, filename);
-    await writeFile(filepath, buffer);
-
-    // Return relative path for database storage
-    const relativePath = `/uploads/${type || 'cheques'}/${filename}`;
+    // Convert to base64
+    const base64 = buffer.toString('base64');
+    const dataUrl = `data:${file.type};base64,${base64}`;
 
     return NextResponse.json({ 
       message: 'File uploaded successfully',
-      filePath: relativePath 
+      filePath: dataUrl
     });
   } catch (error) {
     console.error('Error uploading file:', error);

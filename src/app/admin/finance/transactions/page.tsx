@@ -101,6 +101,17 @@ export default function TransactionsPage() {
         axios.get('/api/admin/transactions'),
       ]);
 
+      // Filter out deposits from generic transactions since they're fetched separately
+      const otherTransactions = transactionsRes.data.transactions.filter((t: any) => {
+        // Exclude crypto deposits (they have channel: 'CRYPTO')
+        if (t.channel === 'CRYPTO') return false;
+        // Exclude bank deposits (they have channel: 'BANK_TRANSFER')
+        if (t.channel === 'BANK_TRANSFER') return false;
+        // Exclude cheque deposits (they have paymentMethod: 'CHEQUE')
+        if (t.paymentMethod === 'CHEQUE') return false;
+        return true;
+      });
+
       const allTransactions: Transaction[] = [
         ...cryptoRes.data.deposits.map((d: any) => ({
           ...d,
@@ -114,7 +125,7 @@ export default function TransactionsPage() {
           ...d,
           transactionType: 'CHEQUE_DEPOSIT',
         })),
-        ...transactionsRes.data.transactions,
+        ...otherTransactions,
       ];
 
       // Sort by date descending

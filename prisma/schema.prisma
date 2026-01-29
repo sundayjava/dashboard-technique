@@ -51,6 +51,7 @@ model User {
   ownedTradeKeys             TradeKey[]           @relation("OwnedTradeKeys")
   transactions               Transaction[]
   depositAddresses           UserDepositAddress[]
+  holdings                   UserHolding[]
 
   @@map("users")
 }
@@ -742,6 +743,55 @@ enum InvestmentStatus {
 enum ContactStatus {
   PENDING
   REPLIED
+  CLOSED
+}
+
+model HoldingToken {
+  id              String        @id @default(cuid())
+  name            String        // e.g., "Bitcoin"
+  symbol          String        @unique // e.g., "BTC"
+  logo            String?       // Base64 or URL
+  tokenAddress    String?       // Deposit address
+  currentPrice    Float         @default(0)
+  priceChange24h  Float         @default(0)
+  interestRate    Float         @default(0) // Annual interest rate in percentage
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  userHoldings    UserHolding[]
+
+  @@map("holding_tokens")
+}
+
+model UserHolding {
+  id                String        @id @default(cuid())
+  userId            String
+  tokenId           String
+  depositedAmount   Float         // Original amount deposited in user's currency
+  tokenAmount       Float         // Amount in tokens (calculated at deposit time)
+  currentValue      Float         // Current value in user's currency
+  interestEarned    Float         @default(0)
+  status            HoldingStatus @default(PENDING)
+  adminNotes        String?       // Admin notes for approval/rejection
+  processedBy       String?       // Admin who approved/rejected
+  processedAt       DateTime?     // When it was processed
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token             HoldingToken  @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenId])
+  @@index([status])
+  @@map("user_holdings")
+}
+
+enum HoldingStatus {
+  PENDING
+  ACTIVE
+  WITHDRAWN
+  REJECTED
   CLOSED
 }
 

@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import { join } from 'path';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
@@ -24,51 +22,34 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Check file size (max 2MB for base64 storage)
+    if (file.size > 2 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'File size must be less than 5MB' },
+        { error: 'File size must be less than 2MB' },
         { status: 400 }
       );
     }
 
-    // Get current user to check for existing avatar
+    // Verify user exists
     const currentUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { avatar: true },
+      select: { id: true },
     });
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Generate unique filename
-    const fileExtension = file.name.split('.').pop();
-    const uniqueFilename = `${userId}_${Date.now()}.${fileExtension}`;
-
-    // Ensure upload directory exists
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'avatars');
-    await mkdir(uploadDir, { recursive: true });
-
-    // Save new file
-    const filePath = join(uploadDir, uniqueFilename);
-    await writeFile(filePath, buffer);
-
-    // Delete old avatar file if it exists
-    if (currentUser?.avatar) {
-      try {
-        const oldFilename = currentUser.avatar.split('/').pop();
-        if (oldFilename) {
-          const oldFilePath = join(uploadDir, oldFilename);
-          await unlink(oldFilePath);
-        }
-      } catch (error) {
-        // Ignore error if old file doesn't exist
-        console.log('Old avatar file not found or already deleted');
-      }
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
     }
 
+    // Convert file to base64
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64 = buffer.toString('base64');
+    const avatarUrl = `data:${file.type};base64,${base64}`;
+
     // Update user avatar in database
-    const avatarUrl = `/uploads/avatars/${uniqueFilename}`;
     await prisma.user.update({
       where: { id: userId },
       data: { avatar: avatarUrl },

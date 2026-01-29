@@ -6,12 +6,13 @@ import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapp
 import MiniLineChart from '@/components/MiniLineChart';
 import CardDisplay from '@/components/sections/CardDisplay';
 import AcredisPlusModal from '@/components/modals/AcredisPlusModal';
+import HoldingsModal from '@/components/modals/HoldingsModal';
 import axios from 'axios';
 import { 
-  TrendingUp, TrendingDown, Send, CreditCard, 
+  TrendingUp, Send, CreditCard, 
   ArrowUpRight, ArrowDownRight, DollarSign, Wallet,
-  BarChart3, Activity, Clock, Calendar, MessageSquare,
-  ArrowRight, ExternalLink, Copy, Check, Award
+  BarChart3, Activity, Calendar,
+  ArrowRight, Copy, Check, MoreVertical
 } from 'lucide-react';
 
 interface User {
@@ -85,6 +86,8 @@ export default function DashboardPage() {
   const [accountCurrency, setAccountCurrency] = useState('USD');
   const [accountNumber, setAccountNumber] = useState<string>('');
   const [totalInvestments, setTotalInvestments] = useState(0);
+  const [totalInflow, setTotalInflow] = useState(0);
+  const [totalOutflow, setTotalOutflow] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeInvestments, setActiveInvestments] = useState<Investment[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -97,6 +100,7 @@ export default function DashboardPage() {
   const [validatingKey, setValidatingKey] = useState(false);
   const [showPlusModal, setShowPlusModal] = useState(false);
   const [activatingPlus, setActivatingPlus] = useState(false);
+  const [showHoldingsModal, setShowHoldingsModal] = useState(false);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -128,10 +132,11 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async (userId: string) => {
     try {
-      const [accountRes, investmentsRes, transactionsRes, investmentsListRes, messagesRes] = await Promise.all([
+      const [accountRes, investmentsRes, transactionsRes, transactionStatsRes, investmentsListRes, messagesRes] = await Promise.all([
         axios.get(`/api/accounts?userId=${userId}`),
         axios.get(`/api/investments/stats?userId=${userId}`),
         axios.get(`/api/transactions?userId=${userId}&limit=5`).catch(() => ({ data: { transactions: [] } })),
+        axios.get(`/api/transactions/stats?userId=${userId}`).catch(() => ({ data: { totalInflow: 0, totalOutflow: 0 } })),
         axios.get(`/api/investments?userId=${userId}&status=ACTIVE`).catch(() => ({ data: { investments: [] } })),
         axios.get(`/api/messages?userId=${userId}`).catch(() => ({ data: { messages: [] } }))
       ]);
@@ -148,6 +153,12 @@ export default function DashboardPage() {
 
       if (transactionsRes.data.transactions) {
         setTransactions(transactionsRes.data.transactions.slice(0, 4));
+      }
+
+      // Set inflow and outflow from dedicated stats endpoint
+      if (transactionStatsRes.data) {
+        setTotalInflow(transactionStatsRes.data.totalInflow || 0);
+        setTotalOutflow(transactionStatsRes.data.totalOutflow || 0);
       }
 
       if (investmentsListRes.data.investments) {
@@ -301,10 +312,19 @@ export default function DashboardPage() {
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                 <Wallet className="w-4 h-4 text-blue-600" />
               </div>
-              <span className="text-xs text-green-600 flex items-center">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                +2.5%
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-green-600 flex items-center">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  +2.5%
+                </span>
+                <button
+                  onClick={() => setShowHoldingsModal(true)}
+                  className="p-1 hover:bg-blue-50 rounded transition-colors"
+                  title="Crypto Holdings"
+                >
+                  <MoreVertical className="w-4 h-4 text-blue-600" />
+                </button>
+              </div>
             </div>
             <p className="text-xs text-gray-600 mb-1">Total Balance</p>
             <p className="text-lg font-bold text-gray-900">
@@ -333,30 +353,33 @@ export default function DashboardPage() {
           <div className="bg-white rounded-lg shadow p-3 border-l-4 border-green-500">
             <div className="flex items-center justify-between mb-1.5">
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-green-600" />
+                <ArrowDownRight className="w-4 h-4 text-green-600" />
               </div>
               <span className="text-xs text-green-600 flex items-center">
                 <TrendingUp className="w-3 h-3 mr-1" />
-                +5.2%
+                Inflow
               </span>
             </div>
-            <p className="text-xs text-gray-600 mb-1">Investments</p>
+            <p className="text-xs text-gray-600 mb-1">Total Money In</p>
             <p className="text-lg font-bold text-gray-900">
-              {getCurrencySymbol(accountCurrency)}{totalInvestments.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              {getCurrencySymbol(accountCurrency)}{totalInflow.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+          <div className="bg-white rounded-lg shadow p-3 border-l-4 border-red-500">
             <div className="flex items-center justify-between mb-1.5">
-              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Activity className="w-4 h-4 text-purple-600" />
+              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                <ArrowUpRight className="w-4 h-4 text-red-600" />
               </div>
-              <span className="text-xs text-purple-600 flex items-center">
-                Live
+              <span className="text-xs text-red-600 flex items-center">
+                <TrendingUp className="w-3 h-3 mr-1" />
+                Outflow
               </span>
             </div>
-            <p className="text-xs text-gray-600 mb-1">Crypto Market</p>
-            <p className="text-lg font-bold text-gray-900">Active</p>
+            <p className="text-xs text-gray-600 mb-1">Total Money Out</p>
+            <p className="text-lg font-bold text-gray-900">
+              {getCurrencySymbol(accountCurrency)}{totalOutflow.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
@@ -526,51 +549,131 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Active Investments */}
+          {/* Inflow vs Outflow Doughnut Chart */}
           <div className="bg-white rounded-lg shadow p-3">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-bold text-gray-900">Active Investments</h2>
-              <BarChart3 className="w-4 h-4 text-gray-500" />
+              <h2 className="text-sm font-bold text-gray-900">Money Flow</h2>
+              <Activity className="w-4 h-4 text-gray-500" />
             </div>
 
-            <div className="space-y-1.5">
-              {activeInvestments.filter(inv => inv.status === 'ACTIVE').length > 0 ? (
+            <div className="flex flex-col items-center">
+              {totalInflow > 0 || totalOutflow > 0 ? (
                 <>
-                  {activeInvestments.filter(inv => inv.status === 'ACTIVE').map((investment) => (
-                    <div key={investment.id} className="p-1.5 rounded border-2 border-purple-100 hover:border-purple-300 transition-colors">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-bold text-gray-900">{investment.planName}</p>
-                        <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">ACTIVE</span>
+                  {/* Doughnut Chart */}
+                  <div className="relative w-40 h-40 mb-3">
+                    <svg viewBox="0 0 100 100" className="transform -rotate-90">
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="none"
+                        stroke="#f3f4f6"
+                        strokeWidth="12"
+                      />
+                      {(() => {
+                        const total = totalInflow + totalOutflow;
+                        const inflowPercent = (totalInflow / total) * 100;
+                        const outflowPercent = (totalOutflow / total) * 100;
+                        const circumference = 2 * Math.PI * 40;
+                        const inflowLength = (inflowPercent / 100) * circumference;
+                        const outflowLength = (outflowPercent / 100) * circumference;
+
+                        return (
+                          <>
+                            {/* Inflow arc */}
+                            <circle
+                              cx="50"
+                              cy="50"
+                              r="40"
+                              fill="none"
+                              stroke="#10b981"
+                              strokeWidth="12"
+                              strokeDasharray={`${inflowLength} ${circumference}`}
+                              strokeLinecap="round"
+                            />
+                            {/* Outflow arc */}
+                            <circle
+                              cx="50"
+                              cy="50"
+                              r="40"
+                              fill="none"
+                              stroke="#ef4444"
+                              strokeWidth="12"
+                              strokeDasharray={`${outflowLength} ${circumference}`}
+                              strokeDashoffset={-inflowLength}
+                              strokeLinecap="round"
+                            />
+                          </>
+                        );
+                      })()}
+                    </svg>
+                    
+                    {/* Center text */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <p className="text-xs text-gray-500">Total Flow</p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {getCurrencySymbol(accountCurrency)}{(totalInflow + totalOutflow).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="w-full space-y-2">
+                    <div className="flex items-center justify-between p-2 rounded bg-green-50 border border-green-200">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span className="text-xs font-medium text-gray-700">Inflow</span>
                       </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">Amount:</span>
-                        <span className="font-semibold text-gray-900">${investment.amount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">Profit:</span>
-                        <span className="font-semibold text-green-600">+${investment.profitEarned.toLocaleString()}</span>
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        Ends: {new Date(investment.endDate).toLocaleDateString()}
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-green-600">
+                          {getCurrencySymbol(accountCurrency)}{totalInflow.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                        </p>
+                        <p className="text-[10px] text-gray-500">
+                          {totalInflow + totalOutflow > 0 ? ((totalInflow / (totalInflow + totalOutflow)) * 100).toFixed(1) : 0}%
+                        </p>
                       </div>
                     </div>
-                  ))}
-                  <button 
-                    onClick={handleViewInvestments}
-                    className="w-full py-1.5 text-xs text-purple-600 hover:bg-purple-50 rounded transition-colors flex items-center justify-center"
-                  >
-                    View All Investments <ArrowRight className="w-3 h-3 ml-1" />
-                  </button>
+
+                    <div className="flex items-center justify-between p-2 rounded bg-red-50 border border-red-200">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span className="text-xs font-medium text-gray-700">Outflow</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-red-600">
+                          {getCurrencySymbol(accountCurrency)}{totalOutflow.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                        </p>
+                        <p className="text-[10px] text-gray-500">
+                          {totalInflow + totalOutflow > 0 ? ((totalOutflow / (totalInflow + totalOutflow)) * 100).toFixed(1) : 0}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Net Flow */}
+                    <div className={`flex items-center justify-between p-2 rounded border ${
+                      totalInflow >= totalOutflow 
+                        ? 'bg-blue-50 border-blue-200' 
+                        : 'bg-orange-50 border-orange-200'
+                    }`}>
+                      <span className="text-xs font-medium text-gray-700">Net Flow</span>
+                      <p className={`text-xs font-bold ${
+                        totalInflow >= totalOutflow ? 'text-blue-600' : 'text-orange-600'
+                      }`}>
+                        {totalInflow >= totalOutflow ? '+' : '-'}
+                        {getCurrencySymbol(accountCurrency)}{Math.abs(totalInflow - totalOutflow).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <div className="text-center py-6 text-gray-500">
-                  <BarChart3 className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                  <p className="text-xs">No active investments</p>
+                  <Activity className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                  <p className="text-xs">No transaction data yet</p>
                   <button 
-                    onClick={() => router.push('/investment/plans')}
+                    onClick={() => router.push('/dashboard/transfer/acredis-to-acredis')}
                     className="mt-2 text-xs text-blue-600 hover:underline"
                   >
-                    Start Investing →
+                    Make a Transaction →
                   </button>
                 </div>
               )}
@@ -926,6 +1029,21 @@ export default function DashboardPage() {
         onActivate={handleActivatePlus}
         isActivating={activatingPlus}
       />
+
+      {/* Holdings Modal */}
+      {user && (
+        <HoldingsModal
+          isOpen={showHoldingsModal}
+          onClose={() => setShowHoldingsModal(false)}
+          userId={user.id}
+          accountBalance={accountBalance}
+          accountCurrency={accountCurrency}
+          onSuccess={() => {
+            // Refresh dashboard data
+            fetchDashboardData(user.id);
+          }}
+        />
+      )}
     </DashboardLayoutWrapper>
   );
 }

@@ -42,16 +42,29 @@ export default function Avatar({ src, name, size = 'md', className = '' }: Avata
     return colors[Math.abs(hash) % colors.length];
   };
 
+  // Check if src is a base64 data URL
+  const isBase64 = src?.startsWith('data:');
+
   if (src) {
     return (
       <div className={`relative rounded-full overflow-hidden ${sizeClasses[size]} ${className}`}>
-        <Image
-          src={src}
-          alt={name || 'User avatar'}
-          fill
-          className="object-cover"
-          sizes={size === 'xl' ? '96px' : size === 'lg' ? '64px' : size === 'md' ? '40px' : '32px'}
-        />
+        {isBase64 ? (
+          // Use regular img tag for base64 images
+          <img
+            src={src}
+            alt={name || 'User avatar'}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          // Use Next.js Image for regular URLs
+          <Image
+            src={src}
+            alt={name || 'User avatar'}
+            fill
+            className="object-cover"
+            sizes={size === 'xl' ? '96px' : size === 'lg' ? '64px' : size === 'md' ? '40px' : '32px'}
+          />
+        )}
       </div>
     );
   }

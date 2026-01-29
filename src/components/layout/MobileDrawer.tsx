@@ -3,6 +3,8 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useUIStore } from "@/store";
+import { useRouter } from "next/navigation";
 
 interface NavItem {
   label: string;
@@ -20,6 +22,8 @@ interface MobileDrawerProps {
 export function MobileDrawer({ isOpen, onClose, navItems }: MobileDrawerProps) {
   const [expandedItem, setExpandedItem] = React.useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const { setSelectedService } = useUIStore();
+  const router = useRouter();
 
   // Close on escape key
   React.useEffect(() => {
@@ -140,14 +144,32 @@ export function MobileDrawer({ isOpen, onClose, navItems }: MobileDrawerProps) {
                             transition={{ duration: 0.2 }}
                           >
                             {item.submenu.map((subItem) => (
-                              <a
+                              <div
                                 key={subItem.label}
-                                href={item.label === "Services" ? (isLoggedIn ? "/dashboard" : "/login") : subItem.href}
+                                onClick={() => {
+                                  if (item.label === "Services") {
+                                    // Set the selected service
+                                    setSelectedService(subItem.label);
+                                    onClose();
+                                    // Navigate to home page and scroll to services section
+                                    router.push("/#services");
+                                    // Small delay to ensure navigation completes before scrolling
+                                    setTimeout(() => {
+                                      const element = document.getElementById("services");
+                                      if (element) {
+                                        element.scrollIntoView({ behavior: "smooth", block: "start" });
+                                      }
+                                    }, 100);
+                                  } else {
+                                    // For other items, navigate normally
+                                    onClose();
+                                    router.push(subItem.href);
+                                  }
+                                }}
                                 className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-primary/5 rounded-md transition-colors cursor-pointer"
-                                onClick={onClose}
                               >
                                 {subItem.label}
-                              </a>
+                              </div>
                             ))}
                           </motion.div>
                         )}
