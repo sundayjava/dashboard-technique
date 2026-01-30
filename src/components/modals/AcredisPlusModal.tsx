@@ -7,9 +7,11 @@ import { SupportModal } from './SupportModal';
 interface AcredisPlusModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onActivate?: () => Promise<void>;
+  isActivating?: boolean;
 }
 
-export default function AcredisPlusModal({ isOpen, onClose }: AcredisPlusModalProps) {
+export default function AcredisPlusModal({ isOpen, onClose, onActivate, isActivating }: AcredisPlusModalProps) {
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
   if (!isOpen) return null;
