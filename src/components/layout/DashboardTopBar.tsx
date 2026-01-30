@@ -248,7 +248,7 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden z-50">
+            <div className="fixed left-1/2 -translate-x-1/2 top-16 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden z-50">
               {/* Header */}
               <div className="px-4 py-3 border-b border-gray-200 bg-linear-to-r from-[#c1ff72]/10 to-[#c1ff72]/5">
                 <div className="flex items-center justify-between">
@@ -260,7 +260,7 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
                         {unreadCount}
                       </span>
                     )}
-                  </h3>
+                  </h3> 
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}

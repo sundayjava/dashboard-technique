@@ -98,8 +98,11 @@ export function Header1() {
           <div className="flex items-center justify-between h-16 lg:hidden">
             {/* Mobile Logo */}
             <div className="flex shrink-0">
-              <a href="/" className="cursor-pointer">
-                <Image src="/logo/tp-acredis.webp" alt="Acredis Finance" width={170} height={32} className="h-12 w-auto" priority />
+              <a href="/" className="cursor-pointer flex items-center gap-3">
+                <Image src="/logo/WG_Gbg_Fin-No-bg.png" alt="Acredis Finance" width={150} height={40} className="h-12 w-auto" priority />
+                <span className="text-xl font-bold text-white whitespace-nowrap">
+                  <span className="text-[#c1ff72]">A</span>credis Finance
+                </span>
               </a>
             </div>
 
@@ -144,8 +147,11 @@ export function Header1() {
               transition={{ duration: 0.4 }}
               whileHover={{ scale: 1.02 }}
             >
-              <a href="/" className="cursor-pointer">
-                <Image src="/logo/tp-acredis.webp" alt="Acredis Finance" width={150} height={40} className="h-16 w-auto" priority />
+              <a href="/" className="cursor-pointer flex items-center gap-3">
+                <Image src="/logo/WG_Gbg_Fin-No-bg.png" alt="Acredis Finance" width={150} height={40} className="h-12 w-auto" priority />
+                <span className="text-xl font-bold text-white whitespace-nowrap">
+                  <span className="text-[#c1ff72]">A</span>credis Finance
+                </span>
               </a>
             </motion.div>
 

@@ -476,7 +476,7 @@ export default function InvestmentDashboardPage() {
             )}
           </div>
 
-          {/* Main Content Grid - Market Data + Economic Calendar + Market Timeline */}
+          {/* Main Content Grid - Market Data + Economic Calendar + Market Timeline */} 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {/* Live Markets - 3x3 Grid */}
             <div className="bg-white rounded-lg shadow p-3">
@@ -493,7 +493,7 @@ export default function InvestmentDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-1.5">
                 {cryptoData.slice(0, 9).map((crypto, index) => {
                   const priceHistory = crypto.priceHistory.map(item => item.price);
                   const trend = crypto.change24h >= 0 ? 'up' : 'down';
@@ -501,24 +501,26 @@ export default function InvestmentDashboardPage() {
                   return (
                     <div
                       key={index}
-                      className="p-1 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-all duration-300"
+                      className="p-1.5 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-all duration-300"
                       style={{ transform: cryptoUpdating ? 'scale(0.95)' : 'scale(1)' }}
                     >
-                      <div className="text-[9px] font-bold text-gray-900 mb-0.5 truncate">
+                      <div className="text-[10px] sm:text-xs font-bold text-gray-900 mb-1 truncate">
                         {crypto.symbol}
                       </div>
-                      <div className="text-[8px] font-semibold text-gray-700 mb-1">
+                      <div className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
                         ${crypto.price < 1 
                           ? crypto.price.toFixed(4)
                           : crypto.price.toLocaleString('en-US', { maximumFractionDigits: 0 })
                         }
                       </div>
-                      <MiniLineChart 
-                        data={priceHistory}
-                        trend={trend}
-                        height={20}
-                      />
-                      <div className={`text-[7px] font-semibold mt-0.5 ${
+                      <div className="h-5 mb-1">
+                        <MiniLineChart 
+                          data={priceHistory}
+                          trend={trend}
+                          height={20}
+                        />
+                      </div>
+                      <div className={`text-[9px] sm:text-[10px] font-semibold ${
                         crypto.change24h >= 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {crypto.change24h >= 0 ? '+' : ''}{crypto.change24h.toFixed(2)}%
@@ -575,8 +577,8 @@ export default function InvestmentDashboardPage() {
             </div>
 
             {/* Market Timeline Chart */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+            <div className="bg-white rounded-lg shadow p-3">
+              <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-blue-600" />
                   <h2 className="text-sm font-bold text-gray-900">Market Timeline - 24H</h2>
@@ -603,11 +605,11 @@ export default function InvestmentDashboardPage() {
                   return (
                     <div key={index} className="flex items-center gap-1">
                       <div 
-                        className="w-2 h-2 rounded-full"
+                        className="w-2 h-2 rounded-full shrink-0"
                         style={{ backgroundColor: color }}
                       ></div>
-                      <span className="text-[9px] font-semibold text-gray-700">{crypto.symbol}</span>
-                      <span className={`text-[8px] font-medium ${
+                      <span className="text-[10px] sm:text-xs font-semibold text-gray-700 truncate">{crypto.symbol}</span>
+                      <span className={`text-[10px] sm:text-xs font-medium shrink-0 ${
                         crypto.change24h >= 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {crypto.change24h >= 0 ? '+' : ''}{crypto.change24h.toFixed(1)}%
@@ -618,13 +620,13 @@ export default function InvestmentDashboardPage() {
               </div>
 
               {/* Combined Timeline Chart */}
-              <div className="w-full" style={{ height: '100px' }}>
+              <div className="w-full min-h-25" style={{ height: '100px' }}>
                 <svg
                   width="100%"
                   height="100%"
                   viewBox="0 0 100 100"
                   preserveAspectRatio="none"
-                  className="w-full"
+                  className="w-full h-full"
                 >
                   <defs>
                     {cryptoData.slice(0, 9).map((crypto, index) => {
@@ -698,7 +700,7 @@ export default function InvestmentDashboardPage() {
                           d={pathD}
                           fill="none"
                           stroke={color}
-                          strokeWidth="1.5"
+                          strokeWidth="2"
                           vectorEffect="non-scaling-stroke"
                           className="transition-all duration-700"
                           strokeLinecap="round"
@@ -713,28 +715,28 @@ export default function InvestmentDashboardPage() {
 
               {/* Timeline labels */}
               <div className="flex justify-between mt-2 px-1">
-                <span className="text-[10px] text-gray-500 font-medium">24h ago</span>
-                <span className="text-[10px] text-gray-500 font-medium">Now</span>
+                <span className="text-xs sm:text-sm text-gray-500 font-medium">24h ago</span>
+                <span className="text-xs sm:text-sm text-gray-500 font-medium">Now</span>
               </div>
 
               {/* Stats Summary */}
               {cryptoData.length > 0 && (
                 <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-200">
                   <div className="text-center">
-                    <div className="text-[10px] text-gray-500">Highest</div>
-                    <div className="text-xs font-bold text-green-600">
+                    <div className="text-[10px] sm:text-xs text-gray-500">Highest</div>
+                    <div className="text-xs sm:text-sm font-bold text-green-600 truncate">
                       {cryptoData.slice(0, 9).reduce((max, c) => c.change24h > max.change24h ? c : max).symbol}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-[10px] text-gray-500">Average</div>
-                    <div className="text-xs font-bold text-gray-900">
+                    <div className="text-[10px] sm:text-xs text-gray-500">Average</div>
+                    <div className="text-xs sm:text-sm font-bold text-gray-900">
                       {(cryptoData.slice(0, 9).reduce((sum, c) => sum + c.change24h, 0) / cryptoData.slice(0, 9).length).toFixed(2)}%
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-[10px] text-gray-500">Lowest</div>
-                    <div className="text-xs font-bold text-red-600">
+                    <div className="text-[10px] sm:text-xs text-gray-500">Lowest</div>
+                    <div className="text-xs sm:text-sm font-bold text-red-600 truncate">
                       {cryptoData.slice(0, 9).reduce((min, c) => c.change24h < min.change24h ? c : min).symbol}
                     </div>
                   </div>
