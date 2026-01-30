@@ -30,6 +30,7 @@ export function SignUpForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [showConfirmPin, setShowConfirmPin] = useState(false);
+  const [currencies, setCurrencies] = useState(CURRENCIES);
 
   // Step 1 Form
   const {
@@ -73,6 +74,31 @@ export function SignUpForm() {
 
     detectCountry();
   }, [setValueStep1]);
+
+  // Fetch currencies from database
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const response = await fetch('/api/currencies?activeOnly=true');
+        const data = await response.json();
+        
+        // If database has currencies, use them; otherwise use hardcoded ones
+        if (Array.isArray(data) && data.length > 0) {
+          const formattedCurrencies = data.map((currency: any) => ({
+            code: currency.code,
+            name: currency.name,
+            symbol: currency.symbol
+          }));
+          setCurrencies(formattedCurrencies);
+        }
+      } catch (error) {
+        // Silently fail - will use hardcoded currencies
+        console.log('Failed to fetch currencies from database, using hardcoded list');
+      }
+    };
+
+    fetchCurrencies();
+  }, []);
 
   // Step 2 Form
   const {
@@ -308,7 +334,7 @@ export function SignUpForm() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             >
               <option value="">Select currency</option>
-              {CURRENCIES.map((currency) => (
+              {currencies.map((currency) => (
                 <option key={currency.code} value={currency.code}>
                   {currency.symbol} {currency.code} - {currency.name}
                 </option>

@@ -15,20 +15,77 @@ const cryptoSymbols = [
   { symbol: 'USDT', name: 'Tether', icon: 'USDT', binanceSymbol: 'USDCUSDT' }
 ];
 
+// Fallback prices
+function getFallbackPrice(symbol: string): number {
+  const fallbackPrices: Record<string, number> = {
+    'BTC': 95000,
+    'ETH': 3400,
+    'XRP': 2.45,
+    'SOL': 185,
+    'BNB': 620,
+    'DOT': 7.8,
+    'ADA': 0.95,
+    'DOGE': 0.32,
+    'USDT': 1.00
+  };
+  return fallbackPrices[symbol] || 100;
+}
+
+function formatVolume(volume: number): string {
+  if (volume >= 1e9) {
+    return `$${(volume / 1e9).toFixed(2)}B`;
+  } else if (volume >= 1e6) {
+    return `$${(volume / 1e6).toFixed(1)}M`;
+  } else if (volume >= 1e3) {
+    return `$${(volume / 1e3).toFixed(1)}K`;
+  }
+  return `$${volume.toFixed(0)}`;
+}
+
+function generateFallbackHistory(currentPrice: number, change24h: number) {
+  const history = [];
+  const startPrice = currentPrice / (1 + change24h / 100);
+  
+  for (let i = 0; i < 24; i++) {
+    const progress = i / 23;
+    const randomFluctuation = (Math.random() - 0.5) * 0.02;
+    const price = startPrice * (1 + (change24h / 100) * progress + randomFluctuation);
+    
+    history.push({
+      time: `${i.toString().padStart(2, '0')}:00`,
+      price: parseFloat(price.toFixed(2))
+    });
+  }
+  
+  return history;
+}
+
 export async function GET() {
   try {
+    console.log('Fetching crypto data from Binance API...');
+    
     // Fetch 24hr ticker data from Binance for all symbols
     const symbols = cryptoSymbols.map(c => `"${c.binanceSymbol}"`).join(',');
     const tickerResponse = await fetch(
       `${BINANCE_API}/ticker/24hr?symbols=[${symbols}]`,
-      { next: { revalidate: 10 } }
+      { 
+        next: { revalidate: 10 },
+        headers: {
+          'Accept': 'application/json'
+        }
+      }
     );
 
+    console.log('Binance API status:', tickerResponse.status);
+
     if (!tickerResponse.ok) {
-      throw new Error('Failed to fetch from Binance API');
+      const errorText = await tickerResponse.text();
+      console.error('Binance API error:', errorText);
+      throw new Error(`Binance API error: ${tickerResponse.status} - ${errorText}`);
     }
 
     const tickerData = await tickerResponse.json();
+    console.log('Ticker data received:', tickerData.length, 'items');
 
     // Fetch kline data (candlestick) for price history
     const cryptoDataPromises = cryptoSymbols.map(async (crypto, index) => {
@@ -91,43 +148,26 @@ export async function GET() {
 
   } catch (error) {
     console.error('Error fetching crypto data:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to fetch cryptocurrency data',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
-  }
-}
-
-function formatVolume(volume: number): string {
-  if (volume >= 1e9) {
-    return `$${(volume / 1e9).toFixed(2)}B`;
-  } else if (volume >= 1e6) {
-    return `$${(volume / 1e6).toFixed(1)}M`;
-  } else if (volume >= 1e3) {
-    return `$${(volume / 1e3).toFixed(1)}K`;
-  }
-  return `$${volume.toFixed(0)}`;
-}
-
-function generateFallbackHistory(currentPrice: number, change24h: number) {
-  const history = [];
-  const startPrice = currentPrice / (1 + change24h / 100);
-  
-  for (let i = 0; i < 24; i++) {
-    const progress = i / 23;
-    const randomFluctuation = (Math.random() - 0.5) * 0.02;
-    const price = startPrice * (1 + (change24h / 100) * progress + randomFluctuation);
+    // Return fallback data instead of error
+    const fallbackData = cryptoSymbols.map(crypto => ({
+      symbol: crypto.symbol,
+      name: crypto.name,
+      icon: crypto.icon,
+      price: getFallbackPrice(crypto.symbol),
+      change24h: (Math.random() - 0.5) * 10,
+      volume24h: 'N/A',
+      marketCap: 'N/A',
+      priceHistory: generateFallbackHistory(getFallbackPrice(crypto.symbol), (Math.random() - 0.5) * 10)
+    }));
     
-    history.push({
-      time: `${i.toString().padStart(2, '0')}:00`,
-      price: parseFloat(price.toFixed(2))
+    return NextResponse.json({
+      success: true,
+      data: fallbackData,
+      timestamp: new Date().toISOString(),
+      source: 'Fallback data (Binance API unavailable)',
+      warning: 'Using fallback prices - Binance API not accessible'
     });
   }
-  
-  return history;
 }

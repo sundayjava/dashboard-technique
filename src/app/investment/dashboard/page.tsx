@@ -60,6 +60,8 @@ export default function InvestmentDashboardPage() {
   const [cryptoData, setCryptoData] = useState<CryptoToken[]>([]);
   const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>([]);
   const [cryptoUpdating, setCryptoUpdating] = useState(false);
+  const [cryptoLoading, setCryptoLoading] = useState(true);
+  const [cryptoError, setCryptoError] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
@@ -92,14 +94,25 @@ export default function InvestmentDashboardPage() {
   const fetchCryptoData = async () => {
     try {
       setCryptoUpdating(true);
+      console.log('Fetching crypto data...');
       const response = await axios.get('/api/investment/crypto-prices');
-      if (response.data.success) {
+      console.log('Crypto API response:', response.data);
+      
+      if (response.data.success && response.data.data) {
         setCryptoData(response.data.data);
+        setCryptoError(null);
+        console.log('Crypto data loaded:', response.data.data.length, 'tokens');
+      } else {
+        setCryptoError('No crypto data available');
+        console.warn('Crypto API returned no data');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching crypto data:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      setCryptoError(error.response?.data?.error || 'Failed to load crypto data');
     } finally {
       setCryptoUpdating(false);
+      setCryptoLoading(false);
     }
   };
 
@@ -477,7 +490,7 @@ export default function InvestmentDashboardPage() {
           </div>
 
           {/* Main Content Grid - Market Data + Economic Calendar + Market Timeline */} 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {/* Live Markets - 3x3 Grid */}
             <div className="bg-white rounded-lg shadow p-3">
               <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
@@ -493,46 +506,69 @@ export default function InvestmentDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-1.5">
-                {cryptoData.slice(0, 9).map((crypto, index) => {
-                  const priceHistory = crypto.priceHistory.map(item => item.price);
-                  const trend = crypto.change24h >= 0 ? 'up' : 'down';
+              {cryptoLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="ml-3 text-sm text-gray-600">Loading markets...</p>
+                </div>
+              ) : cryptoError ? (
+                <div className="text-center py-8">
+                  <Activity className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm text-red-600 mb-2">{cryptoError}</p>
+                  <button
+                    onClick={fetchCryptoData}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : cryptoData.length === 0 ? (
+                <div className="text-center py-8">
+                  <Activity className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm text-gray-500">No market data available</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {cryptoData.map((crypto, index) => {
+                    const priceHistory = crypto.priceHistory.map(item => item.price);
+                    const trend = crypto.change24h >= 0 ? 'up' : 'down';
 
-                  return (
-                    <div
-                      key={index}
-                      className="p-1.5 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-all duration-300"
-                      style={{ transform: cryptoUpdating ? 'scale(0.95)' : 'scale(1)' }}
-                    >
-                      <div className="text-[10px] sm:text-xs font-bold text-gray-900 mb-1 truncate">
-                        {crypto.symbol}
+                    return (
+                      <div
+                        key={index}
+                        className="p-1.5 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-all duration-300"
+                        style={{ transform: cryptoUpdating ? 'scale(0.95)' : 'scale(1)' }}
+                      >
+                        <div className="text-[10px] sm:text-xs font-bold text-gray-900 mb-1 truncate">
+                          {crypto.symbol}
+                        </div>
+                        <div className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
+                          ${crypto.price < 1 
+                            ? crypto.price.toFixed(4)
+                            : crypto.price.toLocaleString('en-US', { maximumFractionDigits: 0 })
+                          }
+                        </div>
+                        <div className="h-5 mb-1">
+                          <MiniLineChart 
+                            data={priceHistory}
+                            trend={trend}
+                            height={20}
+                          />
+                        </div>
+                        <div className={`text-[9px] sm:text-[10px] font-semibold ${
+                          crypto.change24h >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {crypto.change24h >= 0 ? '+' : ''}{crypto.change24h.toFixed(2)}%
+                        </div>
                       </div>
-                      <div className="text-[10px] sm:text-xs font-semibold text-gray-700 mb-1">
-                        ${crypto.price < 1 
-                          ? crypto.price.toFixed(4)
-                          : crypto.price.toLocaleString('en-US', { maximumFractionDigits: 0 })
-                        }
-                      </div>
-                      <div className="h-5 mb-1">
-                        <MiniLineChart 
-                          data={priceHistory}
-                          trend={trend}
-                          height={20}
-                        />
-                      </div>
-                      <div className={`text-[9px] sm:text-[10px] font-semibold ${
-                        crypto.change24h >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {crypto.change24h >= 0 ? '+' : ''}{crypto.change24h.toFixed(2)}%
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Economic Calendar */}
-            <div className="bg-white rounded-lg shadow p-3">
+            {/* <div className="bg-white rounded-lg shadow p-3">
               <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-600" />
@@ -574,7 +610,7 @@ export default function InvestmentDashboardPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* Market Timeline Chart */}
             <div className="bg-white rounded-lg shadow p-3">
