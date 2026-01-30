@@ -36,6 +36,10 @@ export default function TradeKeyPage() {
   const [selectedKey, setSelectedKey] = useState<TradeKey | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [referralBonus, setReferralBonus] = useState(0);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -48,6 +52,7 @@ export default function TradeKeyPage() {
     const parsedUser = JSON.parse(userData);
     setUser(parsedUser);
     fetchTradeKeys(parsedUser.id);
+    fetchUserData(parsedUser.id);
   }, [router]);
 
   const fetchTradeKeys = async (userId: string) => {
@@ -59,6 +64,19 @@ export default function TradeKeyPage() {
       toast.error('Failed to load trade keys');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchUserData = async (userId: string) => {
+    try {
+      const response = await axios.get(`/api/user/${userId}`);
+      setReferralBonus(response.data.user.referralBonus || 0);
+      // Update localStorage with latest user data
+      const updatedUser = { ...user, ...response.data.user };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error('Error fetching user data:', error);
     }
   };
 
@@ -75,6 +93,39 @@ export default function TradeKeyPage() {
   const handleCloseModal = () => {
     setShowDetailsModal(false);
     setSelectedKey(null);
+  };
+
+  const handleWithdrawBonus = async () => {
+    if (!user?.id) return;
+    
+    const amount = parseFloat(withdrawAmount);
+    if (!amount || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    if (amount > referralBonus) {
+      toast.error('Insufficient referral bonus balance');
+      return;
+    }
+
+    setIsWithdrawing(true);
+    try {
+      const response = await axios.post('/api/referral/withdraw', {
+        userId: user.id,
+        amount: amount
+      });
+
+      toast.success('Referral bonus withdrawn successfully!');
+      setShowWithdrawModal(false);
+      setWithdrawAmount('');
+      await fetchUserData(user.id);
+    } catch (error: any) {
+      console.error('Error withdrawing bonus:', error);
+      toast.error(error.response?.data?.error || 'Failed to withdraw bonus');
+    } finally {
+      setIsWithdrawing(false);
+    }
   };
 
   const handleCreateReferralKey = async () => {
@@ -171,24 +222,33 @@ export default function TradeKeyPage() {
             </div>
           </div>
 
-          {/* Info Banner */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
-            <div className="flex gap-4">
-              <svg className="w-6 h-6 text-blue-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              <div>
-                <h3 className="text-lg font-semibold text-blue-900 mb-2">What is a Referral Key?</h3>
-                <p className="text-sm text-blue-800 mb-2">
-                  Your referral key allows you to grant investment access to other users. When someone uses your referral key, 
-                  they gain access to the investment platform, and you can track all your referrals.
-                </p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-blue-800">
-                  <li>Share your key with friends and family</li>
-                  <li>Track who used your key and when</li>
-                  <li>Your key has unlimited uses and never expires</li>
-                </ul>
+          {/* Referral Bonus Card */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 mb-6 shadow-md">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="bg-green-500 rounded-full p-3">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Available Referral Bonus</p>
+                  <p className="text-3xl font-bold text-green-600">
+                    ${referralBonus.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Earned from your referrals</p>
+                </div>
               </div>
+              <button
+                onClick={() => setShowWithdrawModal(true)}
+                disabled={referralBonus <= 0}
+                className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 shadow-md"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                Withdraw to Balance
+              </button>
             </div>
           </div>
 
@@ -305,6 +365,29 @@ export default function TradeKeyPage() {
               ))}
             </div>
           )}
+
+
+          {/* Info Banner */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+            <div className="flex gap-4">
+              <svg className="w-6 h-6 text-blue-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <div>
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">What is a Referral Key?</h3>
+                <p className="text-sm text-blue-800 mb-2">
+                  Your referral key allows you to grant investment access to other users. When someone uses your referral key, 
+                  they gain access to the investment platform, and you can track all your referrals.
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-blue-800">
+                  <li>Share your key with friends and family</li>
+                  <li>Track who used your key and when</li>
+                  <li>Your key has unlimited uses and never expires</li>
+                  <li>Earn bonus when someone uses your referral key</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -393,6 +476,101 @@ export default function TradeKeyPage() {
                 className="w-full px-6 py-3 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw Bonus Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Withdraw Referral Bonus</h2>
+              <button
+                onClick={() => {
+                  setShowWithdrawModal(false);
+                  setWithdrawAmount('');
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Bonus Info */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-gray-600 mb-1">Available Balance</p>
+              <p className="text-3xl font-bold text-green-600">${referralBonus.toFixed(2)}</p>
+            </div>
+
+            {/* Amount Input */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Withdrawal Amount
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg font-semibold">$</span>
+                <input
+                  type="number"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  max={referralBonus}
+                  className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-lg"
+                />
+              </div>
+              <button
+                onClick={() => setWithdrawAmount(referralBonus.toString())}
+                className="mt-2 text-sm text-green-600 hover:text-green-700 font-medium"
+              >
+                Withdraw All
+              </button>
+            </div>
+
+            {/* Info Note */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex gap-3">
+                <svg className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium mb-1">Withdrawal Information</p>
+                  <p>The amount will be added to your main account balance instantly.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowWithdrawModal(false);
+                  setWithdrawAmount('');
+                }}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleWithdrawBonus}
+                disabled={isWithdrawing || !withdrawAmount || parseFloat(withdrawAmount) <= 0}
+                className="flex-1 px-4 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+              >
+                {isWithdrawing ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : (
+                  'Confirm Withdrawal'
+                )}
               </button>
             </div>
           </div>

@@ -97,21 +97,18 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Check if setting exists
+    // Check if setting exists to get type, or use defaults
     const existingSetting = await prisma.systemSetting.findUnique({
       where: { key },
     });
 
-    if (!existingSetting) {
-      return NextResponse.json(
-        { error: 'Setting not found' },
-        { status: 404 }
-      );
-    }
+    const settingType = existingSetting?.type || (typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : 'string');
+    const category = existingSetting?.category || 'general';
+    const description = existingSetting?.description || null;
 
     // Validate value based on type
     let stringValue: string;
-    switch (existingSetting.type) {
+    switch (settingType) {
       case 'number':
         const numValue = parseFloat(value);
         if (isNaN(numValue)) {
@@ -138,10 +135,19 @@ export async function PUT(request: NextRequest) {
         stringValue = value.toString();
     }
 
-    // Update setting
-    const updated = await prisma.systemSetting.update({
+    // Upsert setting (create if doesn't exist, update if exists)
+    const updated = await prisma.systemSetting.upsert({
       where: { key },
-      data: { value: stringValue },
+      update: { 
+        value: stringValue 
+      },
+      create: {
+        key,
+        value: stringValue,
+        type: settingType,
+        category,
+        description,
+      },
     });
 
     return NextResponse.json({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSettingValue } from '@/app/api/settings/route';
 
 // POST - Validate trade key and grant investment access
 export async function POST(request: NextRequest) {
@@ -81,7 +82,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Grant access and increment usage counter
-    await prisma.$transaction([
+    // Get referral bonus amount from settings
+    const bonusAmount = (await getSettingValue('referral.bonus.amount')) || 10;
+    const bonusValue = typeof bonusAmount === 'number' ? bonusAmount : parseFloat(bonusAmount.toString());
+
+    // Only award bonus if the key has an owner (userId is not null)
+    const shouldAwardBonus = key.userId !== null && bonusValue > 0;
+
+    const transactionOperations: any[] = [
       prisma.investmentAccess.create({
         data: {
           userId,
@@ -108,7 +116,36 @@ export async function POST(request: NextRequest) {
           },
         },
       }),
-    ]);
+    ];
+
+    // Award referral bonus to the key owner if applicable
+    if (shouldAwardBonus) {
+      transactionOperations.push(
+        prisma.user.update({
+          where: { id: key.userId! },
+          data: {
+            referralBonus: {
+              increment: bonusValue,
+            },
+          },
+        })
+      );
+
+      // Create notification for key owner
+      transactionOperations.push(
+        prisma.notification.create({
+          data: {
+            userId: key.userId!,
+            type: 'INVESTMENT',
+            title: 'Referral Bonus Earned!',
+            message: `You earned $${bonusValue.toFixed(2)} because someone used your referral key!`,
+            link: '/investment/trade-key',
+          },
+        })
+      );
+    }
+
+    await prisma.$transaction(transactionOperations);
 
     return NextResponse.json({
       message: 'Investment access granted successfully',

@@ -33,6 +33,7 @@ model User {
   isVerified                 Boolean              @default(false)
   requireOTPForInternational Boolean              @default(false)
   investmentBalance          Float                @default(0)
+  referralBonus              Float                @default(0)
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
   transferDisabled           Boolean              @default(false)

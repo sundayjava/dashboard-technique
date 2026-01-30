@@ -64,22 +64,31 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { createdBy, maxUses, expiresAt } = body;
+    const { userId, createdBy, maxUses, expiresAt } = body;
 
     // Generate unique trade key
     const key = `TK-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
     const data: any = {
       key,
-      // userId is omitted to leave it null (unassigned)
     };
     
+    if (userId) data.userId = userId;
     if (createdBy) data.createdBy = createdBy;
     if (maxUses) data.maxUses = maxUses;
     if (expiresAt) data.expiresAt = new Date(expiresAt);
 
     const tradeKey = await prisma.tradeKey.create({
       data,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({

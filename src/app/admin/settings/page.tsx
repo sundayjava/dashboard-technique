@@ -33,10 +33,15 @@ export default function AdminSettingsPage() {
   const [cryptoAddress, setCryptoAddress] = useState("");
   const [savingCrypto, setSavingCrypto] = useState(false);
   
+  // Referral bonus settings state
+  const [referralBonusAmount, setReferralBonusAmount] = useState("");
+  const [savingBonus, setSavingBonus] = useState(false);
+  
   // Debounce timers
   const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
   const networkTimerRef = useRef<NodeJS.Timeout | null>(null);
   const addressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const bonusTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -59,6 +64,13 @@ export default function AdminSettingsPage() {
       setCryptoNetwork(network);
       setCryptoAddress(address);
     }
+    
+    // Initialize referral bonus setting
+    const bonusSettings = Object.values(settings).flat();
+    const bonusAmount = bonusSettings.find(
+      (s: SystemSetting) => s.key === "referral.bonus.amount"
+    )?.value || "10";
+    setReferralBonusAmount(bonusAmount);
   }, [settings]);
 
   const fetchSettings = async () => {
@@ -126,6 +138,35 @@ export default function AdminSettingsPage() {
     // Set new timer - save after 2 seconds of no typing
     addressTimerRef.current = setTimeout(() => {
       saveCryptoSetting("investment.crypto.address", value);
+    }, 2000);
+  };
+
+  const handleReferralBonusChange = (value: string) => {
+    setReferralBonusAmount(value);
+    
+    // Clear existing timer
+    if (bonusTimerRef.current) {
+      clearTimeout(bonusTimerRef.current);
+    }
+    
+    // Set new timer - save after 2 seconds of no typing
+    bonusTimerRef.current = setTimeout(async () => {
+      try {
+        setSavingBonus(true);
+        await axios.put("/api/settings", { 
+          key: "referral.bonus.amount", 
+          value: value,
+          type: "number",
+          category: "referral",
+          description: "Amount to reward user for each successful referral"
+        });
+        toast.success("Referral bonus amount updated successfully");
+        await fetchSettings();
+      } catch (err: any) {
+        toast.error(err.response?.data?.error || "Failed to update setting");
+      } finally {
+        setSavingBonus(false);
+      }
     }, 2000);
   };
 
@@ -316,6 +357,53 @@ export default function AdminSettingsPage() {
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
             💡 Changes are saved automatically 2 seconds after you stop typing. Users will see these details when making crypto deposits to their investment wallet.
+          </p>
+        </div>
+      </div>
+
+      {/* Referral Bonus Configuration */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
+              Referral Bonus Settings
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Set the bonus amount users receive when someone uses their trade key. Changes save automatically.
+            </p>
+          </div>
+          {savingBonus && (
+            <div className="flex items-center text-blue-600">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+              <span className="text-sm">Saving...</span>
+            </div>
+          )}
+        </div>
+
+        <div className="max-w-md">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Bonus Amount (USD)
+          </label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">$</span>
+            <input
+              type="number"
+              value={referralBonusAmount}
+              onChange={(e) => handleReferralBonusChange(e.target.value)}
+              className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., 10"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <p className="mt-2 text-sm text-gray-600">
+            This amount will be added to the user's referral bonus balance each time someone successfully uses their trade key to access investments.
+          </p>
+        </div>
+
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-800">
+            💰 Users can withdraw their referral bonus to their bank balance from the trade key management page.
           </p>
         </div>
       </div>

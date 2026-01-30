@@ -31,6 +31,7 @@ interface TradeKey {
 }
 
 interface CreateFormData {
+  userId: string;
   maxUses: string;
   expiresIn: string;
 }
@@ -39,10 +40,12 @@ export default function AdminTradeKeysPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [tradeKeys, setTradeKeys] = useState<TradeKey[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<CreateFormData>({
+    userId: '',
     maxUses: '',
     expiresIn: ''
   });
@@ -64,6 +67,7 @@ export default function AdminTradeKeysPage() {
 
     setUser(parsedUser);
     fetchTradeKeys();
+    fetchUsers();
   }, [router]);
 
   const fetchTradeKeys = async () => {
@@ -78,8 +82,18 @@ export default function AdminTradeKeysPage() {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get('/api/admin/users');
+      setUsers(response.data.users || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   const handleOpenModal = () => {
     setFormData({
+      userId: '',
       maxUses: '',
       expiresIn: ''
     });
@@ -89,6 +103,7 @@ export default function AdminTradeKeysPage() {
   const handleCloseModal = () => {
     setShowModal(false);
     setFormData({
+      userId: '',
       maxUses: '',
       expiresIn: ''
     });
@@ -103,6 +118,10 @@ export default function AdminTradeKeysPage() {
       const payload: any = {
         createdBy: user.id
       };
+
+      if (formData.userId) {
+        payload.userId = formData.userId;
+      }
 
       if (formData.maxUses) {
         payload.maxUses = parseInt(formData.maxUses);
@@ -378,7 +397,29 @@ export default function AdminTradeKeysPage() {
               {/* Info Message */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
-                  Trade keys are created unassigned. Users can claim and use them to access investments.
+                  Assign a user to this trade key to track referrals and give bonuses based on usage.
+                </p>
+              </div>
+
+              {/* User Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assign to User (Optional)
+                </label>
+                <select
+                  value={formData.userId}
+                  onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent"
+                >
+                  <option value="">-- Unassigned / Public Key --</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name || u.email} ({u.email})
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Assign this key to a user to track referrals and reward them
                 </p>
               </div>
 

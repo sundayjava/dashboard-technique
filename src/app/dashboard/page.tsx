@@ -684,7 +684,7 @@ export default function DashboardPage() {
           {/* Live Crypto Markets - Compact 3x3 Grid */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900">Rates</h2>
+              <h2 className="text-sm font-bold text-gray-900">Rate</h2>
               <div className="flex items-center text-xs text-gray-500">
                 <div className={`w-1.5 h-1.5 rounded-full mr-1 ${cryptoUpdating ? 'bg-blue-500 animate-pulse' : 'bg-green-500 animate-pulse'}`}></div>
                 {cryptoUpdating ? 'Updating...' : 'Real-time'}
