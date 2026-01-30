@@ -63,6 +63,7 @@ export default function AdminLayout({
     <div className="min-h-screen bg-gray-50">
       <DashboardSidebar 
         items={adminSidebarItems}
+        isAdmin={true}
         userId={user.id}
         user={user}
         onCollapseChange={setSidebarCollapsed}

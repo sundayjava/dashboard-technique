@@ -17,6 +17,8 @@ interface InvestmentPlan {
   duration: number;
   profitPercentage: number;
   cryptoAddress: string | null;
+  cryptoSymbol: string | null;
+  cryptoIcon: string | null;
   isActive: boolean;
   _count: {
     investments: number;
@@ -105,7 +107,22 @@ export default function InvestmentPlansPage() {
             {plans.map((plan) => (
               <div key={plan.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
                 <div className="bg-linear-to-r from-[#c1ff72] to-[#8fd04f] p-4 text-black">
-                  <h3 className="text-lg font-bold mb-1">{plan.planName}</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    {plan.cryptoIcon && (
+                      <img 
+                        src={plan.cryptoIcon} 
+                        alt={plan.cryptoSymbol || 'Crypto'}
+                        className="w-6 h-6 rounded-full object-cover"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
+                    <h3 className="text-lg font-bold">{plan.planName}</h3>
+                    {plan.cryptoSymbol && (
+                      <span className="text-xs font-semibold px-1.5 py-0.5 bg-black/10 rounded">
+                        {plan.cryptoSymbol}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xl font-bold">{plan.profitPercentage}%</div>
                   <p className="text-xs opacity-90">Expected Returns</p>
                 </div>

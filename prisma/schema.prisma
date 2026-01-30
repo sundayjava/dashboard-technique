@@ -489,6 +489,8 @@ model InvestmentPlan {
   duration         Int
   profitPercentage Float
   cryptoAddress    String?
+  cryptoSymbol     String?
+  cryptoIcon       String?      @db.Text
   isActive         Boolean      @default(true)
   createdBy        String?
   createdAt        DateTime     @default(now())

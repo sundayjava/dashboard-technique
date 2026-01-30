@@ -1,15 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import { X, Check, TrendingUp, Award, Lock, Target } from 'lucide-react';
+import { SupportModal } from './SupportModal';
 
 interface AcredisPlusModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onActivate: () => void;
-  isActivating: boolean;
 }
 
-export default function AcredisPlusModal({ isOpen, onClose, onActivate, isActivating }: AcredisPlusModalProps) {
+export default function AcredisPlusModal({ isOpen, onClose }: AcredisPlusModalProps) {
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+
   if (!isOpen) return null;
 
   const benefits = [
@@ -43,7 +45,6 @@ export default function AcredisPlusModal({ isOpen, onClose, onActivate, isActiva
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-lg p-1 transition-colors"
-            disabled={isActivating}
           >
             <X className="w-5 h-5" />
           </button>
@@ -111,31 +112,27 @@ export default function AcredisPlusModal({ isOpen, onClose, onActivate, isActiva
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              disabled={isActivating}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
               Maybe Later
             </button>
             <button
-              onClick={onActivate}
-              disabled={isActivating}
-              className="flex-1 px-6 py-3 bg-linear-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              onClick={() => setIsSupportModalOpen(true)}
+              className="flex-1 px-6 py-3 bg-linear-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-colors font-medium flex items-center justify-center gap-2"
             >
-              {isActivating ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Activating...
-                </>
-              ) : (
-                <>
-                  <Award className="w-5 h-5" />
-                  Activate Acredis Plus
-                </>
-              )}
+              <Award className="w-5 h-5" />
+              Activate Acredis Plus
             </button>
           </div>
         </div>
       </div>
+
+      {/* Support Modal */}
+      <SupportModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+        initialTopic="Acredis Plus Activation"
+      />
     </div>
   );
 }

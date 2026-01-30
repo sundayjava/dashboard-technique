@@ -14,6 +14,8 @@ interface InvestmentPlan {
   duration: number;
   profitPercentage: number;
   cryptoAddress: string | null;
+  cryptoSymbol: string | null;
+  cryptoIcon: string | null;
   isActive: boolean;
   createdAt: string;
   _count?: {
@@ -29,6 +31,8 @@ interface PlanFormData {
   duration: string;
   profitPercentage: string;
   cryptoAddress: string;
+  cryptoSymbol: string;
+  cryptoIcon: string;
 }
 
 export default function AdminInvestmentPlansPage() {
@@ -46,8 +50,11 @@ export default function AdminInvestmentPlansPage() {
     arkIIAllocation: '',
     duration: '',
     profitPercentage: '',
-    cryptoAddress: ''
+    cryptoAddress: '',
+    cryptoSymbol: '',
+    cryptoIcon: ''
   });
+  const [iconPreview, setIconPreview] = useState<string>('');
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -90,8 +97,11 @@ export default function AdminInvestmentPlansPage() {
         arkIIAllocation: plan.arkIIAllocation.toString(),
         duration: plan.duration.toString(),
         profitPercentage: plan.profitPercentage.toString(),
-        cryptoAddress: plan.cryptoAddress || ''
+        cryptoAddress: plan.cryptoAddress || '',
+        cryptoSymbol: plan.cryptoSymbol || '',
+        cryptoIcon: plan.cryptoIcon || ''
       });
+      setIconPreview(plan.cryptoIcon || '');
     } else {
       setEditingPlan(null);
       setFormData({
@@ -101,8 +111,11 @@ export default function AdminInvestmentPlansPage() {
         arkIIAllocation: '',
         duration: '',
         profitPercentage: '',
-        cryptoAddress: ''
+        cryptoAddress: '',
+        cryptoSymbol: '',
+        cryptoIcon: ''
       });
+      setIconPreview('');
     }
     setShowModal(true);
   };
@@ -117,8 +130,37 @@ export default function AdminInvestmentPlansPage() {
       arkIIAllocation: '',
       duration: '',
       profitPercentage: '',
-      cryptoAddress: ''
+      cryptoAddress: '',
+      cryptoSymbol: '',
+      cryptoIcon: ''
     });
+    setIconPreview('');
+  };
+
+  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size must be less than 2MB');
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setFormData({ ...formData, cryptoIcon: base64String });
+      setIconPreview(base64String);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,6 +204,8 @@ export default function AdminInvestmentPlansPage() {
         duration,
         profitPercentage,
         cryptoAddress: formData.cryptoAddress || null,
+        cryptoSymbol: formData.cryptoSymbol || null,
+        cryptoIcon: formData.cryptoIcon || null,
         createdBy: user.id
       };
 
@@ -253,6 +297,7 @@ export default function AdminInvestmentPlansPage() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Plan Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Crypto</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount Range</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Duration</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Profit %</th>
@@ -265,7 +310,7 @@ export default function AdminInvestmentPlansPage() {
               <tbody className="divide-y divide-gray-200">
                 {plans.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                       No investment plans found. Create your first plan to get started.
                     </td>
                   </tr>
@@ -277,6 +322,26 @@ export default function AdminInvestmentPlansPage() {
                         <div className="text-xs text-gray-500">
                           {new Date(plan.createdAt).toLocaleDateString()}
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {plan.cryptoSymbol || plan.cryptoIcon ? (
+                          <div className="flex items-center gap-2">
+                            {plan.cryptoIcon && (
+                              <img 
+                                src={plan.cryptoIcon} 
+                                alt={plan.cryptoSymbol || 'Crypto'} 
+                                className="w-6 h-6 rounded-full object-cover"
+                              />
+                            )}
+                            {plan.cryptoSymbol && (
+                              <span className="text-sm font-semibold text-gray-700">
+                                {plan.cryptoSymbol}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">N/A</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">
                         ${plan.minAmount.toLocaleString()} - ${plan.maxAmount.toLocaleString()}
@@ -466,6 +531,65 @@ export default function AdminInvestmentPlansPage() {
                   <p className="mt-1 text-sm text-gray-500">
                     Leave blank to disable crypto payments for this plan
                   </p>
+                </div>
+
+                {/* Crypto Symbol */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Crypto Symbol (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.cryptoSymbol}
+                    onChange={(e) => setFormData({ ...formData, cryptoSymbol: e.target.value.toUpperCase() })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent"
+                    placeholder="e.g., BTC, ETH, USDT"
+                    maxLength={10}
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Crypto currency symbol for this plan
+                  </p>
+                </div>
+
+                {/* Crypto Icon Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Crypto Icon (Optional)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    {iconPreview && (
+                      <div className="w-16 h-16 rounded-lg border-2 border-gray-200 overflow-hidden flex-shrink-0">
+                        <img 
+                          src={iconPreview} 
+                          alt="Crypto icon preview" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleIconUpload}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#c1ff72] file:text-black hover:file:opacity-90"
+                      />
+                      <p className="mt-1 text-sm text-gray-500">
+                        Upload icon (max 2MB, PNG/JPG)
+                      </p>
+                    </div>
+                  </div>
+                  {iconPreview && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, cryptoIcon: '' });
+                        setIconPreview('');
+                      }}
+                      className="mt-2 text-sm text-red-600 hover:text-red-700 font-medium"
+                    >
+                      Remove Icon
+                    </button>
+                  )}
                 </div>
               </div>
 

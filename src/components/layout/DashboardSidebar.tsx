@@ -45,15 +45,24 @@ export function DashboardSidebar({ items, isAdmin = false, userId, user, onColla
 
     const fetchUnreadCounts = async () => {
       try {
-        const [messagesRes, notificationsRes] = await Promise.all([
-          axios.get(`/api/messages?userId=${userId}`),
-          axios.get(`/api/notifications?userId=${userId}`)
-        ]);
+        if (isAdmin) {
+          // Fetch admin notification counts
+          const response = await axios.get('/api/admin/notification-counts');
+          if (response.data.success) {
+            setUnreadCounts(response.data.counts);
+          }
+        } else {
+          // Fetch user notification counts
+          const [messagesRes, notificationsRes] = await Promise.all([
+            axios.get(`/api/messages?userId=${userId}`),
+            axios.get(`/api/notifications?userId=${userId}`)
+          ]);
 
-        setUnreadCounts({
-          messages: messagesRes.data.unreadCount || 0,
-          notifications: notificationsRes.data.unreadCount || 0
-        });
+          setUnreadCounts({
+            messages: messagesRes.data.unreadCount || 0,
+            notifications: notificationsRes.data.unreadCount || 0
+          });
+        }
       } catch (error) {
         console.error('Error fetching unread counts:', error);
       }
@@ -64,7 +73,7 @@ export function DashboardSidebar({ items, isAdmin = false, userId, user, onColla
     // Poll for updates every 30 seconds
     const interval = setInterval(fetchUnreadCounts, 30000);
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [userId, isAdmin]);
 
   const toggleCollapse = () => {
     const newState = !isCollapsed;

@@ -26,7 +26,6 @@ export default function ProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showPlusModal, setShowPlusModal] = useState(false);
-  const [activatingPlus, setActivatingPlus] = useState(false);
 
   // Get user ID from localStorage (from login)
   const getUserId = () => {
@@ -80,41 +79,6 @@ export default function ProfilePage() {
       toast.error('Failed to load profile');
     } finally {
       setInitialLoading(false);
-    }
-  };
-
-  const handleActivatePlus = async () => {
-    if (!userId) return;
-
-    setActivatingPlus(true);
-    try {
-      const response = await axios.post('/api/acredis-plus/activate', {
-        userId
-      });
-
-      if (response.data.message) {
-        // Update profile data
-        setProfileData({ ...profileData, isPlusUser: true });
-        setShowPlusModal(false);
-        
-        // Update localStorage
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          userData.isPlusUser = true;
-          localStorage.setItem('user', JSON.stringify(userData));
-        }
-        
-        // Show success message
-        toast.success('🎉 Welcome to Acredis Plus! You now have access to exclusive premium benefits.');
-        
-        // Reload to update UI
-        setTimeout(() => window.location.reload(), 1500);
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to activate Acredis Plus');
-    } finally {
-      setActivatingPlus(false);
     }
   };
 
@@ -499,8 +463,6 @@ export default function ProfilePage() {
       <AcredisPlusModal
         isOpen={showPlusModal}
         onClose={() => setShowPlusModal(false)}
-        onActivate={handleActivatePlus}
-        isActivating={activatingPlus}
       />
     </DashboardLayoutWrapper>
   );

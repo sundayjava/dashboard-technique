@@ -65,7 +65,6 @@ export default function InvestmentDashboardPage() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showPlusModal, setShowPlusModal] = useState(false);
-  const [activatingPlus, setActivatingPlus] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -245,33 +244,7 @@ export default function InvestmentDashboardPage() {
     }
   };
 
-  const handleActivatePlus = async () => {
-    if (!user) return;
 
-    setActivatingPlus(true);
-    try {
-      const response = await axios.post('/api/acredis-plus/activate', {
-        userId: user.id
-      });
-
-      if (response.data.message) {
-        // Update user state
-        const updatedUser = { ...user, isPlusUser: true };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        setShowPlusModal(false);
-        
-        toast.success('🎉 Welcome to Acredis Plus!');
-        
-        // Reload to update UI
-        window.location.reload();
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to activate Acredis Plus');
-    } finally {
-      setActivatingPlus(false);
-    }
-  };
 
   if (isLoading || !user) {
     return (
@@ -1239,8 +1212,6 @@ export default function InvestmentDashboardPage() {
       <AcredisPlusModal
         isOpen={showPlusModal}
         onClose={() => setShowPlusModal(false)}
-        onActivate={handleActivatePlus}
-        isActivating={activatingPlus}
       />
     </div>
   );

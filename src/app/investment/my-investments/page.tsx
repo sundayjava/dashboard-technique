@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { InvestmentTopBar } from '@/components/layout/InvestmentTopBar';
 import { investmentSidebarItems } from '@/config/investment-sidebar.config';
+import { SupportModal } from '@/components/modals';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 
@@ -26,6 +27,8 @@ interface Investment {
     profitPercentage: number;
     arkIIAllocation: number;
     cryptoAddress: string | null;
+    cryptoSymbol: string | null;
+    cryptoIcon: string | null;
   };
 }
 
@@ -38,6 +41,9 @@ export default function MyInvestmentsPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'PENDING' | 'ACTIVE' | 'COMPLETED'>('ALL');
+  const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -231,22 +237,44 @@ export default function MyInvestmentsPage() {
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 bg-linear-to-br from-gray-900 via-gray-800 to-black rounded-xl p-6">
               {filteredInvestments.map((investment) => (
-                <div key={investment.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div 
+                  key={investment.id} 
+                  onClick={() => {
+                    setSelectedInvestment(investment);
+                    setIsDetailsModalOpen(true);
+                  }}
+                  className="bg-white/10 backdrop-blur-sm rounded-lg shadow-lg border border-white/20 p-4 hover:bg-white/15 transition-all cursor-pointer"
+                >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     {/* Left Section */}
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <h3 className="text-base font-bold text-gray-900">{investment.plan.planName}</h3>
+                          <div className="flex items-center gap-2">
+                            {investment.plan.cryptoIcon && (
+                              <img 
+                                src={investment.plan.cryptoIcon} 
+                                alt={investment.plan.cryptoSymbol || 'Crypto'}
+                                className="w-5 h-5 rounded-full object-cover"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            )}
+                            <h3 className="text-base font-bold text-white">{investment.plan.planName}</h3>
+                            {investment.plan.cryptoSymbol && (
+                              <span className="text-xs font-semibold px-1.5 py-0.5 bg-[#c1ff72]/20 text-[#c1ff72] rounded border border-[#c1ff72]/30">
+                                {investment.plan.cryptoSymbol}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                            <div className="flex items-center gap-1 text-sm text-gray-300">
                               {getPaymentMethodIcon(investment.paymentMethod)}
                               <span>{investment.paymentMethod === 'BANK_WALLET' ? 'Bank Wallet' : 'Crypto'}</span>
                             </div>
-                            <span className="text-gray-400">•</span>
-                            <span className="text-sm text-gray-600">
+                            <span className="text-gray-500">•</span>
+                            <span className="text-sm text-gray-300">
                               {new Date(investment.createdAt).toLocaleDateString()}
                             </span>
                           </div>
@@ -258,37 +286,37 @@ export default function MyInvestmentsPage() {
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                          <p className="text-xs text-gray-600">Invested</p>
-                          <p className="text-sm font-semibold text-gray-900">${investment.amount.toLocaleString()}</p>
+                          <p className="text-xs text-gray-400">Invested</p>
+                          <p className="text-sm font-semibold text-white">${investment.amount.toLocaleString()}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Expected Return</p>
-                          <p className="text-sm font-semibold text-green-600">
+                          <p className="text-xs text-gray-400">Expected Return</p>
+                          <p className="text-sm font-semibold text-[#c1ff72]">
                             ${calculateExpectedReturn(investment).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Total Return</p>
-                          <p className="text-sm font-semibold text-gray-900">
+                          <p className="text-xs text-gray-400">Total Return</p>
+                          <p className="text-sm font-semibold text-white">
                             ${calculateTotalReturn(investment).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Duration</p>
-                          <p className="text-sm font-semibold text-gray-900">{investment.plan.duration} days</p>
+                          <p className="text-xs text-gray-400">Duration</p>
+                          <p className="text-sm font-semibold text-white">{investment.plan.duration} days</p>
                         </div>
                       </div>
 
                       {/* Progress Bar for Active Investments */}
                       {investment.status === 'ACTIVE' && investment.startDate && investment.endDate && (
                         <div className="mt-3">
-                          <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                          <div className="flex items-center justify-between text-xs text-gray-300 mb-1">
                             <span>Progress</span>
                             <span>{calculateDaysRemaining(investment.endDate)} days remaining</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="w-full bg-gray-700/50 rounded-full h-2">
                             <div
-                              className="bg-linear-to-r from-[#c1ff72] to-[#8fd04f] h-2 rounded-full transition-all"
+                              className="bg-linear-to-r from-[#c1ff72] to-[#8fd04f] h-2 rounded-full transition-all shadow-lg shadow-[#c1ff72]/50"
                               style={{ width: `${calculateProgress(investment.startDate, investment.endDate)}%` }}
                             ></div>
                           </div>
@@ -297,16 +325,16 @@ export default function MyInvestmentsPage() {
 
                       {/* Crypto Payment Instructions */}
                       {investment.status === 'PENDING' && investment.paymentMethod === 'CRYPTO' && investment.plan.cryptoAddress && (
-                        <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2.5">
+                        <div className="mt-3 bg-yellow-500/20 border border-yellow-500/40 rounded-lg p-2.5 backdrop-blur-sm">
                           <div className="flex items-start gap-2">
-                            <svg className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                             <div className="flex-1">
-                              <p className="text-sm font-semibold text-yellow-900 mb-1">Complete Payment</p>
-                              <p className="text-xs text-yellow-800 mb-2">Send ${investment.amount} to:</p>
+                              <p className="text-sm font-semibold text-yellow-300 mb-1">Complete Payment</p>
+                              <p className="text-xs text-yellow-200 mb-2">Send ${investment.amount} to:</p>
                               <div className="flex items-center gap-2">
-                                <code className="flex-1 bg-white px-3 py-2 rounded border border-yellow-300 text-xs font-mono break-all">
+                                <code className="flex-1 bg-black/30 px-3 py-2 rounded border border-yellow-500/30 text-xs font-mono break-all text-yellow-100">
                                   {investment.plan.cryptoAddress}
                                 </code>
                                 <button
@@ -314,7 +342,7 @@ export default function MyInvestmentsPage() {
                                     navigator.clipboard.writeText(investment.plan.cryptoAddress!);
                                     toast.success('Address copied!');
                                   }}
-                                  className="px-3 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs"
+                                  className="px-3 py-2 bg-yellow-500 text-black rounded hover:bg-yellow-400 text-xs font-semibold transition-colors"
                                 >
                                   Copy
                                 </button>
@@ -331,6 +359,171 @@ export default function MyInvestmentsPage() {
           )}
         </div>
       </main>
+
+      {/* Investment Details Modal */}
+      {selectedInvestment && (
+        <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity ${
+          isDetailsModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}>
+          <div className="bg-linear-to-br from-gray-900 via-gray-800 to-black rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                {selectedInvestment.plan.cryptoIcon && (
+                  <img 
+                    src={selectedInvestment.plan.cryptoIcon} 
+                    alt={selectedInvestment.plan.cryptoSymbol || 'Crypto'}
+                    className="w-10 h-10 rounded-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                )}
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{selectedInvestment.plan.planName}</h2>
+                  {selectedInvestment.plan.cryptoSymbol && (
+                    <span className="text-sm font-semibold text-[#c1ff72]">{selectedInvestment.plan.cryptoSymbol}</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Status Badge */}
+            <div className="mb-6">
+              <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                selectedInvestment.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                selectedInvestment.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                selectedInvestment.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+                selectedInvestment.status === 'CANCELLED' ? 'bg-gray-100 text-gray-800' :
+                'bg-red-100 text-red-800'
+              }`}>
+                {selectedInvestment.status}
+              </span>
+            </div>
+
+            {/* Investment Details Grid */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <p className="text-sm text-gray-400 mb-1">Amount Invested</p>
+                <p className="text-2xl font-bold text-white">${selectedInvestment.amount.toLocaleString()}</p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <p className="text-sm text-gray-400 mb-1">Expected Return</p>
+                <p className="text-2xl font-bold text-[#c1ff72]">${calculateExpectedReturn(selectedInvestment).toLocaleString()}</p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <p className="text-sm text-gray-400 mb-1">Total Return</p>
+                <p className="text-2xl font-bold text-white">${calculateTotalReturn(selectedInvestment).toLocaleString()}</p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <p className="text-sm text-gray-400 mb-1">Profit Percentage</p>
+                <p className="text-2xl font-bold text-[#c1ff72]">{selectedInvestment.plan.profitPercentage}%</p>
+              </div>
+            </div>
+
+            {/* Additional Details */}
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-gray-400">Duration</span>
+                <span className="text-white font-semibold">{selectedInvestment.plan.duration} days</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-gray-400">Payment Method</span>
+                <span className="text-white font-semibold">
+                  {selectedInvestment.paymentMethod === 'BANK_WALLET' ? 'Bank Wallet' : 'Crypto'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-gray-400">Created Date</span>
+                <span className="text-white font-semibold">
+                  {new Date(selectedInvestment.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
+              {selectedInvestment.startDate && (
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
+                  <span className="text-gray-400">Start Date</span>
+                  <span className="text-white font-semibold">
+                    {new Date(selectedInvestment.startDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </span>
+                </div>
+              )}
+              {selectedInvestment.endDate && (
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
+                  <span className="text-gray-400">End Date</span>
+                  <span className="text-white font-semibold">
+                    {new Date(selectedInvestment.endDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </span>
+                </div>
+              )}
+              {selectedInvestment.transactionRef && (
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
+                  <span className="text-gray-400">Transaction Ref</span>
+                  <span className="text-white font-semibold font-mono text-sm">
+                    {selectedInvestment.transactionRef}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar for Active Investments */}
+            {selectedInvestment.status === 'ACTIVE' && selectedInvestment.startDate && selectedInvestment.endDate && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between text-sm text-gray-300 mb-2">
+                  <span>Progress</span>
+                  <span>{calculateDaysRemaining(selectedInvestment.endDate)} days remaining</span>
+                </div>
+                <div className="w-full bg-gray-700/50 rounded-full h-3">
+                  <div
+                    className="bg-linear-to-r from-[#c1ff72] to-[#8fd04f] h-3 rounded-full transition-all shadow-lg shadow-[#c1ff72]/50"
+                    style={{ width: `${calculateProgress(selectedInvestment.startDate, selectedInvestment.endDate)}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            {/* Close Investment Button */}
+            {(selectedInvestment.status === 'ACTIVE' || selectedInvestment.status === 'PENDING') && (
+              <button
+                onClick={() => {
+                  setIsDetailsModalOpen(false);
+                  setIsSupportModalOpen(true);
+                }}
+                className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Close Investment
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Support Modal */}
+      <SupportModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+        initialTopic="Close Investment Request"
+      />
     </div>
   );
 }

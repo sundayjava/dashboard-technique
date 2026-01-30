@@ -91,14 +91,14 @@ export function TradeKeyModal({ isOpen, onClose, userId }: TradeKeyModalProps) {
           Investment Access
         </h2>
         <p className="text-gray-600 text-center mb-8">
-          Sign in using your Trade/Referral Key to access investment features
+          Sign in using your Trade Key to access investment features
         </p>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="tradeKey" className="block text-sm font-medium text-gray-700 mb-2">
-              Trade/Referral Key
+              Trade Key
             </label>
             <Input
               id="tradeKey"

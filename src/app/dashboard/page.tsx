@@ -99,8 +99,8 @@ export default function DashboardPage() {
   const [tradeKey, setTradeKey] = useState('');
   const [validatingKey, setValidatingKey] = useState(false);
   const [showPlusModal, setShowPlusModal] = useState(false);
-  const [activatingPlus, setActivatingPlus] = useState(false);
   const [showHoldingsModal, setShowHoldingsModal] = useState(false);
+  const [showHighYieldModal, setShowHighYieldModal] = useState(false);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -251,39 +251,12 @@ export default function DashboardPage() {
       if (response.data.message) {
         setShowTradeKeyModal(false);
         setTradeKey('');
-        router.push('/investment/my-investments');
+        router.push('/investment/plans');
       }
     } catch (error: any) {
       alert(error.response?.data?.error || 'Invalid trade key');
     } finally {
       setValidatingKey(false);
-    }
-  };
-
-  const handleActivatePlus = async () => {
-    if (!user) return;
-
-    setActivatingPlus(true);
-    try {
-      const response = await axios.post('/api/acredis-plus/activate', {
-        userId: user.id
-      });
-
-      if (response.data.message) {
-        // Update user state
-        setUser({ ...user, isPlusUser: true });
-        setShowPlusModal(false);
-        
-        // Show success message
-        alert('🎉 Welcome to Acredis Plus! You now have access to exclusive premium benefits.');
-        
-        // Reload to update UI
-        window.location.reload();
-      }
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to activate Acredis Plus');
-    } finally {
-      setActivatingPlus(false);
     }
   };
 
@@ -305,6 +278,7 @@ export default function DashboardPage() {
           <p className="text-xs text-gray-300">Here's what's happening with your finances today</p>
         </div>
 
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-white rounded-lg shadow p-3 border-l-4 border-blue-500">
@@ -319,10 +293,11 @@ export default function DashboardPage() {
                 </span>
                 <button
                   onClick={() => setShowHoldingsModal(true)}
-                  className="p-1 hover:bg-blue-50 rounded transition-colors"
-                  title="Crypto Holdings"
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  title="View Crypto Holdings"
                 >
-                  <MoreVertical className="w-4 h-4 text-blue-600" />
+                  <Wallet className="w-3.5 h-3.5" />
+                  <span>Holdings</span>
                 </button>
               </div>
             </div>
@@ -438,6 +413,28 @@ export default function DashboardPage() {
           </div>
         </div>
 
+
+        {/* High Yield Investment Promo Banner */}
+        <div className="bg-gray-800 rounded-lg px-6 pt-6 pb-1 text-white shadow-lg">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">
+                Building your capital has never been this easy (or smart)
+              </h2>
+              <p className="text-base md:text-lg text-white/80">  
+                Say hello to top-tier rates, no fees.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowHighYieldModal(true)}
+              className="flex items-center gap-2 px-6 py-3 text-gray-800 bg-[#c1ff72] font-bold rounded-lg hover:bg-blue-50 transition-all duration-200 shadow-md hover:shadow-xl transform hover:scale-105 whitespace-nowrap"
+            >
+              <TrendingUp className="w-5 h-5" />
+              Explore High Yield Investment
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
         {/* Main Content Grid - 3 columns */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1026,8 +1023,6 @@ export default function DashboardPage() {
       <AcredisPlusModal
         isOpen={showPlusModal}
         onClose={() => setShowPlusModal(false)}
-        onActivate={handleActivatePlus}
-        isActivating={activatingPlus}
       />
 
       {/* Holdings Modal */}
@@ -1043,6 +1038,130 @@ export default function DashboardPage() {
             fetchDashboardData(user.id);
           }}
         />
+      )}
+
+      {/* High Yield Investment Modal */}
+      {showHighYieldModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">High Yield Investment Plans</h2>
+              <button
+                onClick={() => setShowHighYieldModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* AI & Blockchain Inspired Image */}
+            <div className="relative mb-6 rounded-xl overflow-hidden">
+              <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-purple-600 to-indigo-600 opacity-10"></div>
+              <div className="relative bg-linear-to-br from-blue-50 via-purple-50 to-indigo-50 p-12 flex items-center justify-center">
+                {/* Abstract AI/Blockchain Visual */}
+                <div className="relative w-full max-w-md">
+                  {/* Central Node */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
+                    <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center">
+                      <TrendingUp className="w-10 h-10 text-blue-600" />
+                    </div>
+                  </div>
+                  
+                  {/* Orbiting Nodes */}
+                  <div className="relative w-64 h-64 mx-auto">
+                    {[0, 60, 120, 180, 240, 300].map((angle, i) => {
+                      const rad = (angle * Math.PI) / 180;
+                      const x = Math.cos(rad) * 100 + 128;
+                      const y = Math.sin(rad) * 100 + 128;
+                      return (
+                        <div
+                          key={i}
+                          className="absolute w-12 h-12 bg-linear-to-br from-indigo-400 to-blue-500 rounded-lg shadow-lg"
+                          style={{
+                            left: `${x}px`,
+                            top: `${y}px`,
+                            transform: 'translate(-50%, -50%)',
+                            animation: `float ${3 + i * 0.5}s ease-in-out infinite alternate`
+                          }}
+                        >
+                          <div className="w-full h-full flex items-center justify-center text-white font-bold text-xs">
+                            {['AI', 'BTC', 'ETH', 'XRP', 'LTC', 'ADA'][i]}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Connecting Lines */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                    {[0, 60, 120, 180, 240, 300].map((angle, i) => {
+                      const rad = (angle * Math.PI) / 180;
+                      const x = Math.cos(rad) * 100;
+                      const y = Math.sin(rad) * 100;
+                      return (
+                        <line
+                          key={i}
+                          x1="50%"
+                          y1="50%"
+                          x2={`calc(50% + ${x}px)`}
+                          y2={`calc(50% + ${y}px)`}
+                          stroke="url(#gradient)"
+                          strokeWidth="2"
+                          strokeDasharray="5,5"
+                          opacity="0.3"
+                        />
+                      );
+                    })}
+                    <defs>
+                      <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#3b82f6" />
+                        <stop offset="100%" stopColor="#9333ea" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Text */}
+            <div className="prose prose-lg max-w-none">
+              <p className="text-gray-700 text-lg leading-relaxed text-center">
+                <span className="font-semibold text-gray-900">Fully digital and powered by blockchain on a banking level security.</span>
+                <br />
+                <br />
+                Acredis is where innovation meets experience. It's where a seamless digital banking platform combines with crypto and a global banking expertise. It's where top rates, no fees and 24/7 access are made possible by stability and security. This is where smart crypto meets banking.
+              </p>
+            </div>
+
+            {/* CTA Button */}
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={() => {
+                  setShowHighYieldModal(false);
+                  handleViewInvestments();
+                }}
+                className="px-8 py-4 bg-linear-to-r from-blue-600 to-purple-600 text-white font-bold rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+              >
+                <TrendingUp className="w-5 h-5" />
+                View Investment Plans
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <style jsx>{`
+            @keyframes float {
+              from {
+                transform: translate(-50%, -50%) translateY(0px);
+              }
+              to {
+                transform: translate(-50%, -50%) translateY(-10px);
+              }
+            }
+          `}</style>
+        </div>
       )}
     </DashboardLayoutWrapper>
   );

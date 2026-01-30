@@ -17,6 +17,8 @@ interface InvestmentPlan {
   duration: number;
   profitPercentage: number;
   cryptoAddress: string | null;
+  cryptoSymbol: string | null;
+  cryptoIcon: string | null;
 }
 
 export default function InvestNowPage() {
@@ -277,7 +279,22 @@ export default function InvestNowPage() {
             {/* Investment Form */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Invest in {plan.planName}</h2>
+                <div className="flex items-center gap-2 mb-6">
+                  {plan.cryptoIcon && (
+                    <img 
+                      src={plan.cryptoIcon} 
+                      alt={plan.cryptoSymbol || 'Crypto'}
+                      className="w-8 h-8 rounded-full object-cover"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                  <h2 className="text-2xl font-bold text-gray-900">Invest in {plan.planName}</h2>
+                  {plan.cryptoSymbol && (
+                    <span className="text-sm font-semibold px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                      {plan.cryptoSymbol}
+                    </span>
+                  )}
+                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Amount Input */}

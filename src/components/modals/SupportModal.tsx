@@ -23,7 +23,9 @@ const supportTopics = [
   "Investment Loans",
   "Financial Insights",
   "Crypto",
+  "Acredis Plus",
   "Acredis Invest",
+  "Close Active Investment",
 ];
 
 export function SupportModal({ isOpen, onClose, initialTopic }: SupportModalProps) {

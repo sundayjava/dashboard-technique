@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
       duration,
       profitPercentage,
       cryptoAddress,
+      cryptoSymbol,
+      cryptoIcon,
       createdBy
     } = body;
 
@@ -91,6 +93,8 @@ export async function POST(request: NextRequest) {
         duration: parseInt(duration),
         profitPercentage: parseFloat(profitPercentage),
         cryptoAddress: cryptoAddress || null,
+        cryptoSymbol: cryptoSymbol || null,
+        cryptoIcon: cryptoIcon || null,
         createdBy
       }
     });
@@ -124,6 +128,8 @@ export async function PUT(request: NextRequest) {
       duration,
       profitPercentage,
       cryptoAddress,
+      cryptoSymbol,
+      cryptoIcon,
       isActive
     } = body;
 
@@ -144,6 +150,8 @@ export async function PUT(request: NextRequest) {
         ...(duration && { duration: parseInt(duration) }),
         ...(profitPercentage && { profitPercentage: parseFloat(profitPercentage) }),
         ...(cryptoAddress !== undefined && { cryptoAddress }),
+        ...(cryptoSymbol !== undefined && { cryptoSymbol }),
+        ...(cryptoIcon !== undefined && { cryptoIcon }),
         ...(isActive !== undefined && { isActive })
       }
     });

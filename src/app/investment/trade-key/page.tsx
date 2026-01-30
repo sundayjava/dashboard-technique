@@ -159,6 +159,18 @@ export default function TradeKeyPage() {
             <p className="text-gray-600 mt-1">Share your referral key to grant investment access and track your referrals</p>
           </div>
 
+          {/* Referral Program Banner */}
+          <div className="bg-linear-to-br from-[#c1ff72] via-green-400 to-[#c1ff72] rounded-xl p-8 mb-6 text-center shadow-lg">
+            <div className="max-w-3xl mx-auto">
+              <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-3">
+                $24,000,000+
+              </h2>
+              <p className="text-xl md:text-2xl font-bold text-gray-800">
+                earned by our members in referral bonuses
+              </p>
+            </div>
+          </div>
+
           {/* Info Banner */}
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
             <div className="flex gap-4">
