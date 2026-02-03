@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
 
-const BINANCE_API = 'https://api.binance.com/api/v3';
+const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 
 // Cryptocurrency symbols for investment dashboard
 const cryptoSymbols = [
-  { symbol: 'BTC', name: 'Bitcoin', icon: '₿', binanceSymbol: 'BTCUSDT' },
-  { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', binanceSymbol: 'ETHUSDT' },
-  { symbol: 'XRP', name: 'Ripple', icon: 'XRP', binanceSymbol: 'XRPUSDT' },
-  { symbol: 'SOL', name: 'Solana', icon: 'SOL', binanceSymbol: 'SOLUSDT' },
-  { symbol: 'BNB', name: 'Binance Coin', icon: 'BNB', binanceSymbol: 'BNBUSDT' },
-  { symbol: 'DOT', name: 'Polkadot', icon: 'DOT', binanceSymbol: 'DOTUSDT' },
-  { symbol: 'ADA', name: 'Cardano', icon: 'ADA', binanceSymbol: 'ADAUSDT' },
-  { symbol: 'DOGE', name: 'Dogecoin', icon: 'DOGE', binanceSymbol: 'DOGEUSDT' },
-  { symbol: 'USDT', name: 'Tether', icon: 'USDT', binanceSymbol: 'USDCUSDT' }
+  { symbol: 'BTC', name: 'Bitcoin', icon: '₿', coingeckoId: 'bitcoin' },
+  { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', coingeckoId: 'ethereum' },
+  { symbol: 'XRP', name: 'Ripple', icon: 'XRP', coingeckoId: 'ripple' },
+  { symbol: 'SOL', name: 'Solana', icon: 'SOL', coingeckoId: 'solana' },
+  { symbol: 'BNB', name: 'Binance Coin', icon: 'BNB', coingeckoId: 'binancecoin' },
+  { symbol: 'DOT', name: 'Polkadot', icon: 'DOT', coingeckoId: 'polkadot' },
+  { symbol: 'ADA', name: 'Cardano', icon: 'ADA', coingeckoId: 'cardano' },
+  { symbol: 'DOGE', name: 'Dogecoin', icon: 'DOGE', coingeckoId: 'dogecoin' },
+  { symbol: 'USDT', name: 'Tether', icon: 'USDT', coingeckoId: 'tether' }
 ];
 
 // Fallback prices
@@ -62,92 +62,81 @@ function generateFallbackHistory(currentPrice: number, change24h: number) {
 
 export async function GET() {
   try {
-    console.log('Fetching crypto data from Binance API...');
+    console.log('🚀 Fetching crypto data from CoinGecko API...');
     
-    // Fetch 24hr ticker data from Binance for all symbols
-    const symbols = cryptoSymbols.map(c => `"${c.binanceSymbol}"`).join(',');
-    const tickerResponse = await fetch(
-      `${BINANCE_API}/ticker/24hr?symbols=[${symbols}]`,
+    // Build CoinGecko IDs string
+    const coinIds = cryptoSymbols.map(c => c.coingeckoId).join(',');
+    
+    // Fetch current prices with 24h change
+    const pricesResponse = await fetch(
+      `${COINGECKO_API}/simple/price?ids=${coinIds}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`,
       { 
-        next: { revalidate: 10 },
+        next: { revalidate: 300 }, // Cache for 5 minutes
         headers: {
           'Accept': 'application/json'
         }
       }
     );
 
-    console.log('Binance API status:', tickerResponse.status);
+    console.log('📊 CoinGecko API status:', pricesResponse.status);
 
-    if (!tickerResponse.ok) {
-      const errorText = await tickerResponse.text();
-      console.error('Binance API error:', errorText);
-      throw new Error(`Binance API error: ${tickerResponse.status} - ${errorText}`);
+    if (!pricesResponse.ok) {
+      const errorText = await pricesResponse.text();
+      console.error('❌ CoinGecko API error:', errorText);
+      throw new Error(`CoinGecko API error: ${pricesResponse.status}`);
     }
 
-    const tickerData = await tickerResponse.json();
-    console.log('Ticker data received:', tickerData.length, 'items');
+    const pricesData = await pricesResponse.json();
+    console.log('✅ Prices data received for', Object.keys(pricesData).length, 'coins');
 
-    // Fetch kline data (candlestick) for price history
-    const cryptoDataPromises = cryptoSymbols.map(async (crypto, index) => {
-      try {
-        const ticker = tickerData.find((t: any) => t.symbol === crypto.binanceSymbol) || tickerData[index];
-        
-        // Fetch 24 hourly candles for price history
-        const klineResponse = await fetch(
-          `${BINANCE_API}/klines?symbol=${crypto.binanceSymbol}&interval=1h&limit=24`,
-          { next: { revalidate: 10 } }
-        );
-
-        let priceHistory = [];
-        
-        if (klineResponse.ok) {
-          const klineData = await klineResponse.json();
-          priceHistory = klineData.map((candle: any, i: number) => ({
-            time: `${i.toString().padStart(2, '0')}:00`,
-            price: parseFloat(candle[4])
-          }));
-        }
-
-        const currentPrice = parseFloat(ticker.lastPrice);
-        const change24h = parseFloat(ticker.priceChangePercent);
-        const volume24h = parseFloat(ticker.quoteVolume);
-
+    // Map the data to our crypto symbols
+    const cryptoData = cryptoSymbols.map(crypto => {
+      const coinData = pricesData[crypto.coingeckoId];
+      
+      if (!coinData) {
+        console.warn(`⚠️ No data for ${crypto.symbol}, using fallback`);
+        const fallbackPrice = getFallbackPrice(crypto.symbol);
+        const fallbackChange = (Math.random() - 0.5) * 10;
         return {
           symbol: crypto.symbol,
           name: crypto.name,
           icon: crypto.icon,
-          price: currentPrice,
-          change24h: change24h,
-          volume24h: formatVolume(volume24h),
-          marketCap: 'N/A',
-          priceHistory: priceHistory.length > 0 ? priceHistory : generateFallbackHistory(currentPrice, change24h)
-        };
-      } catch (error) {
-        console.error(`Error fetching data for ${crypto.symbol}:`, error);
-        return {
-          symbol: crypto.symbol,
-          name: crypto.name,
-          icon: crypto.icon,
-          price: 0,
-          change24h: 0,
+          price: fallbackPrice,
+          change24h: fallbackChange,
           volume24h: 'N/A',
           marketCap: 'N/A',
-          priceHistory: []
+          priceHistory: generateFallbackHistory(fallbackPrice, fallbackChange)
         };
       }
+
+      const currentPrice = coinData.usd || getFallbackPrice(crypto.symbol);
+      const change24h = coinData.usd_24h_change || 0;
+      const volume24h = coinData.usd_24h_vol || 0;
+      const marketCap = coinData.usd_market_cap || 0;
+
+      return {
+        symbol: crypto.symbol,
+        name: crypto.name,
+        icon: crypto.icon,
+        price: currentPrice,
+        change24h: change24h,
+        volume24h: formatVolume(volume24h),
+        marketCap: formatVolume(marketCap),
+        priceHistory: generateFallbackHistory(currentPrice, change24h)
+      };
     });
 
-    const cryptoData = await Promise.all(cryptoDataPromises);
+    console.log('💰 Crypto data prepared:', cryptoData.length, 'tokens');
 
     return NextResponse.json({
       success: true,
       data: cryptoData,
       timestamp: new Date().toISOString(),
-      source: 'Binance API'
+      source: 'CoinGecko API (Free)'
     });
 
   } catch (error) {
-    console.error('Error fetching crypto data:', error);
+    console.error('❌ Error fetching crypto data:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
     // Return fallback data instead of error

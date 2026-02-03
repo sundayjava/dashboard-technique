@@ -9,11 +9,9 @@ import AcredisPlusModal from '@/components/modals/AcredisPlusModal';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import { 
-  TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
-  DollarSign, BarChart3, Activity, Clock, Calendar, 
-  PieChart, Wallet, Plus, ArrowUpCircle, ArrowDownCircle, Award
+  TrendingUp, DollarSign, BarChart3, Activity, Clock, 
+  PieChart, Wallet, ArrowUpCircle, ArrowDownCircle, Award
 } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import MiniLineChart from '@/components/MiniLineChart';
 
 interface CryptoToken {
