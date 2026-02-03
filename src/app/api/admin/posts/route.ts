@@ -54,6 +54,15 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Send email notification to all users about the new post
+    // This runs asynchronously and won't block the response
+    if (published) {
+      const { sendNewPostNotification } = await import('@/lib/email');
+      sendNewPostNotification(title, content, post.id).catch((error) => {
+        console.error('Failed to send post notification emails:', error);
+      });
+    }
+
     return NextResponse.json({
       message: 'Post created successfully',
       post

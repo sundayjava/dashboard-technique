@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
       arkIIAllocation,
       duration,
       profitPercentage,
+      compoundingCycles,
+      canBeStoppedByUser,
       cryptoAddress,
       cryptoSymbol,
       cryptoIcon,
@@ -84,6 +86,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const cycles = parseInt(compoundingCycles) || 0;
+    if (cycles < 0) {
+      return NextResponse.json(
+        { error: 'Compounding cycles cannot be negative' },
+        { status: 400 }
+      );
+    }
+
     const plan = await prisma.investmentPlan.create({
       data: {
         planName,
@@ -92,6 +102,8 @@ export async function POST(request: NextRequest) {
         arkIIAllocation: parseFloat(arkIIAllocation),
         duration: parseInt(duration),
         profitPercentage: parseFloat(profitPercentage),
+        compoundingCycles: cycles,
+        canBeStoppedByUser: canBeStoppedByUser !== undefined ? canBeStoppedByUser : true,
         cryptoAddress: cryptoAddress || null,
         cryptoSymbol: cryptoSymbol || null,
         cryptoIcon: cryptoIcon || null,
@@ -127,6 +139,8 @@ export async function PUT(request: NextRequest) {
       arkIIAllocation,
       duration,
       profitPercentage,
+      compoundingCycles,
+      canBeStoppedByUser,
       cryptoAddress,
       cryptoSymbol,
       cryptoIcon,
@@ -149,6 +163,8 @@ export async function PUT(request: NextRequest) {
         ...(arkIIAllocation && { arkIIAllocation: parseFloat(arkIIAllocation) }),
         ...(duration && { duration: parseInt(duration) }),
         ...(profitPercentage && { profitPercentage: parseFloat(profitPercentage) }),
+        ...(compoundingCycles !== undefined && { compoundingCycles: parseInt(compoundingCycles) || 0 }),
+        ...(canBeStoppedByUser !== undefined && { canBeStoppedByUser }),
         ...(cryptoAddress !== undefined && { cryptoAddress }),
         ...(cryptoSymbol !== undefined && { cryptoSymbol }),
         ...(cryptoIcon !== undefined && { cryptoIcon }),

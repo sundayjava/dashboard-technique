@@ -236,11 +236,25 @@ export default function InvestmentDashboardPage() {
       return;
     }
 
+    const amount = parseFloat(withdrawAmount);
+
+    // Check if user has sufficient balance
+    if (amount > stats.investmentBalance) {
+      toast.error('Insufficient investment balance');
+      return;
+    }
+
+    // Check if withdrawal would affect active investments
+    if (stats.activeInvestments > 0 && amount > (stats.investmentBalance - stats.totalInvested)) {
+      toast.error('Cannot withdraw funds allocated to active investments. Please stop your investments first.');
+      return;
+    }
+
     try {
       setIsProcessing(true);
       const response = await axios.post('/api/investments/withdraw', {
         userId: user.id,
-        amount: parseFloat(withdrawAmount)
+        amount: amount
       });
 
       if (response.data.success) {

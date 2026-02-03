@@ -131,7 +131,7 @@ export default function CardDisplay({ userId }: CardDisplayProps) {
               <CreditCard className="w-8 h-8 opacity-30" />
             </div>
             <div className="mb-6">
-              <div className="text-2xl font-mono tracking-wider mb-1">**** **** **** ****</div>
+              <div className="sm:text-2xl text-xl font-mono tracking-wider mb-1">**** **** **** ****</div>
             </div>
             <div className="flex justify-between items-end">
               <div>

@@ -245,3 +245,261 @@ export async function sendTransactionApprovalEmail(
     `,
   });
 }
+
+/**
+ * Send new post notification to all users
+ * @param postTitle - The title of the new post
+ * @param postContent - The content of the new post (will be truncated for email)
+ * @param postId - The ID of the post
+ */
+export async function sendNewPostNotification(postTitle: string, postContent: string, postId: string) {
+  try {
+    // Import prisma here to avoid circular dependencies
+    const { prisma } = await import('./prisma');
+    
+    // Get all users with valid email addresses
+    const users = await prisma.user.findMany({
+      select: { 
+        email: true, 
+        name: true 
+      }
+    });
+
+    // Filter out users without email addresses
+    const usersWithEmail = users.filter(user => user.email && user.email.trim() !== '');
+
+    if (usersWithEmail.length === 0) {
+      console.log('⚠️ No users found to notify about new post');
+      return;
+    }
+
+    // Truncate content for email preview (first 200 characters)
+    const contentPreview = postContent.length > 200 
+      ? postContent.substring(0, 200) + '...' 
+      : postContent;
+
+    // Send email to each user
+    const emailPromises = usersWithEmail.map((user) => 
+      sendEmail({
+        to: user.email,
+        subject: `New Post: ${postTitle}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+              <div style="background-color: white; width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 30px;">📰</span>
+              </div>
+              <h1 style="color: white; margin: 0; font-size: 24px;">New Post Published</h1>
+            </div>
+            
+            <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+                Hello ${user.name || 'Valued User'},
+              </p>
+              
+              <p style="color: #6b7280; font-size: 14px; margin-bottom: 25px;">
+                We have just published a new post that might interest you!
+              </p>
+              
+              <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+                <h2 style="margin: 0 0 15px 0; color: #1e40af; font-size: 20px;">${postTitle}</h2>
+                <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 0;">
+                  ${contentPreview}
+                </p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/investment-strategy" 
+                   style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
+                  Read Full Post
+                </a>
+              </div>
+              
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+              
+              <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+                This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+                You received this email because you are a registered user.<br>
+                Please do not reply to this email.
+              </p>
+            </div>
+          </div>
+        `,
+      })
+    );
+
+    // Send all emails in parallel and wait for all to complete (or fail)
+    const results = await Promise.allSettled(emailPromises);
+    
+    // Count successes and failures
+    const successful = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    
+    console.log(`✅ New post notification emails sent: ${successful} successful, ${failed} failed out of ${usersWithEmail.length} users`);
+  } catch (error) {
+    console.error('❌ Failed to send new post notification emails:', error);
+    // Don't throw - we don't want to fail the post creation if email fails
+  }
+}
+
+export async function sendInvestmentMaturityNotification({
+  adminEmail,
+  adminName,
+  investment,
+}: {
+  adminEmail: string;
+  adminName: string;
+  investment: {
+    id: string;
+    investorName: string;
+    investorEmail: string;
+    planName: string;
+    amount: number;
+    expectedProfit: number;
+    totalReturn: number;
+    startDate: Date;
+    endDate: Date;
+    currentCycle: number;
+    totalCycles: number;
+    isCompounding: boolean;
+    hasMoreCycles: boolean;
+  };
+}) {
+  const formattedAmount = investment.amount.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+  const formattedProfit = investment.expectedProfit.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+  const formattedReturn = investment.totalReturn.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+  
+  const startDateStr = new Date(investment.startDate).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  
+  const endDateStr = new Date(investment.endDate).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const compoundingInfo = investment.isCompounding
+    ? `
+      <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #f59e0b;">
+        <p style="color: #92400e; font-size: 14px; margin: 0; font-weight: 600;">
+          🔄 Compounding Investment
+        </p>
+        <p style="color: #78350f; font-size: 13px; margin: 5px 0 0 0;">
+          Current Cycle: ${investment.currentCycle} of ${investment.totalCycles}
+          ${investment.hasMoreCycles 
+            ? '<br><strong>Action Required:</strong> Start next cycle or complete investment' 
+            : '<br><strong>Final Cycle:</strong> Complete investment'}
+        </p>
+      </div>
+    `
+    : '';
+
+  return await sendEmail({
+    to: adminEmail,
+    subject: `🔔 Investment Maturity Alert - ${investment.investorName} - ${investment.planName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Investment Maturity Alert</h1>
+          <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 14px;">Manual Action Required</p>
+        </div>
+        
+        <div style="padding: 30px;">
+          <p style="color: #1f2937; font-size: 16px; margin: 0 0 10px 0;">
+            Hello <strong>${adminName}</strong>,
+          </p>
+          
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 25px;">
+            An investment has reached its maturity date and requires your attention to complete the transaction.
+          </p>
+          
+          ${compoundingInfo}
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h2 style="margin: 0 0 15px 0; color: #111827; font-size: 18px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">
+              Investment Details
+            </h2>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px; width: 40%;">Investment ID:</td>
+                <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${investment.id}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Investor Name:</td>
+                <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${investment.investorName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Investor Email:</td>
+                <td style="padding: 8px 0; color: #111827; font-size: 14px;">${investment.investorEmail}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Investment Plan:</td>
+                <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${investment.planName}</td>
+              </tr>
+              <tr style="background-color: #e5e7eb;">
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Principal Amount:</td>
+                <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${formattedAmount}</td>
+              </tr>
+              <tr style="background-color: #d1fae5;">
+                <td style="padding: 8px 0; color: #065f46; font-size: 14px;">Expected Profit:</td>
+                <td style="padding: 8px 0; color: #047857; font-size: 14px; font-weight: 700;">${formattedProfit}</td>
+              </tr>
+              <tr style="background-color: #dbeafe;">
+                <td style="padding: 8px 0; color: #1e40af; font-size: 14px;">Total Return:</td>
+                <td style="padding: 8px 0; color: #1e40af; font-size: 16px; font-weight: 700;">${formattedReturn}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Start Date:</td>
+                <td style="padding: 8px 0; color: #111827; font-size: 14px;">${startDateStr}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Maturity Date:</td>
+                <td style="padding: 8px 0; color: #dc2626; font-size: 14px; font-weight: 600;">${endDateStr}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+            <p style="color: #991b1b; font-size: 14px; margin: 0; font-weight: 600;">
+              ⚠️ Action Required
+            </p>
+            <p style="color: #7f1d1d; font-size: 13px; margin: 5px 0 0 0;">
+              Please log in to the admin dashboard to review and complete this investment manually. 
+              ${investment.hasMoreCycles 
+                ? 'You can choose to start the next compounding cycle or complete the investment.' 
+                : 'Credit the profit to the investor\'s investment balance and mark the investment as COMPLETED.'}
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/admin/investments" 
+               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
+              Go to Admin Dashboard
+            </a>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+            This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'} Admin System<br>
+            Generated at: ${new Date().toLocaleString('en-US')}<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}

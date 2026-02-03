@@ -53,6 +53,7 @@ model User {
   transactions               Transaction[]
   depositAddresses           UserDepositAddress[]
   holdings                   UserHolding[]
+  withdrawals                Withdrawal[]
 
   @@map("users")
 }
@@ -482,42 +483,49 @@ model InvestmentAccess {
 }
 
 model InvestmentPlan {
-  id               String       @id @default(cuid())
-  planName         String
-  minAmount        Float
-  maxAmount        Float
-  arkIIAllocation  Float
-  duration         Int
-  profitPercentage Float
-  cryptoAddress    String?
-  cryptoSymbol     String?
-  cryptoIcon       String?      @db.Text
-  isActive         Boolean      @default(true)
-  createdBy        String?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  investments      Investment[]
+  id                   String       @id @default(cuid())
+  planName             String
+  minAmount            Float
+  maxAmount            Float
+  arkIIAllocation      Float
+  duration             Int
+  profitPercentage     Float
+  compoundingCycles    Int          @default(0) // Number of times to repeat (0 = no compounding)
+  canBeStoppedByUser   Boolean      @default(true) // Allow users to stop compounding early
+  cryptoAddress        String?
+  cryptoSymbol         String?
+  cryptoIcon           String?      @db.Text
+  isActive             Boolean      @default(true)
+  createdBy            String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  investments          Investment[]
 
   @@index([isActive])
   @@map("investment_plans")
 }
 
 model Investment {
-  id             String           @id @default(cuid())
-  userId         String
-  planId         String
-  amount         Float
-  paymentMethod  PaymentMethod
-  transactionRef String?
-  status         InvestmentStatus @default(PENDING)
-  startDate      DateTime?
-  endDate        DateTime?
-  profitEarned   Float            @default(0)
-  completedAt    DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  plan           InvestmentPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String           @id @default(cuid())
+  userId                String
+  planId                String
+  amount                Float
+  paymentMethod         PaymentMethod
+  transactionRef        String?
+  status                InvestmentStatus @default(PENDING)
+  startDate             DateTime?
+  endDate               DateTime?
+  profitEarned          Float            @default(0)
+  currentCycle          Int              @default(1) // Track which compounding cycle we're on
+  totalCycles           Int              @default(1) // Total cycles based on plan's compoundingCycles
+  isStopped             Boolean          @default(false) // Track if user/admin stopped compounding
+  stoppedBy             String?          // User ID or 'ADMIN' who stopped it
+  stoppedAt             DateTime?        // When it was stopped
+  completedAt           DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  plan                  InvestmentPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([planId])
@@ -798,4 +806,64 @@ enum HoldingStatus {
   CLOSED
 }
 
+model Withdrawal {
+  id                  String            @id @default(cuid())
+  userId              String
+  accountId           String?
+  amount              Float
+  currency            String            @default("USD")
+  
+  // Beneficiary Details
+  beneficiaryName     String
+  beneficiaryEmail    String?
+  beneficiaryPhone    String?
+  
+  // Bank Details
+  bankName            String
+  bankAddress         String?
+  accountNumber       String
+  swiftCode           String
+  iban                String?
+  routingNumber       String?
+  sortCode            String?
+  
+  // Beneficiary Address
+  beneficiaryAddress  String
+  city                String
+  state               String?
+  zipCode             String
+  countryCode         String
+  
+  // Transaction Details
+  reference           String            @unique
+  status              WithdrawalStatus  @default(PENDING)
+  description         String?
+  fee                 Float             @default(0)
+  totalAmount         Float             // amount + fee
+  
+  // Admin Actions
+  adminNotes          String?
+  processedBy         String?
+  processedAt         DateTime?
+  rejectionReason     String?
+  
+  // Timestamps
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("withdrawals")
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  APPROVED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}

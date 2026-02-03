@@ -223,7 +223,7 @@ export default function TradeKeyPage() {
           </div>
 
           {/* Referral Bonus Card */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 mb-6 shadow-md">
+          <div className="bg-linear-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 mb-6 shadow-md">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="bg-green-500 rounded-full p-3">
@@ -258,8 +258,8 @@ export default function TradeKeyPage() {
               <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
-              <p className="text-gray-600 mb-4 text-lg font-semibold">You don't have a referral key yet</p>
-              <p className="text-sm text-gray-500 mb-6">Create your referral key to start inviting others to the investment platform</p>
+              <p className="text-gray-600 mb-4 text-lg font-semibold">You don't have a trade key yet</p>
+              <p className="text-sm text-gray-500 mb-6">Create your trade key to start inviting others to the investment platform</p>
               <button
                 onClick={handleCreateReferralKey}
                 disabled={isCreating}
@@ -275,7 +275,7 @@ export default function TradeKeyPage() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Create Referral Key
+                    Create Trade Key
                   </>
                 )}
               </button>

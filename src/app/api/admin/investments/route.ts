@@ -99,15 +99,27 @@ export async function PUT(request: NextRequest) {
       const endDate = new Date(startDate.getTime() + (investment.plan.duration * 24 * 60 * 60 * 1000));
       updateData.startDate = startDate;
       updateData.endDate = endDate;
+      
+      // Set totalCycles if not already set
+      if (!investment.totalCycles || investment.totalCycles === 1) {
+        updateData.totalCycles = investment.plan.compoundingCycles > 0 ? investment.plan.compoundingCycles : 1;
+      }
+      
       notificationMessage = `Your investment of $${investment.amount} in ${investment.plan.planName} has been approved and is now active!`;
     } else if (status === 'COMPLETED') {
-      // Completing investment - calculate profit and credit ONLY investmentBalance
+      // Admin completes FINAL cycle only (compounding happens automatically via cron)
       const profitEarned = investment.amount * (investment.plan.profitPercentage / 100);
       updateData.profitEarned = profitEarned;
       updateData.completedAt = new Date();
+      
+      // Credit full amount to investment balance
       shouldCreditInvestmentBalance = true;
       investmentBalanceAmount = investment.amount + profitEarned;
-      notificationMessage = `Your investment of $${investment.amount} in ${investment.plan.planName} has been completed. Total return: $${investmentBalanceAmount.toFixed(2)} (Profit: $${profitEarned.toFixed(2)}) has been added to your investment balance.`;
+      
+      const cycleInfo = investment.plan.compoundingCycles > 0 
+        ? ` (Final cycle ${investment.currentCycle}/${investment.totalCycles})` 
+        : '';
+      notificationMessage = `Your ${investment.plan.planName} investment has been completed${cycleInfo}. Total amount credited: $${investmentBalanceAmount.toFixed(2)}`;
     } else if (status === 'CANCELLED' || status === 'FAILED') {
       // Refund the investment amount to main account
       shouldCreditAccount = true;

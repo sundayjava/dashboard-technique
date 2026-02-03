@@ -13,6 +13,8 @@ interface InvestmentPlan {
   arkIIAllocation: number;
   duration: number;
   profitPercentage: number;
+  compoundingCycles: number;
+  canBeStoppedByUser: boolean;
   cryptoAddress: string | null;
   cryptoSymbol: string | null;
   cryptoIcon: string | null;
@@ -30,6 +32,8 @@ interface PlanFormData {
   arkIIAllocation: string;
   duration: string;
   profitPercentage: string;
+  compoundingCycles: string;
+  canBeStoppedByUser: boolean;
   cryptoAddress: string;
   cryptoSymbol: string;
   cryptoIcon: string;
@@ -50,6 +54,8 @@ export default function AdminInvestmentPlansPage() {
     arkIIAllocation: '',
     duration: '',
     profitPercentage: '',
+    compoundingCycles: '0',
+    canBeStoppedByUser: true,
     cryptoAddress: '',
     cryptoSymbol: '',
     cryptoIcon: ''
@@ -97,6 +103,8 @@ export default function AdminInvestmentPlansPage() {
         arkIIAllocation: plan.arkIIAllocation.toString(),
         duration: plan.duration.toString(),
         profitPercentage: plan.profitPercentage.toString(),
+        compoundingCycles: plan.compoundingCycles.toString(),
+        canBeStoppedByUser: plan.canBeStoppedByUser,
         cryptoAddress: plan.cryptoAddress || '',
         cryptoSymbol: plan.cryptoSymbol || '',
         cryptoIcon: plan.cryptoIcon || ''
@@ -111,6 +119,8 @@ export default function AdminInvestmentPlansPage() {
         arkIIAllocation: '',
         duration: '',
         profitPercentage: '',
+        compoundingCycles: '0',
+        canBeStoppedByUser: true,
         cryptoAddress: '',
         cryptoSymbol: '',
         cryptoIcon: ''
@@ -130,6 +140,8 @@ export default function AdminInvestmentPlansPage() {
       arkIIAllocation: '',
       duration: '',
       profitPercentage: '',
+      compoundingCycles: '0',
+      canBeStoppedByUser: true,
       cryptoAddress: '',
       cryptoSymbol: '',
       cryptoIcon: ''
@@ -193,6 +205,13 @@ export default function AdminInvestmentPlansPage() {
       return;
     }
 
+    const compoundingCycles = parseInt(formData.compoundingCycles) || 0;
+    
+    if (compoundingCycles < 0) {
+      toast.error('Compounding cycles cannot be negative');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -203,6 +222,8 @@ export default function AdminInvestmentPlansPage() {
         arkIIAllocation,
         duration,
         profitPercentage,
+        compoundingCycles,
+        canBeStoppedByUser: formData.canBeStoppedByUser,
         cryptoAddress: formData.cryptoAddress || null,
         cryptoSymbol: formData.cryptoSymbol || null,
         cryptoIcon: formData.cryptoIcon || null,
@@ -346,7 +367,12 @@ export default function AdminInvestmentPlansPage() {
                       <td className="px-6 py-4 text-sm text-gray-700">
                         ${plan.minAmount.toLocaleString()} - ${plan.maxAmount.toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{plan.duration} days</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {plan.compoundingCycles > 1 
+                          ? `${plan.duration}^${plan.compoundingCycles} days (${plan.duration * plan.compoundingCycles} total)`
+                          : `${plan.duration} days`
+                        }
+                      </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-semibold text-green-600">{plan.profitPercentage}%</span>
                       </td>
@@ -516,6 +542,46 @@ export default function AdminInvestmentPlansPage() {
                   />
                 </div>
 
+                {/* Compounding Cycles */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Compounding Cycles
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.compoundingCycles}
+                    onChange={(e) => setFormData({ ...formData, compoundingCycles: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent"
+                    placeholder="0"
+                    min="0"
+                    step="1"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    {formData.compoundingCycles && parseInt(formData.compoundingCycles) > 0
+                      ? `Plan will run ${parseInt(formData.compoundingCycles)} times (Total: ${parseInt(formData.duration) * parseInt(formData.compoundingCycles)} days)`
+                      : 'Leave as 0 for no compounding (single run)'}
+                  </p>
+                </div>
+
+                {/* Can Be Stopped By User */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="canBeStoppedByUser"
+                      checked={formData.canBeStoppedByUser}
+                      onChange={(e) => setFormData({ ...formData, canBeStoppedByUser: e.target.checked })}
+                      className="w-5 h-5 text-[#c1ff72] focus:ring-[#c1ff72] border-gray-300 rounded"
+                    />
+                    <label htmlFor="canBeStoppedByUser" className="text-sm font-medium text-gray-700">
+                      Allow users to stop compounding early
+                    </label>
+                  </div>
+                  <p className="mt-1 ml-8 text-sm text-gray-500">
+                    If enabled, users can manually stop the compounding cycle before completion
+                  </p>
+                </div>
+
                 {/* Crypto Address */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -558,7 +624,7 @@ export default function AdminInvestmentPlansPage() {
                   </label>
                   <div className="flex items-center gap-4">
                     {iconPreview && (
-                      <div className="w-16 h-16 rounded-lg border-2 border-gray-200 overflow-hidden flex-shrink-0">
+                      <div className="w-16 h-16 rounded-lg border-2 border-gray-200 overflow-hidden shrink-0">
                         <img 
                           src={iconPreview} 
                           alt="Crypto icon preview" 

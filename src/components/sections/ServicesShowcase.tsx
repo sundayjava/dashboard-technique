@@ -30,7 +30,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Open Your Account",
     ctaLink: "/login",
     ctaType: "login",
-    image: "https://images.unsplash.com/photo-1556742044-3c52d6e88c62?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1556742044-3c52d6e88c62.avif"
   },
   "Business Banking": {
     title: "Business Banking Excellence",
@@ -44,7 +44,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Start Banking for Business",
     ctaLink: "/login",
     ctaType: "login",
-    image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1454165804606-c3d57bc86b40.avif"
   },
   "Investment Services": {
     title: "Investment Services",
@@ -58,7 +58,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Learn More",
     ctaLink: "/support-system",
     ctaType: "support",
-    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop"
+    image: "/photo-1460925895917-afdab827c52f.avif"
   },
   "Digital Banking": {
     title: "Digital-First Banking",
@@ -72,7 +72,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Go Digital Now",
     ctaLink: "/login",
     ctaType: "login",
-    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1551288049-bebda4e38f71uut.avif"
   },
   "Cross-border Banking": {
     title: "Cross-Border Banking Made Easy",
@@ -86,7 +86,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Start Global Banking",
     ctaLink: "/login",
     ctaType: "login",
-    image: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1526304640581-d334cdbbf45e.avif"
   },
   "Support & Resources": {
     title: "Support & Resources",
@@ -100,7 +100,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Get Support",
     ctaLink: "/support-system",
     ctaType: "support",
-    image: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?q=80&w=2072&auto=format&fit=crop"
+    image: "/photo-1486312338219-ce68d2c6f44d.avif"
   },
   "Wealth Management": {
     title: "Wealth Management",
@@ -114,7 +114,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Explore Wealth Management",
     ctaLink: "/support-system",
     ctaType: "support",
-    image: "https://images.unsplash.com/photo-1554224311-beee1080a6a7?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1563013544-824ae1b704d3.avif"
   },
   "Credit Services": {
     title: "Credit Services",
@@ -128,7 +128,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Apply for Credit",
     ctaLink: "/support-system",
     ctaType: "support",
-    image: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1563013544-824ae1b704d3.avif"
   },
   "Insurance Services": {
     title: "Insurance Services",
@@ -142,7 +142,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Get Insured",
     ctaLink: "/support-system",
     ctaType: "support",
-    image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1450101499163-c8848c66ca85.avif"
   },
   "Foreign Exchange": {
     title: "Foreign Exchange Services",
@@ -156,7 +156,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Exchange Currency",
     ctaLink: "/support-system",
     ctaType: "support",
-    image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1611974789855-9c2a0a7236a3 (1).avif"
   },
   "Trade Finance": {
     title: "Trade Finance Solutions",
@@ -170,7 +170,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Learn About Trade Finance",
     ctaLink: "/support-system",
     ctaType: "support",
-    image: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1578575437130-527eed3abbec.avif"
   },
   "Advisory Services": {
     title: "Advisory Services",
@@ -184,7 +184,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Book a Consultation",
     ctaLink: "/support-system",
     ctaType: "support",
-    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=2070&auto=format&fit=crop"
+    image: "/photo-1552664730-d307ca884978.avif"
   },
   "B2B Banking": {
     title: "B2B Banking Solutions",
@@ -198,7 +198,7 @@ const servicesContent: Record<string, ServiceContent> = {
     ctaText: "Explore B2B Solutions",
     ctaLink: "/login",
     ctaType: "login",
-    image: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?q=80&w=2051&auto=format&fit=crop"
+    image: "/photo-1560472354-b33ff0c44a43.avif"
   },
   "Investment Loans": {
     title: "Investment Loans",

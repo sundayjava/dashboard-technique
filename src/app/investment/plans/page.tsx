@@ -16,6 +16,7 @@ interface InvestmentPlan {
   arkIIAllocation: number;
   duration: number;
   profitPercentage: number;
+  compoundingCycles: number;
   cryptoAddress: string | null;
   cryptoSymbol: string | null;
   cryptoIcon: string | null;
@@ -134,6 +135,13 @@ export default function InvestmentPlansPage() {
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Compounding</span>
+                    <span className="font-semibold text-[#8fd04f]">
+                      {plan.compoundingCycles > 0 ? `${plan.compoundingCycles}x cycles` : 'Simple Interest'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Min. Investment</span>
                     <span className="font-semibold text-gray-900">${plan.minAmount.toLocaleString()}</span>
                   </div>
@@ -148,10 +156,10 @@ export default function InvestmentPlansPage() {
                     <span className="font-semibold text-gray-900">{plan.arkIIAllocation.toLocaleString()}</span>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-200">
+                  {/* <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-200">
                     <span className="text-gray-600">Active Investors</span>
                     <span className="font-semibold text-[#c1ff72]">{plan._count.investments}</span>
-                  </div>
+                  </div> */}
 
                   <button
                     onClick={() => router.push(`/investment/invest/${plan.id}`)}

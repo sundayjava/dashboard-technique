@@ -89,6 +89,11 @@ export const adminSidebarItems: AdminSidebarItem[] = [
         href: "/admin/finance/transactions",
       },
       {
+        label: "Withdrawals",
+        href: "/admin/withdrawals",
+        notificationKey: "pendingWithdrawals",
+      },
+      {
         label: "Holdings",
         href: "/admin/holdings",
         notificationKey: "pendingHoldings",

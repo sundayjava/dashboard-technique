@@ -154,7 +154,9 @@ export async function POST(request: NextRequest) {
             amount: investmentAmount,
             paymentMethod: 'BANK_WALLET',
             transactionRef,
-            status: 'PENDING'
+            status: 'PENDING',
+            totalCycles: plan.compoundingCycles > 0 ? plan.compoundingCycles : 1,
+            currentCycle: 1
           },
           include: {
             plan: true
@@ -198,7 +200,9 @@ export async function POST(request: NextRequest) {
           planId,
           amount: investmentAmount,
           paymentMethod: 'CRYPTO',
-          status: 'PENDING'
+          status: 'PENDING',
+          totalCycles: plan.compoundingCycles > 0 ? plan.compoundingCycles : 1,
+          currentCycle: 1
         },
         include: {
           plan: true

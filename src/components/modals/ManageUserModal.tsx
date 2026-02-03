@@ -442,57 +442,62 @@ export function ManageUserModal({ user, isOpen, onClose }: ManageUserModalProps)
                   />
                 </div>
 
-                {/* Sender's Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sender's Name
-                  </label>
-                  <input
-                    type="text"
-                    value={senderName}
-                    onChange={(e) => setSenderName(e.target.value)}
-                    placeholder="Enter sender's name"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                {/* Sender Details - Only show for CREDIT transactions */}
+                {transactionType === 'CREDIT' && (
+                  <>
+                    {/* Sender's Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Sender's Name
+                      </label>
+                      <input
+                        type="text"
+                        value={senderName}
+                        onChange={(e) => setSenderName(e.target.value)}
+                        placeholder="Enter sender's name"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-                {/* Sender's Account Number */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sender's Account Number
-                  </label>
-                  <input
-                    type="text"
-                    value={senderAccount}
-                    onChange={(e) => setSenderAccount(e.target.value)}
-                    placeholder="Enter sender's account number"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                    {/* Sender's Account Number */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Sender's Account Number
+                      </label>
+                      <input
+                        type="text"
+                        value={senderAccount}
+                        onChange={(e) => setSenderAccount(e.target.value)}
+                        placeholder="Enter sender's account number"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
 
-                {/* Sender's Bank */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sender's Bank
-                  </label>
-                  <input
-                    type="text"
-                    value={senderBank}
-                    onChange={(e) => setSenderBank(e.target.value)}
-                    placeholder="Enter sender's bank"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                    {/* Sender's Bank */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Sender's Bank
+                      </label>
+                      <input
+                        type="text"
+                        value={senderBank}
+                        onChange={(e) => setSenderBank(e.target.value)}
+                        placeholder="Enter sender's bank"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </>
+                )}
 
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Transfer Description <span className="text-red-500">*</span>
+                    {transactionType === 'CREDIT' ? 'Transfer Description' : 'Debit Reason'} <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Enter transaction description"
+                    placeholder={transactionType === 'CREDIT' ? 'Enter transaction description' : 'Enter reason for debiting account'}
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required

@@ -34,7 +34,7 @@ export async function GET(request: Request) {
         accountId: { in: accountIds },
         status: 'COMPLETED',
         transactionType: {
-          in: ['DEPOSIT', 'TRANSFER_IN', 'REFUND', 'INTEREST', 'BONUS']
+          in: ['DEPOSIT', 'TRANSFER_IN', 'REFUND', 'INTEREST', 'BONUS', 'INVESTMENT_WITHDRAWAL']
         }
       },
       _sum: {
@@ -43,22 +43,31 @@ export async function GET(request: Request) {
     });
 
     // Calculate total outflow (money going out)
-    const outflowResult = await prisma.transaction.aggregate({
+    // Fetch all outflow transactions to handle both positive and negative amounts correctly
+    const outflowTransactions = await prisma.transaction.findMany({
       where: {
         accountId: { in: accountIds },
         status: 'COMPLETED',
         transactionType: {
-          in: ['WITHDRAWAL', 'TRANSFER_OUT', 'PAYMENT', 'FEE']
+          in: ['WITHDRAWAL', 'TRANSFER_OUT', 'PAYMENT', 'FEE', 'INVESTMENT_DEPOSIT']
         }
       },
-      _sum: {
+      select: {
         amount: true,
+        fee: true,
       },
     });
 
+    // Sum absolute values to get total outflow (including fees/charges)
+    const totalOutflow = outflowTransactions.reduce((sum, tx) => {
+      const transactionAmount = Math.abs(tx.amount);
+      const transactionFee = Math.abs(tx.fee || 0);
+      return sum + transactionAmount + transactionFee;
+    }, 0);
+
     return NextResponse.json({
       totalInflow: inflowResult._sum?.amount || 0,
-      totalOutflow: Math.abs(outflowResult._sum?.amount || 0),
+      totalOutflow: totalOutflow,
     });
   } catch (error) {
     console.error('Error fetching transaction stats:', error);

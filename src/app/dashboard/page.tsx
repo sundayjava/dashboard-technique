@@ -86,6 +86,7 @@ export default function DashboardPage() {
   const [accountCurrency, setAccountCurrency] = useState('USD');
   const [accountNumber, setAccountNumber] = useState<string>('');
   const [totalInvestments, setTotalInvestments] = useState(0);
+  const [totalHoldings, setTotalHoldings] = useState(0);
   const [totalInflow, setTotalInflow] = useState(0);
   const [totalOutflow, setTotalOutflow] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -132,13 +133,14 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async (userId: string) => {
     try {
-      const [accountRes, investmentsRes, transactionsRes, transactionStatsRes, investmentsListRes, messagesRes] = await Promise.all([
+      const [accountRes, investmentsRes, transactionsRes, transactionStatsRes, investmentsListRes, messagesRes, holdingsRes] = await Promise.all([
         axios.get(`/api/accounts?userId=${userId}`),
         axios.get(`/api/investments/stats?userId=${userId}`),
         axios.get(`/api/transactions?userId=${userId}&limit=5`).catch(() => ({ data: { transactions: [] } })),
         axios.get(`/api/transactions/stats?userId=${userId}`).catch(() => ({ data: { totalInflow: 0, totalOutflow: 0 } })),
         axios.get(`/api/investments?userId=${userId}&status=ACTIVE`).catch(() => ({ data: { investments: [] } })),
-        axios.get(`/api/messages?userId=${userId}`).catch(() => ({ data: { messages: [] } }))
+        axios.get(`/api/messages?userId=${userId}`).catch(() => ({ data: { messages: [] } })),
+        axios.get(`/api/holdings?userId=${userId}`).catch(() => ({ data: { holdings: [] } }))
       ]);
 
       if (accountRes.data.accounts?.length > 0) {
@@ -169,6 +171,14 @@ export default function DashboardPage() {
         setMessages(messagesRes.data.messages.slice(0, 3));
         const unread = messagesRes.data.messages.filter((m: Message) => !m.isRead).length;
         setUnreadCount(unread);
+      }
+
+      // Calculate total holdings value
+      if (holdingsRes.data.holdings) {
+        const holdingsTotal = holdingsRes.data.holdings
+          .filter((h: any) => h.status === 'ACTIVE')
+          .reduce((sum: number, holding: any) => sum + (holding.currentValue || 0), 0);
+        setTotalHoldings(holdingsTotal);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -263,8 +273,8 @@ export default function DashboardPage() {
   const quickActions = [
     { icon: Send, label: 'Transfer', color: 'blue', href: '/dashboard/transfer/acredis-to-acredis' },
     { icon: CreditCard, label: 'Deposit', color: 'green', href: '/dashboard/monetary/digital-deposit' },
-    { icon: BarChart3, label: 'Invest', color: 'purple', href: '/dashboard/investment' },
-    { icon: ArrowDownRight, label: 'Withdraw', color: 'orange', href: '/dashboard/monetary/cards' },
+    { icon: BarChart3, label: 'Invest', color: 'purple', requiresTradeKey: true },
+    { icon: ArrowDownRight, label: 'Withdraw', color: 'orange', href: '/dashboard/monetary/withdraw' },
   ];
 
   return (
@@ -369,7 +379,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-gray-600 mb-1">Total Assets</p>
             <p className="text-lg font-bold text-gray-900">
-              {getCurrencySymbol(accountCurrency)}{(accountBalance + totalInvestments).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              {getCurrencySymbol(accountCurrency)}{(accountBalance + totalHoldings).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
@@ -383,7 +393,13 @@ export default function DashboardPage() {
               return (
                 <button
                   key={index}
-                  onClick={() => router.push(action.href)}
+                  onClick={() => {
+                    if (action.requiresTradeKey) {
+                      setShowTradeKeyModal(true);
+                    } else if (action.href) {
+                      router.push(action.href);
+                    }
+                  }}
                   className={`p-2 rounded-lg border-2 hover:shadow transition-all duration-200 group ${
                     action.color === 'blue' ? 'border-blue-200 hover:border-blue-500 hover:bg-blue-50' :
                     action.color === 'green' ? 'border-green-200 hover:border-green-500 hover:bg-green-50' :
@@ -991,7 +1007,7 @@ export default function DashboardPage() {
               value={tradeKey}
               onChange={(e) => setTradeKey(e.target.value)}
               placeholder="Enter your trade key"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mb-4"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent mb-4"
               onKeyDown={(e) => e.key === 'Enter' && handleValidateTradeKey()}
               disabled={validatingKey}
             />
@@ -999,7 +1015,7 @@ export default function DashboardPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  setShowTradeKeyModal(false);
+                  setShowTradeKeyModal(false); 
                   setTradeKey('');
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -1010,7 +1026,7 @@ export default function DashboardPage() {
               <button
                 onClick={handleValidateTradeKey}
                 disabled={validatingKey}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-400"
+                className="flex-1 px-4 py-2 bg-[#c1ff72] text-black rounded-lg hover:bg-[#b0e35c] transition-colors disabled:bg-[#c1ff72]/70"
               >
                 {validatingKey ? 'Validating...' : 'Verify'}
               </button>
