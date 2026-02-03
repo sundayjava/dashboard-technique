@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { notifyAdminsOfUserActivity } from '@/lib/email';
 
 // GET - Get user's holdings
 export async function GET(request: NextRequest) {
@@ -116,9 +117,27 @@ export async function POST(request: NextRequest) {
         },
         include: {
           token: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
         },
       });
     });
+
+    // Send email notification to admins
+    try {
+      await notifyAdminsOfUserActivity(
+        userId,
+        holding.user?.name || 'Unknown User',
+        `a Crypto Holding Request for ${depositAmount.toFixed(2)} ${account.currency} in ${token.name} (${token.symbol})`
+      );
+    } catch (emailError) {
+      console.error('Failed to send admin notification email:', emailError);
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({
       message: 'Holding created successfully',
