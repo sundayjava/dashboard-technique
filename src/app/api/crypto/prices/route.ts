@@ -66,20 +66,21 @@ async function fetchForexRates(): Promise<{ [key: string]: number }> {
 }
 
 /**
- * Fetch real-time commodity prices from free APIs with paid API as backup
- * Strategy: Use free APIs (CoinGecko, metals.live) to conserve your 100 daily metalpriceapi.com requests
+ * Fetch real-time commodity prices from CoinGecko - ALL FREE with unlimited requests
+ * Strategy: Use CoinGecko tokenized assets for all commodities (gold, silver, oil, S&P 500)
  */
 async function fetchCommodityPrices(): Promise<{ [key: string]: number }> {
   try {
-    let goldPrice = 4723; // Realistic fallback
-    let silverPrice = 31.5; // Realistic fallback ($31-32/oz)
-    let oilPrice = 73.5;
-    let sp500Price = 5800;
+    let goldPrice = 4900; // Current realistic fallback (Feb 2026)
+    let silverPrice = 86.0; // Current realistic fallback (from Kinesis Silver)
+    let oilPrice = 75.0; // Current realistic fallback
+    let sp500Price = 698.0; // Current realistic fallback (SPDR S&P 500 ETF price)
     
-    // ============ GOLD: Use CoinGecko (FREE, unlimited) ============
+    // ============ ALL COMMODITIES: Use CoinGecko (FREE, unlimited) ============
+    // CoinGecko tracks tokenized commodities which closely follow real prices
     try {
       const coinGeckoResponse = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=tether-gold,pax-gold&vs_currencies=usd&include_24hr_change=true',
+        'https://api.coingecko.com/api/v3/simple/price?ids=tether-gold,pax-gold,kinesis-silver,united-states-oil-fund-ondo-tokenized,spdr-s-p-500-etf-ondo-tokenized-etf&vs_currencies=usd&include_24hr_change=true',
         {
           cache: 'no-store',
           headers: { 'Accept': 'application/json' }
@@ -88,9 +89,9 @@ async function fetchCommodityPrices(): Promise<{ [key: string]: number }> {
       
       if (coinGeckoResponse.ok) {
         const data = await coinGeckoResponse.json();
-        console.log('📦 CoinGecko Gold Response:', data);
+        console.log('📦 Raw CoinGecko Commodities Response:', data);
         
-        // Use Tether Gold (XAUT) or PAX Gold as backup
+        // GOLD: Use Tether Gold (XAUT) - most accurate to spot gold
         if (data['tether-gold']?.usd) {
           goldPrice = data['tether-gold'].usd;
           console.log('✅ Gold price from CoinGecko (XAUT):', goldPrice);
@@ -98,57 +99,29 @@ async function fetchCommodityPrices(): Promise<{ [key: string]: number }> {
           goldPrice = data['pax-gold'].usd;
           console.log('✅ Gold price from CoinGecko (PAXG):', goldPrice);
         }
-      }
-    } catch (e) {
-      console.log('⚠️ CoinGecko failed for gold, will try backup');
-    }
-    
-    // ============ SILVER: Use metals.live (FREE, no auth) ============
-    try {
-      const silverResponse = await fetch(
-        'https://api.metals.live/v1/spot/silver',
-        {
-          cache: 'no-store',
-          headers: { 'Accept': 'application/json' }
-        }
-      );
-      
-      if (silverResponse.ok) {
-        const silverData = await silverResponse.json();
-        if (silverData && silverData[0]?.price) {
-          silverPrice = silverData[0].price;
-          console.log('✅ Silver price from metals.live:', silverPrice);
-        }
-      }
-    } catch (e) {
-      console.log('⚠️ metals.live failed, trying backup API');
-      
-      // ============ BACKUP: Use your metalpriceapi.com key (100 requests/day limit) ============
-      try {
-        const backupResponse = await fetch(
-          'https://api.metalpriceapi.com/v1/latest?api_key=28b323df5ea5623cb53877f826dc7a28&base=USD&currencies=XAG,XAU',
-          { cache: 'no-store' }
-        );
         
-        if (backupResponse.ok) {
-          const backupData = await backupResponse.json();
-          console.log('📦 metalpriceapi.com backup response:', backupData);
-          
-          // Update silver if available
-          if (backupData.rates?.XAG) {
-            silverPrice = 1 / backupData.rates.XAG;
-            console.log('✅ Silver from metalpriceapi.com (backup):', silverPrice);
-          }
-          
-          // Update gold if CoinGecko failed
-          if (backupData.rates?.XAU && goldPrice === 4723) {
-            goldPrice = 1 / backupData.rates.XAU;
-            console.log('✅ Gold from metalpriceapi.com (backup):', goldPrice);
-          }
+        // SILVER: Use Kinesis Silver (KAG) - 1:1 backed by physical silver
+        if (data['kinesis-silver']?.usd) {
+          silverPrice = data['kinesis-silver'].usd;
+          console.log('✅ Silver price from CoinGecko (Kinesis Silver):', silverPrice);
         }
-      } catch (backupError) {
-        console.log('⚠️ Backup API also failed, using fallback values');
+        
+        // OIL: Use United States Oil Fund tokenized
+        if (data['united-states-oil-fund-ondo-tokenized']?.usd) {
+          oilPrice = data['united-states-oil-fund-ondo-tokenized'].usd;
+          console.log('✅ Oil price from CoinGecko (US Oil Fund):', oilPrice);
+        }
+        
+        // S&P 500: Use SPDR S&P 500 ETF tokenized
+        if (data['spdr-s-p-500-etf-ondo-tokenized-etf']?.usd) {
+          sp500Price = data['spdr-s-p-500-etf-ondo-tokenized-etf'].usd;
+          console.log('✅ S&P 500 price from CoinGecko (SPDR ETF):', sp500Price);
+        }
+      } else {
+        console.log('⚠️ CoinGecko HTTP error:', coinGeckoResponse.status);
       }
+    } catch (e) {
+      console.log('⚠️ CoinGecko failed for commodities, using fallback:', e);
     }
     
     console.log('🏆 Final commodity prices:', {
@@ -166,12 +139,12 @@ async function fetchCommodityPrices(): Promise<{ [key: string]: number }> {
     };
   } catch (error) {
     console.error('❌ Error fetching commodity prices:', error);
-    // Realistic current market fallback values
+    // Realistic current market fallback values (Feb 2026)
     return {
-      GOLD: 4723,
-      SILVER: 31.5,
-      USOIL: 73.5,
-      'S&P500': 5800
+      GOLD: 4900,
+      SILVER: 86.0, // Kinesis Silver price
+      USOIL: 75.0, // US Oil Fund price
+      'S&P500': 698.0 // SPDR S&P 500 ETF price
     };
   }
 }
