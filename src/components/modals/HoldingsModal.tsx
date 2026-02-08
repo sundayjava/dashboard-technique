@@ -421,7 +421,7 @@ export default function HoldingsModal({
                 disabled={creating || !amount || parseFloat(amount) <= 0}
                 className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 font-medium"
               >
-                {creating ? 'Creating Holding...' : 'Confirm Deposit'}
+                {creating ? 'Creating Holding...' : 'Swap'}
               </button>
             </div>
           )}

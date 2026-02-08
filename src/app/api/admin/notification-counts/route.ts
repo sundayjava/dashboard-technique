@@ -9,9 +9,12 @@ export async function GET(request: NextRequest) {
       pendingHoldingsCount,
       unreadMessagesCount,
       pendingContactMessagesCount,
+      pendingSupportRequestsCount,
       pendingInvestmentDepositsCount,
       pendingLoansCount,
-      pendingCardsCount
+      pendingCardsCount,
+      pendingWithdrawalsCount,
+      pendingTransactionsCount
     ] = await Promise.all([
       // New users (registered in last 24 hours)
       prisma.user.count({
@@ -43,6 +46,13 @@ export async function GET(request: NextRequest) {
         }
       }).catch(() => 0),
 
+      // Pending support requests
+      prisma.supportRequest.count({
+        where: {
+          status: 'PENDING'
+        }
+      }).catch(() => 0),
+
       // Pending investment deposits (crypto deposits awaiting confirmation)
       prisma.investmentTransaction.count({
         where: {
@@ -63,6 +73,20 @@ export async function GET(request: NextRequest) {
         where: {
           status: 'PENDING'
         }
+      }).catch(() => 0),
+
+      // Pending withdrawals
+      prisma.withdrawal.count({
+        where: {
+          status: 'PENDING'
+        }
+      }).catch(() => 0),
+
+      // Pending transactions
+      prisma.transaction.count({
+        where: {
+          status: 'PENDING'
+        }
       }).catch(() => 0)
     ]);
 
@@ -71,14 +95,16 @@ export async function GET(request: NextRequest) {
       counts: {
         newUsers: newUsersCount,
         pendingHoldings: pendingHoldingsCount,
+        pendingWithdrawals: pendingWithdrawalsCount,
+        pendingTransactions: pendingTransactionsCount,
         messages: unreadMessagesCount,
-        support: pendingContactMessagesCount,
+        support: pendingContactMessagesCount + pendingSupportRequestsCount,
         investmentDeposits: pendingInvestmentDepositsCount,
         loans: pendingLoansCount,
         cards: pendingCardsCount,
-        // Total finance items
-        finance: pendingHoldingsCount + pendingInvestmentDepositsCount,
-        // Total management items
+        // Total finance items (withdrawals + holdings + investment deposits + general transactions)
+        finance: pendingWithdrawalsCount + pendingHoldingsCount + pendingInvestmentDepositsCount + pendingTransactionsCount,
+        // Total management items (loans + cards)
         management: pendingLoansCount + pendingCardsCount
       }
     });

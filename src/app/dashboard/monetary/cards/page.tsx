@@ -6,6 +6,7 @@ import axios from 'axios';
 import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
 import { DashboardTopBar } from '@/components/layout/DashboardTopBar';
 import { sidebarItems } from '@/config/sidebar.config';
+import AcredisPlusModal from '@/components/modals/AcredisPlusModal';
 
 interface User {
   id: string;
@@ -60,6 +61,8 @@ export default function CardsPage() {
   const [selectedCardType, setSelectedCardType] = useState<string>('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isAcredisPlusModalOpen, setIsAcredisPlusModalOpen] = useState(false);
+  const [isActivatingPlus, setIsActivatingPlus] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -166,6 +169,31 @@ export default function CardsPage() {
     return cardTypeOptions.find(opt => opt.value === type)?.label || type;
   };
 
+  const handleActivatePlus = async () => {
+    if (!user) return;
+    
+    setIsActivatingPlus(true);
+    try {
+      const response = await axios.post('/api/acredis-plus/activate', {
+        userId: user.id,
+      });
+
+      if (response.data.success) {
+        const updatedUser = { ...user, isPlusUser: true };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setIsAcredisPlusModalOpen(false);
+        setSuccess('Successfully upgraded to Acredis Plus!');
+        setTimeout(() => setSuccess(''), 3000);
+      }
+    } catch (error: any) {
+      console.error('Error activating Acredis Plus:', error);
+      alert(error.response?.data?.error || 'Failed to activate Acredis Plus');
+    } finally {
+      setIsActivatingPlus(false);
+    }
+  };
+
   if (!user || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -240,7 +268,7 @@ export default function CardsPage() {
                     Card applications are exclusive to Acredis Plus members. Upgrade your account to unlock virtual and physical cards with premium benefits.
                   </p>
                   <button
-                    onClick={() => router.push('/acredis-plus')}
+                    onClick={() => setIsAcredisPlusModalOpen(true)}
                     className="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
                   >
                     Upgrade to Acredis Plus
@@ -477,6 +505,13 @@ export default function CardsPage() {
           </div>
         </div>
       </main>
+
+      <AcredisPlusModal
+        isOpen={isAcredisPlusModalOpen}
+        onClose={() => setIsAcredisPlusModalOpen(false)}
+        onActivate={handleActivatePlus}
+        isActivating={isActivatingPlus}
+      />
     </div>
   );
 }
