@@ -24,6 +24,18 @@ interface CardApplication {
   approvedAt?: string;
   rejectedAt?: string;
   createdAt: string;
+  // Card details
+  cardNumber?: string;
+  cardBrand?: string;
+  expiryMonth?: number;
+  expiryYear?: number;
+  cvv?: string;
+  cardHolderName?: string;
+  billingAddress?: string;
+  billingCity?: string;
+  billingState?: string;
+  billingZip?: string;
+  billingCountry?: string;
 }
 
 export default function CardApplicationsPage() {
@@ -35,6 +47,17 @@ export default function CardApplicationsPage() {
   const [selectedApp, setSelectedApp] = useState<CardApplication | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardBrand, setCardBrand] = useState('VISA');
+  const [expiryMonth, setExpiryMonth] = useState('');
+  const [expiryYear, setExpiryYear] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [cardHolderName, setCardHolderName] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
+  const [billingCity, setBillingCity] = useState('');
+  const [billingState, setBillingState] = useState('');
+  const [billingZip, setBillingZip] = useState('');
+  const [billingCountry, setBillingCountry] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -57,19 +80,83 @@ export default function CardApplicationsPage() {
   const handleApprove = async (id: string) => {
     if (!confirm('Are you sure you want to approve this card application?')) return;
 
+    // Validation for card details
+    if (!cardNumber || !cardBrand || !expiryMonth || !expiryYear || !cvv || !cardHolderName) {
+      toast.error('Please fill in all card details before approving');
+      return;
+    }
+
+    if (!billingAddress || !billingCity || !billingState || !billingZip || !billingCountry) {
+      toast.error('Please fill in all billing address details before approving');
+      return;
+    }
+
     try {
       setProcessing(id);
       await axios.patch(`/api/card-applications/${id}`, {
         status: 'APPROVED',
         adminNotes: adminNotes || undefined,
+        cardNumber,
+        cardBrand,
+        expiryMonth: parseInt(expiryMonth),
+        expiryYear: parseInt(expiryYear),
+        cvv,
+        cardHolderName,
+        billingAddress,
+        billingCity,
+        billingState,
+        billingZip,
+        billingCountry,
       });
       toast.success('Card application approved successfully');
       setShowDetailsModal(false);
       setSelectedApp(null);
-      setAdminNotes('');
+      resetCardForm();
       fetchData();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to approve application');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleUpdateCard = async (id: string) => {
+    if (!confirm('Are you sure you want to update this card details?')) return;
+
+    // Validation for card details
+    if (!cardNumber || !cardBrand || !expiryMonth || !expiryYear || !cvv || !cardHolderName) {
+      toast.error('Please fill in all card details');
+      return;
+    }
+
+    if (!billingAddress || !billingCity || !billingState || !billingZip || !billingCountry) {
+      toast.error('Please fill in all billing address details');
+      return;
+    }
+
+    try {
+      setProcessing(id);
+      await axios.patch(`/api/card-applications/${id}`, {
+        adminNotes: adminNotes || undefined,
+        cardNumber,
+        cardBrand,
+        expiryMonth: parseInt(expiryMonth),
+        expiryYear: parseInt(expiryYear),
+        cvv,
+        cardHolderName,
+        billingAddress,
+        billingCity,
+        billingState,
+        billingZip,
+        billingCountry,
+      });
+      toast.success('Card details updated successfully');
+      setShowDetailsModal(false);
+      setSelectedApp(null);
+      resetCardForm();
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to update card details');
     } finally {
       setProcessing(null);
     }
@@ -88,12 +175,28 @@ export default function CardApplicationsPage() {
       toast.success('Card application rejected');
       setShowDetailsModal(false);
       setSelectedApp(null);
+      resetCardForm();
       fetchData();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to reject application');
     } finally {
       setProcessing(null);
     }
+  };
+
+  const resetCardForm = () => {
+    setAdminNotes('');
+    setCardNumber('');
+    setCardBrand('VISA');
+    setExpiryMonth('');
+    setExpiryYear('');
+    setCvv('');
+    setCardHolderName('');
+    setBillingAddress('');
+    setBillingCity('');
+    setBillingState('');
+    setBillingZip('');
+    setBillingCountry('');
   };
 
   const handleDelete = async (id: string) => {
@@ -111,6 +214,17 @@ export default function CardApplicationsPage() {
   const handleViewDetails = (app: CardApplication) => {
     setSelectedApp(app);
     setAdminNotes(app.adminNotes || '');
+    setCardNumber(app.cardNumber || '');
+    setCardBrand(app.cardBrand || 'VISA');
+    setExpiryMonth(app.expiryMonth?.toString() || '');
+    setExpiryYear(app.expiryYear?.toString() || '');
+    setCvv(app.cvv || '');
+    setCardHolderName(app.cardHolderName || app.user.name || '');
+    setBillingAddress(app.billingAddress || '');
+    setBillingCity(app.billingCity || '');
+    setBillingState(app.billingState || '');
+    setBillingZip(app.billingZip || '');
+    setBillingCountry(app.billingCountry || '');
     setShowDetailsModal(true);
   };
 
@@ -361,64 +475,212 @@ export default function CardApplicationsPage() {
 
       {/* Details Modal */}
       {showDetailsModal && selectedApp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full p-6 my-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Application Details</h2>
             
-            <div className="space-y-4">
+            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
               {/* User Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">User Name</label>
-                  <p className="text-gray-900 font-semibold">{selectedApp.user.name || 'No name'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Email</label>
-                  <p className="text-gray-900">{selectedApp.user.email}</p>
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">User Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600">User Name</label>
+                    <p className="text-gray-900 font-semibold">{selectedApp.user.name || 'No name'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600">Email</label>
+                    <p className="text-gray-900">{selectedApp.user.email}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600">Phone Number</label>
+                    <p className="text-gray-900">{selectedApp.phoneNumber}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600">Account Number</label>
+                    <p className="text-gray-900 font-mono">{selectedApp.accountNumber}</p>
+                  </div>
                 </div>
               </div>
 
               {/* Application Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Card Type</label>
-                  <p className="text-gray-900 font-semibold">{selectedApp.cardType}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Status</label>
-                  <div className="mt-1">{getStatusBadge(selectedApp.status)}</div>
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Application Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600">Card Type</label>
+                    <p className="text-gray-900 font-semibold">{selectedApp.cardType}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600">Status</label>
+                    <div className="mt-1">{getStatusBadge(selectedApp.status)}</div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600">Date Applied</label>
+                    <p className="text-gray-900">{new Date(selectedApp.createdAt).toLocaleString()}</p>
+                  </div>
+                  {selectedApp.approvedAt && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">Date Approved</label>
+                      <p className="text-gray-900">{new Date(selectedApp.approvedAt).toLocaleString()}</p>
+                    </div>
+                  )}
+                  {selectedApp.rejectedAt && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">Date Rejected</label>
+                      <p className="text-gray-900">{new Date(selectedApp.rejectedAt).toLocaleString()}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Phone Number</label>
-                  <p className="text-gray-900">{selectedApp.phoneNumber}</p>
+              {/* Card Details */}
+              {(selectedApp.status === 'PENDING' || selectedApp.cardNumber) && (
+                <div className="border-b pb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Card Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Card Holder Name *</label>
+                      <input
+                        type="text"
+                        value={cardHolderName}
+                        onChange={(e) => setCardHolderName(e.target.value.toUpperCase())}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="JOHN DOE"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Card Brand *</label>
+                      <select
+                        value={cardBrand}
+                        onChange={(e) => setCardBrand(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="VISA">VISA</option>
+                        <option value="MASTERCARD">MASTERCARD</option>
+                        <option value="AMEX">AMEX</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Card Number (16 digits) *</label>
+                      <input
+                        type="text"
+                        value={cardNumber}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
+                          if (value.length <= 16) setCardNumber(value);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                        placeholder="1234567812345678"
+                        maxLength={16}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">CVV (3-4 digits) *</label>
+                      <input
+                        type="text"
+                        value={cvv}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
+                          if (value.length <= 4) setCvv(value);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                        placeholder="123"
+                        maxLength={4}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Expiry Month (MM) *</label>
+                      <input
+                        type="text"
+                        value={expiryMonth}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
+                          if (value.length <= 2 && (value === '' || (parseInt(value) >= 1 && parseInt(value) <= 12))) {
+                            setExpiryMonth(value);
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="12"
+                        maxLength={2}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Expiry Year (YYYY) *</label>
+                      <input
+                        type="text"
+                        value={expiryYear}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
+                          if (value.length <= 4) setExpiryYear(value);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="2028"
+                        maxLength={4}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Account Number</label>
-                  <p className="text-gray-900 font-mono">{selectedApp.accountNumber}</p>
-                </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600">Date Applied</label>
-                  <p className="text-gray-900">{new Date(selectedApp.createdAt).toLocaleString()}</p>
+              {/* Billing Address */}
+              {(selectedApp.status === 'PENDING' || selectedApp.billingAddress) && (
+                <div className="border-b pb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Billing Address</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Street Address *</label>
+                      <input
+                        type="text"
+                        value={billingAddress}
+                        onChange={(e) => setBillingAddress(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="123 Main Street"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">City *</label>
+                      <input
+                        type="text"
+                        value={billingCity}
+                        onChange={(e) => setBillingCity(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="New York"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">State/Province *</label>
+                      <input
+                        type="text"
+                        value={billingState}
+                        onChange={(e) => setBillingState(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="NY"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">ZIP/Postal Code *</label>
+                      <input
+                        type="text"
+                        value={billingZip}
+                        onChange={(e) => setBillingZip(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="10001"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">Country *</label>
+                      <input
+                        type="text"
+                        value={billingCountry}
+                        onChange={(e) => setBillingCountry(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="United States"
+                      />
+                    </div>
+                  </div>
                 </div>
-                {selectedApp.approvedAt && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600">Date Approved</label>
-                    <p className="text-gray-900">{new Date(selectedApp.approvedAt).toLocaleString()}</p>
-                  </div>
-                )}
-                {selectedApp.rejectedAt && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600">Date Rejected</label>
-                    <p className="text-gray-900">{new Date(selectedApp.rejectedAt).toLocaleString()}</p>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* Admin Notes */}
               <div>
@@ -447,7 +709,7 @@ export default function CardApplicationsPage() {
                     ) : (
                       <CheckCircle className="w-4 h-4" />
                     )}
-                    Approve
+                    Approve & Issue Card
                   </button>
                   <button
                     onClick={() => handleReject(selectedApp.id)}
@@ -459,11 +721,25 @@ export default function CardApplicationsPage() {
                   </button>
                 </>
               )}
+              {(selectedApp.status === 'APPROVED' || selectedApp.status === 'ISSUED') && (
+                <button
+                  onClick={() => handleUpdateCard(selectedApp.id)}
+                  disabled={processing === selectedApp.id}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {processing === selectedApp.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                  Update Card Details
+                </button>
+              )}
               <button
                 onClick={() => {
                   setShowDetailsModal(false);
                   setSelectedApp(null);
-                  setAdminNotes('');
+                  resetCardForm();
                 }}
                 className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >

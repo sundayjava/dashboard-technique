@@ -14,10 +14,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user investment balance
+    // Get user investment balance and primary account
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { investmentBalance: true }
+      select: { 
+        investmentBalance: true,
+        accounts: {
+          select: {
+            balance: true,
+            currency: true
+          },
+          take: 1
+        }
+      }
     });
 
     // Get all user investments
@@ -44,12 +53,17 @@ export async function GET(request: NextRequest) {
       return sum + inv.amount + expectedProfit;
     }, 0);
 
+    // Get first available account
+    const primaryAccount = user?.accounts?.[0];
+
     return NextResponse.json({
       investmentBalance: user?.investmentBalance || 0,
       totalInvested,
       activeInvestments: activeInvestments.length,
       totalReturns,
-      portfolioValue
+      portfolioValue,
+      accountBalance: primaryAccount?.balance || 0,
+      accountCurrency: primaryAccount?.currency || 'USD'
     });
 
   } catch (error) {

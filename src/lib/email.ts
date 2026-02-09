@@ -31,7 +31,7 @@ export async function sendEmail({ to, subject, html, text }: EmailOptions) {
     }
 
     const info = await transporter.sendMail({
-      from: `"${process.env.APP_NAME || 'Acredis Finance'}" <${process.env.EMAIL_SERVER_AUTH_USER}>`,
+      from: `"${process.env.EMAIL_FROM_NAME || process.env.APP_NAME || 'Acredis Finance'}" <${process.env.EMAIL_FROM || process.env.EMAIL_SERVER_AUTH_USER}>`,
       to,
       subject,
       text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML if no text provided

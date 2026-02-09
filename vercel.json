@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/check-investments",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/sync-currency-rates",
+      "schedule": "0 1 * * *"
     }
   ]
 }

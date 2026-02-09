@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { convertCurrency } from '@/lib/currency-converter';
 
 // POST - Withdraw from investment wallet
 export async function POST(request: NextRequest) {
@@ -24,7 +25,19 @@ export async function POST(request: NextRequest) {
     // Get user and their main account
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { investmentBalance: true }
+      select: { 
+        investmentBalance: true,
+        accounts: {
+          select: {
+            id: true,
+            accountNumber: true,
+            currency: true,
+            balance: true,
+            availableBalance: true
+          },
+          take: 1
+        }
+      }
     });
 
     if (!user) {
@@ -42,9 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const account = await prisma.account.findFirst({
-      where: { userId }
-    });
+    const account = user.accounts?.[0];
 
     if (!account) {
       return NextResponse.json(
@@ -53,12 +64,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Convert amount from USD to account currency
+    const accountCurrency = account.currency || 'USD';
+    let convertedAmount = amount;
+    let exchangeRate = 1;
+
+    if (accountCurrency !== 'USD') {
+      try {
+        convertedAmount = await convertCurrency(amount, 'USD', accountCurrency);
+        exchangeRate = convertedAmount / amount;
+      } catch (error) {
+        return NextResponse.json(
+          { error: `Currency conversion not supported for ${accountCurrency}` },
+          { status: 400 }
+        );
+      }
+
+      if (convertedAmount <= 0) {
+        return NextResponse.json(
+          { error: 'Invalid conversion amount' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Perform the transfer
     await prisma.$transaction(async (tx) => {
       const balanceBefore = user.investmentBalance;
       const balanceAfter = balanceBefore - amount;
 
-      // Deduct from investment balance
+      // Deduct from investment balance (in USD)
       await tx.user.update({
         where: { id: userId },
         data: {
@@ -66,12 +101,12 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // Add to main account
+      // Add to main account (in account currency)
       await tx.account.update({
         where: { id: account.id },
         data: {
-          balance: { increment: amount },
-          availableBalance: { increment: amount }
+          balance: { increment: convertedAmount },
+          availableBalance: { increment: convertedAmount }
         }
       });
 
@@ -83,12 +118,16 @@ export async function POST(request: NextRequest) {
           amount: -amount,
           balanceBefore,
           balanceAfter,
-          description: 'Withdrawal from Investment Wallet',
+          description: `Withdrawal to Bank Wallet${accountCurrency !== 'USD' ? ` (USD ${amount.toFixed(2)} → ${accountCurrency} ${convertedAmount.toFixed(2)})` : ''}`,
           reference: `INV-WD-${Date.now()}`,
           status: 'COMPLETED',
           relatedAccountId: account.id,
           metadata: {
             destinationAccount: account.accountNumber,
+            destinationCurrency: accountCurrency,
+            destinationAmount: convertedAmount,
+            exchangeRate: exchangeRate,
+            sourceAmount: amount,
             timestamp: new Date().toISOString()
           }
         }
@@ -100,10 +139,10 @@ export async function POST(request: NextRequest) {
           userId,
           accountId: account.id,
           transactionType: 'INVESTMENT_WITHDRAWAL',
-          amount: amount,
-          balanceAfter: account.balance + amount,
+          amount: convertedAmount,
+          balanceAfter: account.balance + convertedAmount,
           currency: account.currency,
-          description: 'Transfer from Investment Wallet',
+          description: `Transfer from Investment Wallet (USD ${amount.toFixed(2)})`,
           reference: `INV-WD-${Date.now()}`,
           status: 'COMPLETED'
         }
@@ -114,7 +153,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId,
           action: 'INVESTMENT_WITHDRAWAL',
-          description: `Withdrew $${amount.toFixed(2)} from investment wallet`,
+          description: `Withdrew $${amount.toFixed(2)} from investment wallet${accountCurrency !== 'USD' ? ` (${accountCurrency} ${convertedAmount.toFixed(2)})` : ''}`,
           ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
           userAgent: request.headers.get('user-agent') || 'unknown'
         }
@@ -123,7 +162,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Withdrawal successful'
+      message: 'Withdrawal successful',
+      conversion: accountCurrency !== 'USD' ? {
+        sourceAmount: amount,
+        sourceCurrency: 'USD',
+        convertedAmount: convertedAmount,
+        destinationCurrency: accountCurrency,
+        exchangeRate: exchangeRate
+      } : undefined
     });
 
   } catch (error) {

@@ -131,6 +131,19 @@ export default function DashboardPage() {
     return symbols[currency] || currency;
   };
 
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000000) {
+      return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+    }
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    }
+    if (num >= 1000) {
+      return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    }
+    return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  };
+
   const fetchDashboardData = async (userId: string) => {
     try {
       const [accountRes, investmentsRes, transactionsRes, transactionStatsRes, investmentsListRes, messagesRes, holdingsRes] = await Promise.all([
@@ -625,7 +638,7 @@ export default function DashboardPage() {
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <p className="text-xs text-gray-500">Total Flow</p>
                       <p className="text-lg font-bold text-gray-900">
-                        {getCurrencySymbol(accountCurrency)}{(totalInflow + totalOutflow).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                        {getCurrencySymbol(accountCurrency)}{formatNumber(totalInflow + totalOutflow)}
                       </p>
                     </div>
                   </div>

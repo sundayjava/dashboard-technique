@@ -226,6 +226,12 @@ model CardApplication {
   expiryYear    Int?
   cvv           String?
   cardHolderName String?
+  // Billing address
+  billingAddress String?
+  billingCity    String?
+  billingState   String?
+  billingZip     String?
+  billingCountry String?
   issuedAt      DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -430,13 +436,15 @@ model Bank {
 }
 
 model Currency {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  name      String
-  symbol    String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  symbol       String
+  exchangeRate Float    @default(1) // Rate relative to USD (1 USD = X currency)
+  isActive     Boolean  @default(true)
+  lastSynced   DateTime? // Last time rate was synced from API
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("currencies")
 }

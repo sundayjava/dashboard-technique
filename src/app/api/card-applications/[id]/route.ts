@@ -107,7 +107,22 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const body = await request.json();
-    const { status, adminNotes, approvedBy } = body;
+    const { 
+      status, 
+      adminNotes, 
+      approvedBy,
+      cardNumber,
+      cardBrand,
+      expiryMonth,
+      expiryYear,
+      cvv,
+      cardHolderName,
+      billingAddress,
+      billingCity,
+      billingState,
+      billingZip,
+      billingCountry
+    } = body;
 
     const application = await prisma.cardApplication.findUnique({
       where: { id },
@@ -126,34 +141,34 @@ export async function PATCH(
       updatedAt: new Date(),
     };
 
+    // Update card details if provided (regardless of status)
+    if (cardNumber !== undefined) updateData.cardNumber = cardNumber;
+    if (cardBrand !== undefined) updateData.cardBrand = cardBrand;
+    if (cvv !== undefined) updateData.cvv = cvv;
+    if (expiryMonth !== undefined) updateData.expiryMonth = expiryMonth;
+    if (expiryYear !== undefined) updateData.expiryYear = expiryYear;
+    if (cardHolderName !== undefined) updateData.cardHolderName = cardHolderName.toUpperCase();
+    if (billingAddress !== undefined) updateData.billingAddress = billingAddress;
+    if (billingCity !== undefined) updateData.billingCity = billingCity;
+    if (billingState !== undefined) updateData.billingState = billingState;
+    if (billingZip !== undefined) updateData.billingZip = billingZip;
+    if (billingCountry !== undefined) updateData.billingCountry = billingCountry;
+
     if (status) {
       
       if (status === 'APPROVED' || status === 'ISSUED') {
         updateData.approvedAt = new Date();
         if (approvedBy) updateData.approvedBy = approvedBy;
-        
-        // Generate real card details when approving
-        const cardBrand = getCardBrand(application.cardType);
-        const cardNumber = generateCardNumber(cardBrand);
-        const cvv = generateCVV(cardBrand);
-        const expiry = generateExpiryDate();
-        
-        updateData.cardNumber = cardNumber;
-        updateData.cardBrand = cardBrand;
-        updateData.cvv = cvv;
-        updateData.expiryMonth = expiry.month;
-        updateData.expiryYear = expiry.year;
-        updateData.cardHolderName = application.user.name?.toUpperCase() || 'CARD HOLDER';
         updateData.issuedAt = new Date();
-        updateData.status = 'ISSUED'; // Set to ISSUED once card details are generated
+        updateData.status = 'ISSUED'; // Set to ISSUED once card details are provided
         
-        console.log('✅ Generated card details:', {
+        console.log('✅ Admin approved and provided card details:', {
           cardNumber,
           cardBrand,
           cvv,
-          expiryMonth: expiry.month,
-          expiryYear: expiry.year,
-          cardHolderName: updateData.cardHolderName
+          expiryMonth,
+          expiryYear,
+          cardHolderName
         });
       } else if (status === 'REJECTED') {
         updateData.rejectedAt = new Date();
@@ -161,6 +176,15 @@ export async function PATCH(
       } else {
         updateData.status = status;
       }
+    } else {
+      console.log('✅ Admin updated card details:', {
+        cardNumber,
+        cardBrand,
+        cvv,
+        expiryMonth,
+        expiryYear,
+        cardHolderName
+      });
     }
 
     if (adminNotes !== undefined) {
@@ -189,6 +213,11 @@ export async function PATCH(
         expiryMonth: true,
         expiryYear: true,
         cardHolderName: true,
+        billingAddress: true,
+        billingCity: true,
+        billingState: true,
+        billingZip: true,
+        billingCountry: true,
         createdAt: true,
         updatedAt: true,
         user: {

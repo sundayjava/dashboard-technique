@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { convertCurrency } from '@/lib/currency-converter';
 
 // POST - Deposit to investment wallet
 export async function POST(request: NextRequest) {
@@ -24,7 +25,8 @@ export async function POST(request: NextRequest) {
     if (method === 'bank') {
       // Handle bank wallet deposit (immediate)
       const account = await prisma.account.findFirst({
-        where: { userId }
+        where: { userId },
+        include: { user: true }
       });
 
       if (!account) {
@@ -42,6 +44,33 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Currency conversion: Investment wallet is always in USD
+      const accountCurrency = account.currency || 'USD';
+      let convertedAmount = amount;
+      let exchangeRate = 1;
+
+      // Apply exchange rate if account is not in USD
+      if (accountCurrency !== 'USD') {
+        // Use dynamic currency conversion
+        try {
+          convertedAmount = await convertCurrency(amount, accountCurrency, 'USD');
+          exchangeRate = convertedAmount / amount;
+        } catch (error) {
+          return NextResponse.json(
+            { error: `Currency conversion not supported for ${accountCurrency}` },
+            { status: 400 }
+          );
+        }
+
+        // Validate conversion
+        if (convertedAmount <= 0) {
+          return NextResponse.json(
+            { error: 'Invalid conversion amount' },
+            { status: 400 }
+          );
+        }
+      }
+
       // Perform the transfer
       await prisma.$transaction(async (tx) => {
         // Get current investment balance
@@ -51,9 +80,9 @@ export async function POST(request: NextRequest) {
         });
 
         const balanceBefore = currentUser?.investmentBalance || 0;
-        const balanceAfter = balanceBefore + amount;
+        const balanceAfter = balanceBefore + convertedAmount;
 
-        // Deduct from main account
+        // Deduct from main account (in original currency)
         await tx.account.update({
           where: { id: account.id },
           data: {
@@ -62,11 +91,11 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        // Add to investment balance
+        // Add to investment balance (in USD)
         await tx.user.update({
           where: { id: userId },
           data: {
-            investmentBalance: { increment: amount }
+            investmentBalance: { increment: convertedAmount }
           }
         });
 
@@ -75,16 +104,20 @@ export async function POST(request: NextRequest) {
           data: {
             userId,
             transactionType: 'DEPOSIT',
-            amount,
+            amount: convertedAmount,
             balanceBefore,
             balanceAfter,
-            description: 'Deposit from Bank Wallet',
+            description: `Deposit from Bank Wallet${accountCurrency !== 'USD' ? ` (${accountCurrency} ${amount.toFixed(2)} → USD ${convertedAmount.toFixed(2)})` : ''}`,
             reference: `INV-DEP-${Date.now()}`,
             status: 'COMPLETED',
             relatedAccountId: account.id,
             metadata: {
               method: 'bank',
               sourceAccount: account.accountNumber,
+              sourceCurrency: accountCurrency,
+              sourceAmount: amount,
+              exchangeRate: exchangeRate,
+              convertedAmount: convertedAmount,
               timestamp: new Date().toISOString()
             }
           }
@@ -99,7 +132,7 @@ export async function POST(request: NextRequest) {
             amount: -amount,
             balanceAfter: account.balance - amount,
             currency: account.currency,
-            description: 'Transfer to Investment Wallet',
+            description: `Transfer to Investment Wallet (USD ${convertedAmount.toFixed(2)})`,
             reference: `INV-DEP-${Date.now()}`,
             status: 'COMPLETED'
           }
@@ -110,7 +143,7 @@ export async function POST(request: NextRequest) {
           data: {
             userId,
             action: 'INVESTMENT_DEPOSIT',
-            description: `Deposited $${amount.toFixed(2)} to investment wallet from bank`,
+            description: `Deposited ${accountCurrency} ${amount.toFixed(2)} (USD $${convertedAmount.toFixed(2)}) to investment wallet from bank`,
             ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
             userAgent: request.headers.get('user-agent') || 'unknown'
           }
@@ -119,7 +152,13 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'Deposit successful'
+        message: 'Deposit successful',
+        data: {
+          sourceCurrency: accountCurrency,
+          sourceAmount: amount,
+          convertedAmount: convertedAmount,
+          exchangeRate: exchangeRate
+        }
       });
 
     } else if (method === 'crypto') {

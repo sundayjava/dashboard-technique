@@ -74,7 +74,7 @@ async function sendVerificationEmail(email: string, otp: string) {
   const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_SERVER_HOST,
     port: parseInt(process.env.EMAIL_SERVER_PORT || '465'),
-    secure: true,
+    secure: process.env.EMAIL_SERVER_PORT === '465',
     auth: {
       user: process.env.EMAIL_SERVER_AUTH_USER,
       pass: process.env.EMAIL_SERVER_AUTH_PASSWORD,
@@ -82,7 +82,7 @@ async function sendVerificationEmail(email: string, otp: string) {
   });
 
   await transporter.sendMail({
-    from: process.env.EMAIL_SERVER_AUTH_USER,
+    from: `"${process.env.EMAIL_FROM_NAME || 'Acredis Finance'}" <${process.env.EMAIL_FROM || process.env.EMAIL_SERVER_AUTH_USER}>`,
     to: email,
     subject: 'Verify Your Acredis Finance Account - New OTP Code',
     html: `

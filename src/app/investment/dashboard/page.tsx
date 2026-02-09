@@ -54,6 +54,8 @@ export default function InvestmentDashboardPage() {
     activeInvestments: 0,
     totalReturns: 0,
     portfolioValue: 0,
+    accountBalance: 0,
+    accountCurrency: 'USD'
   });
   const [cryptoData, setCryptoData] = useState<CryptoToken[]>([]);
   const [economicEvents, setEconomicEvents] = useState<EconomicEvent[]>([]);
@@ -209,7 +211,16 @@ export default function InvestmentDashboardPage() {
 
       if (response.data.success) {
         if (depositMethod === 'bank') {
-          toast.success('Deposit successful!');
+          // Show conversion details if currency was converted
+          if (response.data.conversion) {
+            const conv = response.data.conversion;
+            toast.success(
+              `Deposit successful! ${conv.sourceCurrency} ${conv.sourceAmount.toLocaleString()} converted to $${conv.convertedAmount.toFixed(2)} USD`,
+              { duration: 5000 }
+            );
+          } else {
+            toast.success('Deposit successful!');
+          }
           fetchDashboardStats(user.id);
           fetchTransactions(user.id);
         } else {
@@ -256,7 +267,16 @@ export default function InvestmentDashboardPage() {
       });
 
       if (response.data.success) {
-        toast.success('Withdrawal successful!');
+        // Show conversion details if currency was converted
+        if (response.data.conversion) {
+          const conv = response.data.conversion;
+          toast.success(
+            `Withdrawal successful! USD ${conv.sourceAmount.toFixed(2)} converted to ${conv.destinationCurrency} ${conv.convertedAmount.toLocaleString()}`,
+            { duration: 5000 }
+          );
+        } else {
+          toast.success('Withdrawal successful!');
+        }
         setShowWithdrawModal(false);
         setWithdrawAmount('');
         fetchDashboardStats(user.id);
@@ -935,9 +955,13 @@ export default function InvestmentDashboardPage() {
                 </button>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Amount ({stats.accountCurrency})
+                  </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
+                      {stats.accountCurrency === 'NGN' ? '₦' : stats.accountCurrency === 'EUR' ? '€' : stats.accountCurrency === 'GBP' ? '£' : '$'}
+                    </span>
                     <input
                       type="number"
                       value={depositAmount}
@@ -946,11 +970,19 @@ export default function InvestmentDashboardPage() {
                       placeholder="0.00"
                       step="0.01"
                       min="0"
+                      max={stats.accountBalance}
                     />
                   </div>
-                  <p className="mt-2 text-sm text-gray-600">
-                    This will transfer funds from your main wallet to your investment balance.
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm text-gray-600">
+                      Available balance: {stats.accountCurrency} {stats.accountBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    {stats.accountCurrency !== 'USD' && (
+                      <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                        💱 Amount will be automatically converted to USD at current exchange rate
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex gap-3">
