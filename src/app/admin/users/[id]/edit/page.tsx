@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { COUNTRY_CODES } from '@/constants/countries';
 
 interface User {
   id: string;
@@ -23,6 +24,7 @@ interface User {
   address: string | null;
   isPlusUser: boolean;
   role: string;
+  kycStatus: string | null;
 }
 
 export default function EditUserPage() {
@@ -50,6 +52,7 @@ export default function EditUserPage() {
     role: 'USER',
     password: '',
     transactionPin: '',
+    kycStatus: 'PENDING' as string,
   });
 
   useEffect(() => {
@@ -79,6 +82,7 @@ export default function EditUserPage() {
         role: user.role || 'USER',
         password: '',
         transactionPin: '',
+        kycStatus: user.kycStatus || 'PENDING',
       });
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to fetch user');
@@ -158,7 +162,7 @@ export default function EditUserPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name <span className="text-red-500">*</span>
+                  Full Name
                 </label>
                 <input
                   type="text"
@@ -167,13 +171,12 @@ export default function EditUserPage() {
                   onChange={handleChange}
                   placeholder="John Doe"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address <span className="text-red-500">*</span>
+                  Email Address
                 </label>
                 <input
                   type="email"
@@ -182,35 +185,33 @@ export default function EditUserPage() {
                   onChange={handleChange}
                   placeholder="john@example.com"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Country Code <span className="text-red-500">*</span>
+                  Country Code
                 </label>
                 <select
                   name="countryCode"
                   value={formData.countryCode}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-auto"
+                  style={{ maxHeight: '300px' }}
+                  size={1}
                 >
-                  <option value="+1">+1 (USA/Canada)</option>
-                  <option value="+44">+44 (UK)</option>
-                  <option value="+234">+234 (Nigeria)</option>
-                  <option value="+91">+91 (India)</option>
-                  <option value="+86">+86 (China)</option>
-                  <option value="+81">+81 (Japan)</option>
-                  <option value="+49">+49 (Germany)</option>
-                  <option value="+33">+33 (France)</option>
+                  {COUNTRY_CODES.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.flag} {country.code} ({country.country})
+                    </option>
+                  ))}
                 </select>
+                <p className="text-xs text-gray-500 mt-1">Select country dialing code</p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number <span className="text-red-500">*</span>
+                  Phone Number
                 </label>
                 <input
                   type="tel"
@@ -219,13 +220,12 @@ export default function EditUserPage() {
                   onChange={handleChange}
                   placeholder="1234567890"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Authorization Code <span className="text-red-500">*</span>
+                  Authorization Code
                 </label>
                 <input
                   type="text"
@@ -234,7 +234,6 @@ export default function EditUserPage() {
                   onChange={handleChange}
                   placeholder="AC1234567890"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                  required
                 />
               </div>
 
@@ -260,14 +259,13 @@ export default function EditUserPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  User Role <span className="text-red-500">*</span>
+                  User Role
                 </label>
                 <select
                   name="role"
                   value={formData.role}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
                 >
                   <option value="USER">User</option>
                   <option value="ADMIN">Admin</option>
@@ -276,14 +274,13 @@ export default function EditUserPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Account Type <span className="text-red-500">*</span>
+                  Account Type
                 </label>
                 <select
                   name="accountType"
                   value={formData.accountType}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
                 >
                   <option value="PERSONAL">Personal</option>
                   <option value="BUSINESS">Business</option>
@@ -293,14 +290,13 @@ export default function EditUserPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Default Currency <span className="text-red-500">*</span>
+                  Default Currency
                 </label>
                 <select
                   name="currency"
                   value={formData.currency}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
                 >
                   <option value="USD">USD - US Dollar</option>
                   <option value="EUR">EUR - Euro</option>
@@ -373,6 +369,42 @@ export default function EditUserPage() {
                   <p className="text-xs text-gray-500">Mark user's email as verified</p>
                 </div>
               </label>
+
+              <div className="p-4 border border-gray-200 rounded-lg">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  KYC Verification Status
+                </label>
+                <select
+                  name="kycStatus"
+                  value={formData.kycStatus}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {/* Current Status First */}
+                  {formData.kycStatus === 'PENDING' && <option value="PENDING">Pending (Current)</option>}
+                  {formData.kycStatus === 'UNDER_REVIEW' && <option value="UNDER_REVIEW">Under Review (Current)</option>}
+                  {formData.kycStatus === 'APPROVED' && <option value="APPROVED">Approved - Verified (Current)</option>}
+                  {formData.kycStatus === 'REJECTED' && <option value="REJECTED">Rejected (Current)</option>}
+                  {formData.kycStatus === 'RESUBMIT_REQUIRED' && <option value="RESUBMIT_REQUIRED">Resubmit Required (Current)</option>}
+                  
+                  {/* Separator */}
+                  <option disabled>──────────</option>
+                  
+                  {/* Other Statuses */}
+                  {formData.kycStatus !== 'PENDING' && <option value="PENDING">Pending</option>}
+                  {formData.kycStatus !== 'UNDER_REVIEW' && <option value="UNDER_REVIEW">Under Review</option>}
+                  {formData.kycStatus !== 'APPROVED' && <option value="APPROVED">Approved (Verified)</option>}
+                  {formData.kycStatus !== 'REJECTED' && <option value="REJECTED">Rejected</option>}
+                  {formData.kycStatus !== 'RESUBMIT_REQUIRED' && <option value="RESUBMIT_REQUIRED">Resubmit Required</option>}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.kycStatus === 'APPROVED' ? '✓ User is KYC verified' : 
+                   formData.kycStatus === 'REJECTED' ? '✗ KYC rejected' :
+                   formData.kycStatus === 'UNDER_REVIEW' ? '⏳ KYC under review' :
+                   formData.kycStatus === 'RESUBMIT_REQUIRED' ? '↲ User needs to resubmit KYC' :
+                   '⏸ KYC submission pending'}
+                </p>
+              </div>
 
               <label className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
                 <input

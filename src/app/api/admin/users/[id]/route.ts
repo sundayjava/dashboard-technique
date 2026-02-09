@@ -38,6 +38,11 @@ export async function GET(
         address: true,
         isPlusUser: true,
         createdAt: true,
+        kycSubmission: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
 
@@ -45,7 +50,10 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json({
+      ...user,
+      kycStatus: user.kycSubmission?.status || null,
+    });
   } catch (error: any) {
     console.error('Error fetching user:', error);
     return NextResponse.json(
@@ -84,7 +92,9 @@ export async function PATCH(
       isPlusUser,
       role,
       password,
-      transactionPin,    } = body;
+      transactionPin,
+      kycStatus,
+    } = body;
     
     console.log('Extracted values - canTransfer:', canTransfer, 'transferDisabled:', transferDisabled);
 
@@ -173,6 +183,30 @@ export async function PATCH(
     // Debug: Log what will be updated
     console.log('Update data to be sent to database:', JSON.stringify(updateData, null, 2));
 
+    // Handle KYC status update
+    if (kycStatus !== undefined) {
+      // Check if user has KYC submission
+      const existingKyc = await prisma.kYC.findUnique({
+        where: { userId: userId },
+      });
+
+      if (existingKyc) {
+        // Update existing KYC status
+        await prisma.kYC.update({
+          where: { userId: userId },
+          data: {
+            status: kycStatus,
+            verifiedAt: kycStatus === 'APPROVED' ? new Date() : null,
+            verifiedBy: kycStatus === 'APPROVED' ? 'ADMIN' : null,
+          },
+        });
+      }
+      // If no KYC submission exists and we're trying to set status, log a warning
+      else if (kycStatus !== 'PENDING') {
+        console.warn(`User ${userId} has no KYC submission, but admin is trying to set status to ${kycStatus}`);
+      }
+    }
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -201,6 +235,9 @@ export async function PATCH(
     const permissionChanges = [];
     if (canTransfer !== undefined) {
       permissionChanges.push(`Direct transfer ${canTransfer ? 'enabled' : 'disabled'}`);
+    }
+    if (kycStatus !== undefined) {
+      permissionChanges.push(`KYC status changed to ${kycStatus}`);
     }
     if (transferDisabled !== undefined) {
       permissionChanges.push(`All transfers ${transferDisabled ? 'disabled' : 'enabled'}`);
@@ -270,6 +307,37 @@ export async function PATCH(
               : 'Your Acredis Plus subscription has been deactivated.',
           },
         });
+      }
+
+      if (kycStatus !== undefined) {
+        if (kycStatus === 'APPROVED') {
+          await prisma.notification.create({
+            data: {
+              userId: userId,
+              type: 'SYSTEM',
+              title: 'KYC Verified',
+              message: 'Congratulations! Your KYC verification has been approved. You now have full access to all features.',
+            },
+          });
+        } else if (kycStatus === 'REJECTED') {
+          await prisma.notification.create({
+            data: {
+              userId: userId,
+              type: 'SYSTEM',
+              title: 'KYC Rejected',
+              message: 'Your KYC verification has been rejected. Please contact support for more information.',
+            },
+          });
+        } else if (kycStatus === 'RESUBMIT_REQUIRED') {
+          await prisma.notification.create({
+            data: {
+              userId: userId,
+              type: 'SYSTEM',
+              title: 'KYC Resubmission Required',
+              message: 'Please resubmit your KYC documents for verification.',
+            },
+          });
+        }
       }
 
       if (password !== undefined && password.trim() !== '') {
