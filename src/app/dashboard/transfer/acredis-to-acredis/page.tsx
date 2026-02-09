@@ -84,9 +84,9 @@ export default function AcredisToAcredisTransferPage() {
     // The actual conversion will be done server-side
     const exchangeRates: Record<string, Record<string, number>> = {
       USD: { NGN: 1450, EUR: 0.85, GBP: 0.74, ZAR: 16.04, CAD: 1.37, AUD: 1.42, JPY: 157.24 },
-      NGN: { USD: 1/1580, EUR: 0.85/1580, GBP: 0.74/1580, ZAR: 16.04/1580, CAD: 1.37/1580, AUD: 1.42/1580, JPY: 157.24/1580 },
-      EUR: { USD: 1/0.85, NGN: 1580/0.85, GBP: 0.74/0.85, ZAR: 16.04/0.85, CAD: 1.37/0.85, AUD: 1.42/0.85, JPY: 157.24/0.85 },
-      GBP: { USD: 1/0.74, NGN: 1580/0.74, EUR: 0.85/0.74, ZAR: 16.04/0.74, CAD: 1.37/0.74, AUD: 1.42/0.74, JPY: 157.24/0.74 },
+      NGN: { USD: 1/1450, EUR: 0.85/1450, GBP: 0.74/1450, ZAR: 16.04/1450, CAD: 1.37/1450, AUD: 1.42/1450, JPY: 157.24/1450 },
+      EUR: { USD: 1/0.85, NGN: 1450/0.85, GBP: 0.74/0.85, ZAR: 16.04/0.85, CAD: 1.37/0.85, AUD: 1.42/0.85, JPY: 157.24/0.85 },
+      GBP: { USD: 1/0.74, NGN: 1450/0.74, EUR: 0.85/0.74, ZAR: 16.04/0.74, CAD: 1.37/0.74, AUD: 1.42/0.74, JPY: 157.24/0.74 },
     };
     
     const rate = exchangeRates[selectedAccount.currency]?.[recipientInfo.currency] || 1;
