@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, User, ArrowRight, CheckCircle, AlertCircle, Loader2, ArrowRightLeft, Download, X } from 'lucide-react';
 import { DashboardLayoutWrapper } from '@/components/layout/DashboardLayoutWrapper';
-import { formatCurrency } from '@/lib/currency-converter';
+import { formatCurrency } from '@/lib/currency-utils';
 import axios from 'axios';
 
 interface RecipientInfo {
