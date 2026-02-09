@@ -509,7 +509,7 @@ export default function HoldingsModal({
                                 <div>
                                   <p className="text-gray-600">Requested Amount</p>
                                   <p className="font-bold text-gray-900">
-                                    ${holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    {holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {accountCurrency}
                                   </p>
                                 </div>
                                 <div>
@@ -570,7 +570,7 @@ export default function HoldingsModal({
                             <div>
                               <p className="text-gray-600">Deposited</p>
                               <p className="font-bold text-gray-900">
-                                ${holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                {holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {accountCurrency}
                               </p>
                             </div>
                             <div>

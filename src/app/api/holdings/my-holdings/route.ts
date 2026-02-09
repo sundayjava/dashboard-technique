@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { notifyAdminsOfUserActivity } from '@/lib/email';
+import { convertCurrency } from '@/lib/currency-converter';
 
 // GET - Get user's holdings
 export async function GET(request: NextRequest) {
@@ -16,6 +17,16 @@ export async function GET(request: NextRequest) {
       where: { userId },
       include: {
         token: true,
+        user: {
+          select: {
+            accounts: {
+              select: {
+                currency: true,
+              },
+              take: 1,
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -73,8 +84,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token not found or inactive' }, { status: 404 });
     }
 
-    // Calculate token amount based on current price
-    const tokenAmount = token.currentPrice > 0 ? depositAmount / token.currentPrice : depositAmount;
+    // Convert deposited amount to USD if account currency is not USD
+    const depositAmountUSD = account.currency === 'USD' 
+      ? depositAmount 
+      : await convertCurrency(depositAmount, account.currency, 'USD');
+
+    // Calculate token amount based on current price (which is in USD)
+    const tokenAmount = token.currentPrice > 0 ? depositAmountUSD / token.currentPrice : depositAmountUSD;
+
+    console.log(`[Holdings Create] User deposited: ${depositAmount} ${account.currency}`);
+    console.log(`[Holdings Create] Converted to USD: ${depositAmountUSD} USD`);
+    console.log(`[Holdings Create] Token price: ${token.currentPrice} USD`);
+    console.log(`[Holdings Create] Token amount: ${tokenAmount} ${token.symbol}`);
 
     // Create holding and deduct from account in a transaction
     const holding = await prisma.$transaction(async (tx) => {
@@ -109,9 +130,9 @@ export async function POST(request: NextRequest) {
         data: {
           userId,
           tokenId,
-          depositedAmount: depositAmount,
+          depositedAmount: depositAmount, // Store in user's currency for display
           tokenAmount,
-          currentValue: depositAmount, // Initial value equals deposited amount
+          currentValue: depositAmountUSD, // Store in USD for calculations
           interestEarned: 0,
           status: 'PENDING',
         },
@@ -187,6 +208,11 @@ export async function PATCH(request: NextRequest) {
     const dailyRate = holding.token.interestRate / 365 / 100;
     const finalInterest = holding.currentValue * dailyRate * daysSinceCreation;
 
+    console.log(`[Holdings Withdraw] Token amount: ${holding.tokenAmount} ${holding.token.symbol}`);
+    console.log(`[Holdings Withdraw] Current value: ${holding.currentValue} USD`);
+    console.log(`[Holdings Withdraw] Days held: ${daysSinceCreation}`);
+    console.log(`[Holdings Withdraw] Interest earned: ${finalInterest} USD`);
+
     // Get user's account
     const account = await prisma.account.findFirst({
       where: { userId },
@@ -196,8 +222,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
-    // Calculate total amount to return (current value + recalculated interest)
-    const totalAmount = holding.currentValue + finalInterest;
+    // Calculate total amount to return in USD (current value + recalculated interest)
+    const totalAmountUSD = holding.currentValue + finalInterest;
+
+    // Convert USD amount back to user's account currency
+    const totalAmount = account.currency === 'USD'
+      ? totalAmountUSD
+      : await convertCurrency(totalAmountUSD, 'USD', account.currency);
+
+    console.log(`[Holdings Withdraw] Total USD: ${totalAmountUSD} USD`);
+    console.log(`[Holdings Withdraw] Converted to ${account.currency}: ${totalAmount}`);
 
     // Update holding and add to account in a transaction
     await prisma.$transaction(async (tx) => {
@@ -222,7 +256,7 @@ export async function PATCH(request: NextRequest) {
           balanceAfter: updatedAccount.balance,
           currency: account.currency,
           status: 'COMPLETED',
-          description: `Holding withdrawal: ${holding.tokenAmount.toFixed(8)} ${holding.token.symbol} + ${finalInterest.toFixed(2)} interest`,
+          description: `Holding withdrawal: ${holding.tokenAmount.toFixed(8)} ${holding.token.symbol} + ${totalAmountUSD.toFixed(2)} USD (${totalAmount.toFixed(2)} ${account.currency})`,
           reference,
         },
       });

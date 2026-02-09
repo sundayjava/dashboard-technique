@@ -35,6 +35,12 @@ export async function GET(request: NextRequest) {
             name: true,
             email: true,
             avatar: true,
+            accounts: {
+              select: {
+                currency: true,
+              },
+              take: 1,
+            },
           },
         },
         token: true,

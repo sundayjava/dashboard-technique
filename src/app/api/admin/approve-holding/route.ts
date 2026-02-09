@@ -41,13 +41,24 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'APPROVE') {
+      // Recalculate tokenAmount based on CURRENT token price at approval time
+      // This prevents price risk during pending period
+      const currentTokenAmount = holding.currentValue > 0 && holding.token.currentPrice > 0
+        ? holding.currentValue / holding.token.currentPrice
+        : holding.tokenAmount;
+
+      console.log(`[Approve Holding] Original token amount: ${holding.tokenAmount} ${holding.token.symbol}`);
+      console.log(`[Approve Holding] Current token price: ${holding.token.currentPrice} USD`);
+      console.log(`[Approve Holding] Recalculated token amount: ${currentTokenAmount} ${holding.token.symbol}`);
+      console.log(`[Approve Holding] USD value: ${holding.currentValue} USD`);
+
       // Approve holding with optional admin edits
       const updatedHolding = await prisma.userHolding.update({
         where: { id: holdingId },
         data: {
           status: 'ACTIVE',
           depositedAmount: depositedAmount !== undefined ? parseFloat(depositedAmount) : holding.depositedAmount,
-          tokenAmount: tokenAmount !== undefined ? parseFloat(tokenAmount) : holding.tokenAmount,
+          tokenAmount: tokenAmount !== undefined ? parseFloat(tokenAmount) : currentTokenAmount, // Use recalculated amount
           currentValue: currentValue !== undefined ? parseFloat(currentValue) : holding.currentValue,
           interestEarned: interestEarned !== undefined ? parseFloat(interestEarned) : holding.interestEarned,
           processedBy: adminId,

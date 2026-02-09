@@ -53,6 +53,9 @@ interface UserHolding {
     name: string | null;
     email: string;
     avatar: string | null;
+    accounts: {
+      currency: string;
+    }[];
   };
   token: HoldingToken;
 }
@@ -255,9 +258,15 @@ export default function AdminHoldingsPage() {
 
   const openApprovalModal = (holding: UserHolding) => {
     setSelectedHolding(holding);
+    
+    // Recalculate token amount based on CURRENT price to prevent price risk
+    const recalculatedTokenAmount = holding.currentValue > 0 && holding.token.currentPrice > 0
+      ? holding.currentValue / holding.token.currentPrice
+      : holding.tokenAmount;
+    
     setApprovalForm({
       depositedAmount: holding.depositedAmount,
-      tokenAmount: holding.tokenAmount,
+      tokenAmount: recalculatedTokenAmount, // Use recalculated amount
       currentValue: holding.currentValue,
       interestEarned: holding.interestEarned,
       adminNotes: '',
@@ -515,7 +524,9 @@ export default function AdminHoldingsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">${holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                      <p className="font-medium text-gray-900">
+                        {holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {holding.user.accounts[0]?.currency || 'USD'}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-gray-900">{holding.tokenAmount.toFixed(8)}</p>
@@ -666,8 +677,12 @@ export default function AdminHoldingsPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {holdings.slice(0, 10).map((holding) => {
-                const profitLoss = holding.currentValue - holding.depositedAmount + holding.interestEarned;
-                const profitLossPercent = (profitLoss / holding.depositedAmount) * 100;
+                // P/L in USD: (current value + interest) - initial value
+                // Note: We use currentValue as baseline since it was set to depositAmountUSD at creation
+                // For proper P/L, we'd need to store initialValueUSD separately
+                // For now, this shows interest earned only
+                const profitLoss = holding.interestEarned;
+                const profitLossPercent = holding.currentValue > 0 ? (profitLoss / holding.currentValue) * 100 : 0;
 
                 return (
                   <tr key={holding.id} className="hover:bg-gray-50">
@@ -693,7 +708,9 @@ export default function AdminHoldingsPage() {
                       <p className="text-xs text-gray-500">{holding.tokenAmount.toFixed(8)}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-gray-900">${holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-gray-900">
+                        {holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {holding.user.accounts[0]?.currency || 'USD'}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-gray-900">${holding.currentValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
@@ -913,12 +930,21 @@ export default function AdminHoldingsPage() {
               </div>
             </div>
 
+            {/* Price Recalculation Notice */}
+            {Math.abs((selectedHolding.currentValue / selectedHolding.token.currentPrice) - selectedHolding.tokenAmount) > 0.00000001 && selectedHolding.status === 'PENDING' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>ℹ️ Token amount recalculated:</strong> Adjusted to ensure user receives ${selectedHolding.currentValue.toFixed(2)} USD worth at current price (${selectedHolding.token.currentPrice.toLocaleString()}).
+                </p>
+              </div>
+            )}
+
             {/* Editable Fields */}
             <div className="space-y-4 mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Deposited Amount ($) *
+                    Deposited Amount ({selectedHolding.user.accounts[0]?.currency || 'USD'}) *
                   </label>
                   <input
                     type="number"
@@ -927,7 +953,7 @@ export default function AdminHoldingsPage() {
                     step="0.01"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Original: ${selectedHolding.depositedAmount.toFixed(2)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Original: {selectedHolding.depositedAmount.toFixed(2)} {selectedHolding.user.accounts[0]?.currency || 'USD'}</p>
                 </div>
 
                 <div>
@@ -941,7 +967,14 @@ export default function AdminHoldingsPage() {
                     step="0.00000001"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Original: {selectedHolding.tokenAmount.toFixed(8)}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Requested: {selectedHolding.tokenAmount.toFixed(8)} {selectedHolding.token.symbol}
+                  </p>
+                  {Math.abs(approvalForm.tokenAmount - selectedHolding.tokenAmount) > 0.00000001 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      ⚠️ Recalculated based on current price (${selectedHolding.token.currentPrice.toLocaleString()})
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1092,7 +1125,7 @@ export default function AdminHoldingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Deposited Amount ($) *
+                    Deposited Amount ({selectedHolding.user.accounts[0]?.currency || 'USD'}) *
                   </label>
                   <input
                     type="number"
