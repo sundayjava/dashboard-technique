@@ -545,8 +545,11 @@ export default function HoldingsModal({
                         {holdings
                           .filter(h => h.status === 'ACTIVE')
                           .map((holding) => {
-                            const profitLoss = holding.currentValue - holding.depositedAmount + holding.interestEarned;
-                            const profitLossPercent = (profitLoss / holding.depositedAmount) * 100;
+                            // P/L calculation: Only show interest earned since we can't mix currencies
+                            // currentValue and depositedAmount are in different currencies
+                            // currentValue = USD, depositedAmount = user's local currency
+                            const profitLoss = holding.interestEarned; // Interest only (in USD)
+                            const profitLossPercent = holding.currentValue > 0 ? (profitLoss / holding.currentValue) * 100 : 0;
 
                             return (
                               <div key={holding.id} className="border border-gray-200 rounded-lg p-4">
