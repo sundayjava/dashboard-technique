@@ -58,6 +58,7 @@ export default function HoldingsModal({
   const [holdings, setHoldings] = useState<UserHolding[]>([]);
   const [selectedToken, setSelectedToken] = useState<HoldingToken | null>(null);
   const [amount, setAmount] = useState('');
+  const [usdAmount, setUsdAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -67,6 +68,25 @@ export default function HoldingsModal({
       fetchMyHoldings();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const convertToUSD = async () => {
+      if (!amount || parseFloat(amount) <= 0 || accountCurrency === 'USD') {
+        setUsdAmount(parseFloat(amount) || 0);
+        return;
+      }
+
+      try {
+        const response = await axios.get(`/api/crypto/convert?amount=${amount}&from=${accountCurrency}&to=USD`);
+        setUsdAmount(response.data.convertedAmount);
+      } catch (error) {
+        console.error('Error converting to USD:', error);
+        setUsdAmount(0);
+      }
+    };
+
+    convertToUSD();
+  }, [amount, accountCurrency]);
 
   const fetchTokens = async () => {
     try {
@@ -365,8 +385,13 @@ export default function HoldingsModal({
                         <span className="text-xs text-gray-500">{selectedToken.symbol}</span>
                       </div>
                       <p className="text-lg font-bold text-gray-900">
-                        {(parseFloat(amount) / selectedToken.currentPrice).toFixed(8)}
+                        {(usdAmount / selectedToken.currentPrice).toFixed(8)}
                       </p>
+                      {accountCurrency !== 'USD' && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          ≈ ${usdAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                        </p>
+                      )}
                     </div>
                     
                     <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3">
@@ -399,10 +424,10 @@ export default function HoldingsModal({
                         <span className="text-xs text-green-700">Compounds with value</span>
                       </div>
                       <p className="text-xl font-bold text-green-700">
-                        ${((parseFloat(amount) * selectedToken.interestRate) / 365 / 100).toFixed(2)}
+                        ${((usdAmount * selectedToken.interestRate) / 365 / 100).toFixed(2)}
                       </p>
                       <p className="text-xs text-green-600 mt-1">
-                        ≈ ${((parseFloat(amount) * selectedToken.interestRate) / 12 / 100).toFixed(2)}/month
+                        ≈ ${((usdAmount * selectedToken.interestRate) / 12 / 100).toFixed(2)}/month
                       </p>
                     </div>
 
