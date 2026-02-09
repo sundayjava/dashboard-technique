@@ -132,8 +132,8 @@ export async function convertCryptoToFiat(
   }
   
   // Convert USD to target fiat currency
-  const fiatAmount = convertCurrency(amountInUSD, 'USD', fiatCurrency);
-  const exchangeRate = getExchangeRate('USD', fiatCurrency);
+  const fiatAmount = await convertCurrency(amountInUSD, 'USD', fiatCurrency);
+  const exchangeRate = await getExchangeRate('USD', fiatCurrency);
   
   console.log(`[Crypto Converter] $${amountInUSD} USD × ${exchangeRate} = ${fiatCurrency} ${fiatAmount.toLocaleString()}`);
   

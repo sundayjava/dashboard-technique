@@ -138,8 +138,8 @@ export async function POST(request: NextRequest) {
     
     if (senderCurrency !== recipientCurrency) {
       try {
-        exchangeRate = getExchangeRate(senderCurrency, recipientCurrency);
-        recipientAmount = convertCurrency(amount, senderCurrency, recipientCurrency);
+        exchangeRate = await getExchangeRate(senderCurrency, recipientCurrency);
+        recipientAmount = await convertCurrency(amount, senderCurrency, recipientCurrency);
       } catch (error) {
         console.error('Currency conversion error:', error);
         return NextResponse.json(
