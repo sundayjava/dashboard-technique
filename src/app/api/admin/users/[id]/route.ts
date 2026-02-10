@@ -201,9 +201,39 @@ export async function PATCH(
           },
         });
       }
-      // If no KYC submission exists and we're trying to set status, log a warning
+      // If no KYC submission exists, create one when admin approves
+      else if (kycStatus === 'APPROVED') {
+        console.log(`Creating KYC record for user ${userId} as admin approved without submission`);
+        await prisma.kYC.create({
+          data: {
+            userId: userId,
+            fullName: user.name || 'Not Provided',
+            dateOfBirth: new Date('2000-01-01'), // Default date
+            nationality: 'Not Provided',
+            address: 'Not Provided',
+            city: 'Not Provided',
+            state: 'Not Provided',
+            postalCode: '00000',
+            country: 'Not Provided',
+            documentType: 'PASSPORT',
+            documentNumber: 'ADMIN-APPROVED',
+            documentFrontImage: '/placeholder-document.png',
+            documentBackImage: null,
+            selfieImage: '/placeholder-selfie.png',
+            status: kycStatus,
+            verifiedAt: new Date(),
+            verifiedBy: 'ADMIN',
+          },
+        });
+      }
+      // If trying to set other statuses without KYC, log a warning
       else if (kycStatus !== 'PENDING') {
         console.warn(`User ${userId} has no KYC submission, but admin is trying to set status to ${kycStatus}`);
+      }
+
+      // Also mark user as verified when KYC is approved
+      if (kycStatus === 'APPROVED' && isVerified === undefined) {
+        updateData.isVerified = true;
       }
     }
 
