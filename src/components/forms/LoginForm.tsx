@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { SliderCaptcha } from "@/components/ui/SliderCaptcha";
 import { toast } from "react-hot-toast";
 import axios from "axios";
+import { SessionManager } from "@/lib/session";
 
 /**
  * Login Form Component with Role-Based Routing
@@ -58,14 +59,16 @@ export function LoginForm() {
         password: data.password,
       });
 
-      const { user } = response.data;
+      const { user, token } = response.data;
+      
+      // Store session using SessionManager
+      SessionManager.setSession(token, user);
       
       toast.success(`Welcome back${user.name ? ', ' + user.name : ''}!`);
       
       // Role-based routing - navigate directly without closing modal
       if (user.role === 'ADMIN') {
         // Admin goes directly to dashboard (no PIN required)
-        localStorage.setItem('user', JSON.stringify(user));
         router.push('/admin/dashboard');
       } else {
         // Regular users must verify PIN - navigate directly

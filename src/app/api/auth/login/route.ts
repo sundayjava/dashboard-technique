@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import axios from 'axios';
+import { createSessionToken } from '@/lib/session';
 
 // Generate unique 10-digit account number
 async function generateAccountNumber(): Promise<string> {
@@ -137,13 +138,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Return user data (excluding password)
+    // Return user data (excluding password) with session token
     const { password: _, ...userWithoutPassword } = user;
+    
+    // Create session token
+    const token = createSessionToken(user.id, user.email, user.role);
 
     return NextResponse.json(
       {
         message: 'Login successful',
         user: userWithoutPassword,
+        token,
       },
       { status: 200 }
     );

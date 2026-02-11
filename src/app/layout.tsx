@@ -4,8 +4,11 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ToastProvider } from "@/components";
 import { Header1 } from "@/components/layout";
+import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
+import { useEffect } from "react";
+import { setupAxiosInterceptors } from "@/lib/axios-config";
 import "./globals.css";
 
 const inter = Inter({
@@ -20,6 +23,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
+
+  // Initialize axios interceptors on mount
+  useEffect(() => {
+    setupAxiosInterceptors();
+  }, []);
 
   // Hide header in dashboard routes, admin routes, investment dashboard route, PIN verification, and password reset pages
   const hideHeader =
@@ -45,6 +53,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ToastProvider />
+        <NetworkStatusIndicator showOverlay />
         {!hideHeader && <Header1 />}
         {children}
 

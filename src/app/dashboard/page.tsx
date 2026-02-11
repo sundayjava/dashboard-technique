@@ -7,6 +7,8 @@ import MiniLineChart from '@/components/MiniLineChart';
 import CardDisplay from '@/components/sections/CardDisplay';
 import AcredisPlusModal from '@/components/modals/AcredisPlusModal';
 import HoldingsModal from '@/components/modals/HoldingsModal';
+import { useSession } from '@/hooks/useSession';
+import { SessionManager } from '@/lib/session';
 import axios from 'axios';
 import { 
   TrendingUp, Send, CreditCard, 
@@ -102,6 +104,15 @@ export default function DashboardPage() {
   const [showPlusModal, setShowPlusModal] = useState(false);
   const [showHoldingsModal, setShowHoldingsModal] = useState(false);
   const [showHighYieldModal, setShowHighYieldModal] = useState(false);
+
+  // Use session hook for automatic logout on inactivity
+  useSession({
+    redirectTo: '/login',
+    onSessionExpired: () => {
+      // Clear any additional state if needed
+      setUser(null);
+    }
+  });
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -201,17 +212,16 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
+    const userData = SessionManager.getUser();
     if (userData) {
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
+      setUser(userData);
       
-      if (parsedUser.role === 'ADMIN') {
+      if (userData.role === 'ADMIN') {
         router.push('/admin/dashboard');
         return;
       }
 
-      fetchDashboardData(parsedUser.id);
+      fetchDashboardData(userData.id);
     }
   }, [router]);
 

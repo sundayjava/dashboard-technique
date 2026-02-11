@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { requireAdmin } from '@/lib/auth-middleware';
 
 // Get single user by ID (admin only)
 export async function GET(
@@ -8,6 +9,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify admin authentication
+    const authResult = await requireAdmin(request);
+    if (!authResult.success) {
+      return authResult.response;
+    }
+
     const { id: userId } = await params;
 
     if (!userId) {
