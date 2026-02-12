@@ -185,6 +185,7 @@ export function DashboardTopBar({ user, sidebarCollapsed = false, onMobileMenuTo
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    window.dispatchEvent(new Event('logout'));
     router.push('/login');
   };
 

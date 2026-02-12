@@ -70,12 +70,28 @@ export function Header1() {
     window.addEventListener("resize", handleScroll);
     
     // Check if user is logged in
-    const userData = localStorage.getItem('user');
-    setIsLoggedIn(!!userData);
+    const checkLoginStatus = () => {
+      const userData = localStorage.getItem('user');
+      setIsLoggedIn(!!userData);
+    };
+    
+    checkLoginStatus(); // Check on mount
+    
+    // Listen for storage changes (works across tabs)
+    window.addEventListener('storage', checkLoginStatus);
+    
+    // Listen for custom logout event (for same-tab logout)
+    window.addEventListener('logout', checkLoginStatus);
+    
+    // Listen for custom login event (for same-tab login)
+    window.addEventListener('login', checkLoginStatus);
     
     return () => {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
+      window.removeEventListener('storage', checkLoginStatus);
+      window.removeEventListener('logout', checkLoginStatus);
+      window.removeEventListener('login', checkLoginStatus);
     };
   }, []);
 

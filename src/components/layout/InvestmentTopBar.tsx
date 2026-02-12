@@ -13,6 +13,7 @@ export function InvestmentTopBar({ user, sidebarCollapsed = false, onMobileMenuT
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    window.dispatchEvent(new Event('logout'));
     router.push('/login');
   };
 

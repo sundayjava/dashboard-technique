@@ -103,6 +103,7 @@ export class SessionManager {
     localStorage.setItem(this.TOKEN_KEY, token);
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
     this.updateActivity();
+    window.dispatchEvent(new Event('login'));
   }
   
   static getToken(): string | null {
@@ -129,6 +130,7 @@ export class SessionManager {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
     localStorage.removeItem(this.LAST_ACTIVITY_KEY);
+    window.dispatchEvent(new Event('logout'));
   }
   
   static isSessionValid(): boolean {

@@ -16,6 +16,8 @@ export default function CreateUserPage() {
     email: '',
     password: '',
     confirmPassword: '',
+    transactionPin: '',
+    confirmTransactionPin: '',
     phoneNumber: '',
     countryCode: '+1',
     currency: 'USD',
@@ -47,6 +49,21 @@ export default function CreateUserPage() {
 
     if (formData.password.length < 8) {
       toast.error('Password must be at least 8 characters');
+      return;
+    }
+
+    if (formData.transactionPin !== formData.confirmTransactionPin) {
+      toast.error('Transaction PINs do not match');
+      return;
+    }
+
+    if (formData.transactionPin.length !== 4) {
+      toast.error('Transaction PIN must be exactly 4 digits');
+      return;
+    }
+
+    if (!/^\d{4}$/.test(formData.transactionPin)) {
+      toast.error('Transaction PIN must contain only digits');
       return;
     }
 
@@ -224,6 +241,40 @@ export default function CreateUserPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                   minLength={8}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Transaction PIN <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  name="transactionPin"
+                  value={formData.transactionPin}
+                  onChange={handleChange}
+                  placeholder="4-digit PIN"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                  maxLength={4}
+                  pattern="\d{4}"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Transaction PIN <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  name="confirmTransactionPin"
+                  value={formData.confirmTransactionPin}
+                  onChange={handleChange}
+                  placeholder="Re-enter PIN"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                  maxLength={4}
+                  pattern="\d{4}"
                 />
               </div>
             </div>
