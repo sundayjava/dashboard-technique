@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!/[@$!%*?&#]/.test(password)) {
+    if (!/[@$!%*?&#.]/.test(password)) {
       return NextResponse.json(
-        { error: 'Password must contain at least one special character (@$!%*?&#)' },
+        { error: 'Password must contain at least one special character (@$!%*?&#.)' },
         { status: 400 }
       );
     }

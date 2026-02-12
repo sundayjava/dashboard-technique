@@ -74,7 +74,7 @@ export default function ForgotPasswordPage() {
               <Button
                 variant="primary"
                 className="w-full"
-                onClick={() => router.push('/login')}
+                onClick={() => router.push('/login')} 
               >
                 Return to Login
               </Button>

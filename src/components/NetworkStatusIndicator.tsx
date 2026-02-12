@@ -102,7 +102,7 @@ export function NetworkStatusIndicator({
       </AnimatePresence>
 
       {/* Small status indicator (bottom-right corner) - Always visible */}
-      <div className="fixed bottom-4 right-4 z-40">
+      {/* <div className="fixed bottom-4 right-4 z-40">
         <div className={`
           flex items-center gap-2 px-3 py-2 rounded-full shadow-lg backdrop-blur-sm text-sm font-medium
           transition-all duration-300
@@ -130,7 +130,7 @@ export function NetworkStatusIndicator({
             </>
           )}
         </div>
-      </div>
+      </div> */}
     </>
   );
 }

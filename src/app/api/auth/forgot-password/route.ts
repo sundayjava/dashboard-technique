@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Create reset URL
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.acredisfinance.com'}/reset-password?token=${resetToken}`;
 
     // Email configuration
     const emailHost = process.env.EMAIL_SERVER_HOST;
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const transporter = nodemailer.createTransport({
       host: emailHost,
       port: parseInt(emailPort),
-      secure: true,
+      secure: emailPort === '465', // true for 465, false for other ports
       auth: {
         user: emailUser,
         pass: emailPass,
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     });
 
     const mailOptions = {
-      from: `"Acredis Finance" <${emailUser}>`,
+      from: `"${process.env.EMAIL_FROM_NAME || 'Acredis Finance'}" <${process.env.EMAIL_FROM || emailUser}>`,
       to: email,
       subject: 'Password Reset Request - Acredis Finance',
       html: `

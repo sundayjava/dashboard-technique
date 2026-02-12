@@ -90,7 +90,7 @@ For Gmail:
   try {
     console.log(`📬 Sending test email to ${recipientEmail}...`);
     const info = await transporter.sendMail({
-      from: `"Acredis Finance Test" <${process.env.EMAIL_SERVER_AUTH_USER}>`,
+      from: `"Acredis Finance Test" <${process.env.EMAIL_FROM || process.env.EMAIL_SERVER_AUTH_USER}>`,
       to: recipientEmail,
       subject: 'Test Email - OTP System Check',
       html: `

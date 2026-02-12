@@ -17,7 +17,7 @@ const resetPasswordSchema = yup.object({
     .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
     .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .matches(/[0-9]/, 'Password must contain at least one number')
-    .matches(/[@$!%*?&#]/, 'Password must contain at least one special character')
+    .matches(/[@$!%*?&#.]/, 'Password must contain at least one special character')
     .required('Password is required'),
   confirmPassword: yup
     .string()
@@ -208,7 +208,7 @@ function ResetPasswordContent() {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-gray-400">•</span>
-                  One special character (@$!%*?&#)
+                  One special character (@$!%*?&#.)
                 </li>
               </ul>
             </div>
