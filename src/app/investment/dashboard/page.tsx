@@ -67,6 +67,8 @@ export default function InvestmentDashboardPage() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showPlusModal, setShowPlusModal] = useState(false);
+  const [arkII, setArkII] = useState<number>(0);
+  const [arkIIAssigned, setArkIIAssigned] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -90,6 +92,18 @@ export default function InvestmentDashboardPage() {
     const interval = setInterval(fetchCryptoData, 10000);
     return () => clearInterval(interval);
   }, [router]);
+
+  const fetchArkII = async (userId: string) => {
+    try {
+      const response = await axios.get(`/api/user/ark-ii?userId=${userId}`);
+      if (response.data) {
+        setArkII(response.data.amount ?? 0);
+        setArkIIAssigned(response.data.assigned ?? false);
+      }
+    } catch (error) {
+      console.error('Error fetching ARK II data:', error);
+    }
+  };
 
   const fetchCryptoData = async () => {
     try {
@@ -151,6 +165,7 @@ export default function InvestmentDashboardPage() {
 
       // User has access, load dashboard data
       fetchDashboardStats(userId);
+      fetchArkII(userId);
       setIsLoading(false);
     } catch (error) {
       console.error('Error checking access:', error);
@@ -331,7 +346,7 @@ export default function InvestmentDashboardPage() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Investment Balance */}
             <div className="bg-white rounded-lg p-3 shadow border-l-4 border-blue-500">
               <div className="flex items-center justify-between mb-2">
@@ -386,6 +401,22 @@ export default function InvestmentDashboardPage() {
               <p className="text-xs text-gray-600 mb-1">Portfolio Value</p>
               <p className="text-lg font-bold text-gray-900">
                 ${stats.portfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+
+            {/* ARK II */}
+            <div className="bg-white rounded-lg p-3 shadow border-l-4 border-yellow-500">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <Award className="w-4 h-4 text-yellow-600" />
+                </div>
+                {arkIIAssigned && (
+                  <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full font-semibold">Active</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-600 mb-1">ARK II</p>
+              <p className="text-lg font-bold text-gray-900">
+                {arkIIAssigned ? arkII.toLocaleString('en-US') : '—'}
               </p>
             </div>
           </div>

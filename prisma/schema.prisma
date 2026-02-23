@@ -54,6 +54,7 @@ model User {
   depositAddresses           UserDepositAddress[]
   holdings                   UserHolding[]
   withdrawals                Withdrawal[]
+  arkIIAssignments           ArkIIAssignment[]
 
   @@map("users")
 }
@@ -874,4 +875,19 @@ enum WithdrawalStatus {
   COMPLETED
   REJECTED
   CANCELLED
+}
+
+model ArkIIAssignment {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float                             // The ARK II amount assigned
+  notes       String?                           // Optional admin notes
+  assignedBy  String                            // Admin ID who assigned it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ark_ii_assignments")
 }

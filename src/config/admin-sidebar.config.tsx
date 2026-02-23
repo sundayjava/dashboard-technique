@@ -62,6 +62,10 @@ export const adminSidebarItems: AdminSidebarItem[] = [
         label: "Create User",
         href: "/admin/users/create",
       },
+      {
+        label: "Assign ARK II",
+        href: "/admin/account-management/assign-ark-token",
+      },
     ],
   },
   {
