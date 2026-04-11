@@ -29,6 +29,7 @@ export const nameSchema = yup
 // Phone validation
 export const phoneSchema = yup
   .string()
+  .transform((value) => value ? value.replace(/[\s\-\(\)\.]/g, '') : value) // Strip formatting characters
   .matches(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/, "Please enter a valid phone number")
   .required("Phone number is required");
 
@@ -97,6 +98,7 @@ export const signUpStep1Schema = yup.object({
   countryCode: yup.string().required("Country code is required"),
   phoneNumber: yup
     .string()
+    .transform((value) => value ? value.replace(/[\s\-\(\)\.]/g, '') : value) // Strip spaces, dashes, parentheses, dots
     .matches(/^[0-9]{6,15}$/, "Please enter a valid phone number (6-15 digits)")
     .required("Phone number is required"),
 });

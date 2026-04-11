@@ -276,12 +276,15 @@ export function SignUpForm() {
               <Input
                 id="phoneNumber"
                 type="tel"
-                placeholder="8012345678"
+                placeholder="Enter phone number (e.g., 612345678)"
                 {...registerStep1('phoneNumber')}
                 error={errorsStep1.phoneNumber?.message}
                 className="flex-1"
               />
             </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Enter your phone number without spaces or dashes (e.g., 612345678)
+            </p>
             {errorsStep1.countryCode && (
               <p className="mt-1 text-sm text-red-600">{errorsStep1.countryCode.message}</p>
             )}
