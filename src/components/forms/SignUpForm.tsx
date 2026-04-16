@@ -49,25 +49,29 @@ export function SignUpForm() {
     },
   });
 
-  // Detect user's country based on IP address
+  // Detect user's country based on IP address using Vercel Edge
   useEffect(() => {
     const detectCountry = async () => {
       try {
-        const response = await fetch('https://ipapi.co/json/');
+        const response = await fetch('/api/geolocation');
         const data = await response.json();
-        const detectedCountryCode = data.country_calling_code;
         
-        // Find matching country in our list by dial code
-        const matchedCountry = COUNTRY_CODES.find(
-          (country) => country.code === detectedCountryCode
-        );
-        
-        if (matchedCountry) {
-          setValueStep1('countryCode', matchedCountry.code);
-          setFormData((prev) => ({ ...prev, countryCode: matchedCountry.code }));
+        if (data.success && data.country_calling_code) {
+          const detectedCountryCode = data.country_calling_code;
+          
+          // Find matching country in our list by dial code
+          const matchedCountry = COUNTRY_CODES.find(
+            (country) => country.code === detectedCountryCode
+          );
+          
+          if (matchedCountry) {
+            setValueStep1('countryCode', matchedCountry.code);
+            setFormData((prev) => ({ ...prev, countryCode: matchedCountry.code }));
+          }
         }
+        // If geolocation fails, default US (+1) is already set in defaultValues
       } catch (error) {
-        // Silently fail - will use default US country code
+        // Silently fail - will use default US country code (+1)
         console.log('Country detection failed, using default US (+1)');
       }
     };
