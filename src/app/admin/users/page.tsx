@@ -83,7 +83,7 @@ export default function AdminUsersPage() {
     try {
       setLoading(true);
       const response = await axios.get('/api/admin/users');
-      const usersData = Array.isArray(response.data) ? response.data : [];
+      const usersData = response.data.users || [];
       setUsers(usersData);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to fetch users');

@@ -43,6 +43,7 @@ model User {
   investmentAccess           InvestmentAccess[]
   investments                Investment[]
   investmentTransactions     InvestmentTransaction[]
+  restrictedInvestmentPlans  InvestmentPlanRestriction[]
   kycSubmission              KYC?
   loanApplications           Loan[]
   receivedMessages           Message[]            @relation("ReceivedMessages")
@@ -509,9 +510,25 @@ model InvestmentPlan {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
   investments          Investment[]
+  restrictions         InvestmentPlanRestriction[]
 
   @@index([isActive])
   @@map("investment_plans")
+}
+
+model InvestmentPlanRestriction {
+  id        String         @id @default(cuid())
+  userId    String
+  planId    String
+  createdAt DateTime       @default(now())
+  createdBy String?        // Admin who created the restriction
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      InvestmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, planId])
+  @@index([userId])
+  @@index([planId])
+  @@map("investment_plan_restrictions")
 }
 
 model Investment {

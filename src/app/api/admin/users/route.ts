@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(users);
+    return NextResponse.json({ users });
   } catch (error: any) {
     console.error('Error fetching users:', error);
     return NextResponse.json(

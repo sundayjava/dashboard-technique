@@ -75,6 +75,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if user is restricted from this plan
+    const restriction = await prisma.investmentPlanRestriction.findUnique({
+      where: {
+        userId_planId: {
+          userId,
+          planId
+        }
+      }
+    });
+
+    if (restriction) {
+      return NextResponse.json(
+        { error: 'You do not have access to this investment plan' },
+        { status: 403 }
+      );
+    }
+
     const investmentAmount = parseFloat(amount);
 
     // Validate amount range

@@ -22,7 +22,28 @@ interface InvestmentPlan {
   createdAt: string;
   _count?: {
     investments: number;
+    restrictions: number;
   };
+}
+
+interface Restriction {
+  id: string;
+  userId: string;
+  planId: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    authorizationCode: string;
+  };
+}
+
+interface SimpleUser {
+  id: string;
+  name: string | null;
+  email: string;
+  authorizationCode: string;
 }
 
 interface PlanFormData {
@@ -47,6 +68,15 @@ export default function AdminInvestmentPlansPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingPlan, setEditingPlan] = useState<InvestmentPlan | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRestrictionsModal, setShowRestrictionsModal] = useState(false);
+  const [selectedPlanForRestriction, setSelectedPlanForRestriction] = useState<InvestmentPlan | null>(null);
+  const [restrictions, setRestrictions] = useState<Restriction[]>([]);
+  const [allUsers, setAllUsers] = useState<SimpleUser[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [isLoadingRestrictions, setIsLoadingRestrictions] = useState(false);
+  const [isAddingRestrictions, setIsAddingRestrictions] = useState(false);
+  const [removingRestrictionId, setRemovingRestrictionId] = useState<string | null>(null);
   const [formData, setFormData] = useState<PlanFormData>({
     planName: '',
     minAmount: '',
@@ -90,6 +120,85 @@ export default function AdminInvestmentPlansPage() {
       toast.error('Failed to load investment plans');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get('/api/admin/users');
+      setAllUsers(response.data.users || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast.error('Failed to load users');
+    }
+  };
+
+  const fetchRestrictions = async (planId: string) => {
+    setIsLoadingRestrictions(true);
+    try {
+      const response = await axios.get(`/api/admin/investment-plan-restrictions?planId=${planId}`);
+      setRestrictions(response.data.restrictions || []);
+    } catch (error) {
+      console.error('Error fetching restrictions:', error);
+      toast.error('Failed to load restrictions');
+    } finally {
+      setIsLoadingRestrictions(false);
+    }
+  };
+
+  const handleOpenRestrictionsModal = async (plan: InvestmentPlan) => {
+    setSelectedPlanForRestriction(plan);
+    setShowRestrictionsModal(true);
+    await Promise.all([fetchRestrictions(plan.id), fetchUsers()]);
+  };
+
+  const handleCloseRestrictionsModal = () => {
+    setShowRestrictionsModal(false);
+    setSelectedPlanForRestriction(null);
+    setRestrictions([]);
+    setSelectedUserIds([]);
+    setUserSearchQuery('');
+  };
+
+  const handleAddRestrictions = async () => {
+    if (!selectedPlanForRestriction || selectedUserIds.length === 0) {
+      toast.error('Please select at least one user');
+      return;
+    }
+
+    setIsAddingRestrictions(true);
+    try {
+      await axios.post('/api/admin/investment-plan-restrictions', {
+        planId: selectedPlanForRestriction.id,
+        userIds: selectedUserIds,
+        createdBy: user.id,
+      });
+      toast.success(`Restricted ${selectedUserIds.length} user(s) successfully`);
+      setSelectedUserIds([]);
+      await fetchRestrictions(selectedPlanForRestriction.id);
+      await fetchPlans();
+    } catch (error: any) {
+      console.error('Error adding restrictions:', error);
+      toast.error(error.response?.data?.error || 'Failed to add restrictions');
+    } finally {
+      setIsAddingRestrictions(false);
+    }
+  };
+
+  const handleRemoveRestriction = async (restrictionId: string) => {
+    if (!selectedPlanForRestriction) return;
+
+    setRemovingRestrictionId(restrictionId);
+    try {
+      await axios.delete(`/api/admin/investment-plan-restrictions?id=${restrictionId}`);
+      toast.success('Restriction removed successfully');
+      await fetchRestrictions(selectedPlanForRestriction.id);
+      await fetchPlans();
+    } catch (error: any) {
+      console.error('Error removing restriction:', error);
+      toast.error(error.response?.data?.error || 'Failed to remove restriction');
+    } finally {
+      setRemovingRestrictionId(null);
     }
   };
 
@@ -317,45 +426,46 @@ export default function AdminInvestmentPlansPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Plan Name</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Crypto</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount Range</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Duration</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Profit %</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ARK_II</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Investors</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Plan Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Crypto</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount Range</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Duration</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Profit %</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ARK_II</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Investors</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Restrictions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {plans.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                       No investment plans found. Create your first plan to get started.
                     </td>
                   </tr>
                 ) : (
                   plans.map((plan) => (
                     <tr key={plan.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-gray-900">{plan.planName}</div>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-sm text-gray-900">{plan.planName}</div>
                         <div className="text-xs text-gray-500">
                           {new Date(plan.createdAt).toLocaleDateString()}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         {plan.cryptoSymbol || plan.cryptoIcon ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {plan.cryptoIcon && (
                               <img 
                                 src={plan.cryptoIcon} 
                                 alt={plan.cryptoSymbol || 'Crypto'} 
-                                className="w-6 h-6 rounded-full object-cover"
+                                className="w-5 h-5 rounded-full object-cover"
                               />
                             )}
                             {plan.cryptoSymbol && (
-                              <span className="text-sm font-semibold text-gray-700">
+                              <span className="text-xs font-semibold text-gray-700">
                                 {plan.cryptoSymbol}
                               </span>
                             )}
@@ -364,26 +474,47 @@ export default function AdminInvestmentPlansPage() {
                           <span className="text-xs text-gray-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-4 py-3 text-xs text-gray-700">
                         ${plan.minAmount.toLocaleString()} - ${plan.maxAmount.toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-4 py-3 text-xs text-gray-700">
                         {plan.compoundingCycles > 1 
-                          ? `${plan.duration}^${plan.compoundingCycles} days (${plan.duration * plan.compoundingCycles} total)`
-                          : `${plan.duration} days`
+                          ? `${plan.duration}^${plan.compoundingCycles} (${plan.duration * plan.compoundingCycles}d)`
+                          : `${plan.duration}d`
                         }
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-green-600">{plan.profitPercentage}%</span>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-semibold text-green-600">{plan.profitPercentage}%</span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{plan.arkIIAllocation.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-4 py-3 text-xs text-gray-700">{plan.arkIIAllocation.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-xs text-gray-700 text-center">
                         {plan._count?.investments || 0}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => handleOpenRestrictionsModal(plan)}
+                          className={`relative inline-flex items-center justify-center p-1.5 rounded-lg transition-colors ${
+                            plan._count?.restrictions && plan._count.restrictions > 0
+                              ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                          title={`Manage restrictions (${plan._count?.restrictions || 0} restricted)`}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          {plan._count?.restrictions && plan._count.restrictions > 0 && (
+                            <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-orange-600 rounded-full">
+                              {plan._count.restrictions}
+                            </span>
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
                         <button
                           onClick={() => handleToggleActive(plan)}
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
                             plan.isActive
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
@@ -392,23 +523,23 @@ export default function AdminInvestmentPlansPage() {
                           {plan.isActive ? 'Active' : 'Inactive'}
                         </button>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => handleOpenModal(plan)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title="Edit"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                           </button>
                           <button
                             onClick={() => handleDelete(plan)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Delete"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
@@ -676,6 +807,209 @@ export default function AdminInvestmentPlansPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Restrictions Management Modal */}
+      {showRestrictionsModal && selectedPlanForRestriction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Manage Access Restrictions</h2>
+                <p className="text-sm text-gray-600 mt-1">{selectedPlanForRestriction.planName}</p>
+              </div>
+              <button
+                onClick={handleCloseRestrictionsModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Add New Restrictions */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-2">Add User Restrictions</h3>
+                <p className="text-xs text-gray-600 mb-3">
+                  Select users who should NOT be able to see or invest in this plan
+                </p>
+                
+                {/* User Search */}
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    placeholder="Search users by name, email, or authorization code..."
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c1ff72] focus:border-transparent"
+                  />
+                </div>
+
+                {/* User Selection List with Table */}
+                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                  <table className="w-full">
+                    <thead className="bg-gray-100 sticky top-0">
+                      <tr>
+                        <th className="w-10 px-3 py-2"></th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Email</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Auth Code</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                  {allUsers
+                    .filter(user => {
+                      const searchLower = userSearchQuery.toLowerCase();
+                      return (
+                        user.name?.toLowerCase().includes(searchLower) ||
+                        user.email.toLowerCase().includes(searchLower) ||
+                        user.authorizationCode.toLowerCase().includes(searchLower)
+                      );
+                    })
+                    .filter(user => !restrictions.some(r => r.userId === user.id))
+                    .map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => {
+                        if (selectedUserIds.includes(user.id)) {
+                          setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
+                        } else {
+                          setSelectedUserIds([...selectedUserIds, user.id]);
+                        }
+                      }}>
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedUserIds.includes(user.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedUserIds([...selectedUserIds, user.id]);
+                              } else {
+                                setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 text-[#c1ff72] focus:ring-[#c1ff72] border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-sm font-medium text-gray-900">{user.name || 'N/A'}</td>
+                        <td className="px-3 py-2 text-xs text-gray-600">{user.email}</td>
+                        <td className="px-3 py-2 text-xs text-gray-500 font-mono">{user.authorizationCode}</td>
+                      </tr>
+                    ))}
+                    </tbody>
+                  </table>
+                  {allUsers.filter(user => {
+                    const searchLower = userSearchQuery.toLowerCase();
+                    return (
+                      user.name?.toLowerCase().includes(searchLower) ||
+                      user.email.toLowerCase().includes(searchLower) ||
+                      user.authorizationCode.toLowerCase().includes(searchLower)
+                    );
+                  }).filter(user => !restrictions.some(r => r.userId === user.id)).length === 0 && (
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">
+                      {userSearchQuery ? 'No users found matching your search' : 'All users are already restricted'}
+                    </div>
+                  )}
+                </div>
+
+                {selectedUserIds.length > 0 && (
+                  <button
+                    onClick={handleAddRestrictions}
+                    disabled={isAddingRestrictions}
+                    className="mt-3 w-full px-4 py-2 bg-linear-to-r from-[#c1ff72] to-[#8fd04f] text-black text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isAddingRestrictions ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Restricting...
+                      </>
+                    ) : (
+                      `Restrict ${selectedUserIds.length} User${selectedUserIds.length > 1 ? 's' : ''}`
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Current Restrictions */}
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-3">Currently Restricted Users ({restrictions.length})</h3>
+                {isLoadingRestrictions ? (
+                  <div className="text-center py-6 text-sm text-gray-500">Loading...</div>
+                ) : restrictions.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                    No users are currently restricted from this plan
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Email</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Auth Code</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Restricted On</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold text-gray-700">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {restrictions.map((restriction) => (
+                          <tr key={restriction.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                              {restriction.user.name || 'N/A'}
+                            </td>
+                            <td className="px-4 py-2 text-xs text-gray-600">{restriction.user.email}</td>
+                            <td className="px-4 py-2 text-xs text-gray-500 font-mono">{restriction.user.authorizationCode}</td>
+                            <td className="px-4 py-2 text-xs text-gray-500">
+                              {new Date(restriction.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <button
+                                onClick={() => handleRemoveRestriction(restriction.id)}
+                                disabled={removingRestrictionId === restriction.id}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Remove restriction"
+                              >
+                                {removingRestrictionId === restriction.id ? (
+                                  <>
+                                    <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Removing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Remove
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-3">
+              <button
+                onClick={handleCloseRestrictionsModal}
+                className="w-full px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

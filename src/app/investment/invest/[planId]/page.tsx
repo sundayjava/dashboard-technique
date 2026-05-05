@@ -54,13 +54,13 @@ export default function InvestNowPage() {
   const fetchPlanAndBalance = async (userId: string) => {
     try {
       const [plansRes, statsRes] = await Promise.all([
-        axios.get('/api/admin/investment-plans?activeOnly=true'),
+        axios.get(`/api/investments/available-plans?userId=${userId}&activeOnly=true`),
         axios.get(`/api/investments/stats?userId=${userId}`)
       ]);
 
       const selectedPlan = plansRes.data.plans.find((p: any) => p.id === planId);
       if (!selectedPlan) {
-        toast.error('Investment plan not found');
+        toast.error('Investment plan not found or not available');
         router.push('/investment/plans');
         return;
       }

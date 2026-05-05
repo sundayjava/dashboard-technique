@@ -44,12 +44,17 @@ export default function InvestmentPlansPage() {
 
     const parsedUser = JSON.parse(userData);
     setUser(parsedUser);
-    fetchPlans();
   }, [router]);
+
+  useEffect(() => {
+    if (user) {
+      fetchPlans();
+    }
+  }, [user]);
 
   const fetchPlans = async () => {
     try {
-      const response = await axios.get('/api/admin/investment-plans?activeOnly=true');
+      const response = await axios.get(`/api/investments/available-plans?userId=${user?.id}&activeOnly=true`);
       setPlans(response.data.plans);
     } catch (error) {
       console.error('Error fetching plans:', error);
