@@ -176,6 +176,9 @@ export async function PUT(request: NextRequest) {
 
       // Update user's investmentBalance when investment is completed (NOT main account)
       if (shouldCreditInvestmentBalance) {
+        const balanceBefore = investment.user.investmentBalance;
+        const balanceAfter = balanceBefore + investmentBalanceAmount;
+
         await tx.user.update({
           where: { id: investment.userId },
           data: {
@@ -183,6 +186,28 @@ export async function PUT(request: NextRequest) {
               increment: investmentBalanceAmount
             }
           }
+        });
+
+        // Create InvestmentTransaction so the portfolio chart tracks this profit/return
+        const profitPortion = investmentBalanceAmount - investment.amount;
+        await tx.investmentTransaction.create({
+          data: {
+            userId: investment.userId,
+            transactionType: 'INVESTMENT_RETURN',
+            amount: investmentBalanceAmount,
+            balanceBefore,
+            balanceAfter,
+            description: `Return from ${investment.plan.planName}: Principal $${investment.amount.toFixed(2)} + Profit $${profitPortion.toFixed(2)}`,
+            reference: `INV-RETURN-${id}-${Date.now()}`,
+            status: 'COMPLETED',
+            investmentId: id,
+            metadata: {
+              planName: investment.plan.planName,
+              principal: investment.amount,
+              profit: profitPortion,
+              profitPercentage: investment.plan.profitPercentage,
+            },
+          },
         });
       }
 

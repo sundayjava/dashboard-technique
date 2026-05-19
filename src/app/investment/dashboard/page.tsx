@@ -13,6 +13,7 @@ import {
   PieChart, Wallet, ArrowUpCircle, ArrowDownCircle, Award
 } from 'lucide-react';
 import MiniLineChart from '@/components/MiniLineChart';
+import PortfolioPerformance from '@/components/investment/PortfolioPerformance';
 
 interface CryptoToken {
   symbol: string;
@@ -457,6 +458,10 @@ export default function InvestmentDashboardPage() {
               </button>
             </div>
           </div>
+
+          <PortfolioPerformance userId={user.id} />
+
+         
 
 
           {/* Recent Transactions */}
