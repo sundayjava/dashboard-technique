@@ -184,6 +184,37 @@ export const adminSidebarItems: AdminSidebarItem[] = [
     ],
   },
   {
+    label: "Chain Accounts",
+    href: "/admin/chain-accounts",
+    notificationKey: "chainAccountRequests",
+    icon: (
+      <svg
+        className="w-5 h-5 shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 3c0-1.657-3.134-3-7-3s-7 1.343-7 3v2h14v-2z"
+        />
+      </svg>
+    ),
+    subMenu: [
+      {
+        label: "All Chain Accounts",
+        href: "/admin/chain-accounts",
+      },
+      {
+        label: "Pending Requests",
+        href: "/admin/chain-account-requests",
+        notificationKey: "chainAccountRequests",
+      },
+    ],
+  },
+  {
     label: "Configuration",
     href: "/admin/configuration",
     icon: (

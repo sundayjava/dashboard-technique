@@ -485,14 +485,14 @@ export async function sendInvestmentMaturityNotification({
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/admin/investments" 
+            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/admin/investments"
                style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
               Go to Admin Dashboard
             </a>
           </div>
-          
+
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-          
+
           <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
             This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'} Admin System<br>
             Generated at: ${new Date().toLocaleString('en-US')}<br>
@@ -502,4 +502,309 @@ export async function sendInvestmentMaturityNotification({
       </div>
     `,
   });
+}
+
+const MODIFICATION_TYPE_LABELS: Record<string, string> = {
+  AUTHORIZATION_MODEL: 'Authorization Model & Threshold',
+  THRESHOLD_AMOUNT: 'Transaction Threshold Amount',
+  ACCOUNT_PURPOSE: 'Account Purpose & Description',
+  MEMBER_REMOVAL: 'Member Removal',
+  CLOSURE: 'Account Closure',
+};
+
+/**
+ * Notify a Chain Account member that a modification request needs their approval
+ */
+export async function sendModificationRequestEmail({
+  to,
+  memberName,
+  accountName,
+  initiatorName,
+  modificationType,
+  reason,
+}: {
+  to: string;
+  memberName: string;
+  accountName: string;
+  initiatorName: string;
+  modificationType: string;
+  reason: string;
+}) {
+  const typeLabel = MODIFICATION_TYPE_LABELS[modificationType] || modificationType;
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/chain-account/dashboard`;
+
+  return sendEmail({
+    to,
+    subject: `Action Required — Approve Modification Request for ${accountName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Chain Account Modification Request</h1>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hello ${memberName},
+          </p>
+
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+            ${initiatorName} has requested a modification to the Chain Account <strong>${accountName}</strong>.
+            Your approval is required before this change can be applied.
+          </p>
+
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Requested Change:</td>
+                <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: bold; text-align: right;">${typeLabel}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">Reason:</td>
+                <td style="padding: 8px 0; color: #1f2937; font-size: 14px; text-align: right;">${reason}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            <p style="margin: 0; color: #856404; font-size: 14px;">
+              <strong>Note:</strong> This change will only take effect once ALL members approve and the admin gives final sign-off.
+              If any member rejects it, the request is cancelled.
+            </p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}" style="background: #667eea; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Review & Vote
+            </a>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+            This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Notify the initiator of a modification request about its final outcome
+ */
+export async function sendModificationDecisionEmail({
+  to,
+  memberName,
+  accountName,
+  modificationType,
+  decision,
+  reasonNote,
+}: {
+  to: string;
+  memberName: string;
+  accountName: string;
+  modificationType: string;
+  decision: 'APPROVED' | 'REJECTED';
+  reasonNote?: string;
+}) {
+  const typeLabel = MODIFICATION_TYPE_LABELS[modificationType] || modificationType;
+  const isApproved = decision === 'APPROVED';
+  const color = isApproved ? '#10b981' : '#dc2626';
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/chain-account/dashboard`;
+
+  return sendEmail({
+    to,
+    subject: `Modification Request ${isApproved ? 'Approved' : 'Rejected'} — ${accountName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: ${color}; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Modification ${isApproved ? 'Approved' : 'Rejected'}</h1>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hello ${memberName},
+          </p>
+
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+            Your modification request for <strong>${accountName}</strong> regarding
+            <strong>${typeLabel}</strong> has been ${isApproved ? 'approved and applied' : 'rejected'}.
+          </p>
+
+          ${reasonNote ? `
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${color};">
+            <p style="margin: 0; color: #374151; font-size: 14px;"><strong>Note:</strong> ${reasonNote}</p>
+          </div>
+          ` : ''}
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}" style="background: ${color}; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              View Account
+            </a>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+            This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Notify a Chain Account member that a closure request needs their approval,
+ * with a direct link to confirm or reject the deletion
+ */
+export async function sendClosureVoteRequestEmail({
+  to,
+  memberName,
+  accountName,
+  accountNumber,
+  initiatorName,
+  reason,
+  approvalLink,
+}: {
+  to: string;
+  memberName: string;
+  accountName: string;
+  accountNumber: string;
+  initiatorName: string;
+  reason: string;
+  approvalLink: string;
+}) {
+  return sendEmail({
+    to,
+    subject: `Action Required — Confirm Closure of Chain Account ${accountName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Chain Account Closure Request</h1>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hello ${memberName},
+          </p>
+
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+            ${initiatorName} has requested to permanently close the Chain Account <strong>${accountName}</strong> (${accountNumber}).
+            Your confirmation is required before this account can be deleted.
+          </p>
+
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+            <p style="margin: 0; color: #374151; font-size: 14px;"><strong>Reason:</strong> ${reason}</p>
+          </div>
+
+          <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+            <p style="margin: 0; color: #856404; font-size: 14px;">
+              <strong>Note:</strong> The account will only be deleted once ALL members confirm and the admin gives final sign-off.
+              If any member rejects it, the request is cancelled.
+            </p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${approvalLink}" style="background: #dc2626; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Review Closure Request
+            </a>
+          </div>
+
+          <p style="color: #666; font-size: 14px;">
+            Or copy and paste this link into your browser:<br>
+            <a href="${approvalLink}" style="color: #dc2626; word-break: break-all;">${approvalLink}</a>
+          </p>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+            This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Notify all admins that a Chain Account closure request has full member approval
+ * and needs final admin sign-off
+ */
+export async function sendClosureAdminReviewEmail({
+  accountName,
+  accountNumber,
+  initiatorName,
+  reason,
+}: {
+  accountName: string;
+  accountNumber: string;
+  initiatorName: string;
+  reason: string;
+}) {
+  try {
+    const { prisma } = await import('./prisma');
+
+    const admins = await prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { email: true, name: true },
+    });
+
+    if (admins.length === 0) {
+      console.log('⚠️ No admins found to notify of closure request');
+      return;
+    }
+
+    const reviewUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/admin/chain-account-requests`;
+
+    const emailPromises = admins.map((admin) =>
+      sendEmail({
+        to: admin.email,
+        subject: `Action Required — Chain Account Closure Approved by All Members: ${accountName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 22px;">Chain Account Closure — Final Approval Needed</h1>
+            </div>
+
+            <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+                Hello ${admin.name || 'Admin'},
+              </p>
+
+              <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+                All members of <strong>${accountName}</strong> (${accountNumber}) have approved a request to close the account,
+                initiated by ${initiatorName}. Your final approval is required to complete the closure.
+              </p>
+
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+                <p style="margin: 0; color: #374151; font-size: 14px;"><strong>Reason:</strong> ${reason}</p>
+              </div>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${reviewUrl}" style="display: inline-block; background-color: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
+                  Review Closure Request
+                </a>
+              </div>
+
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+              <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+                This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+                Please do not reply to this email.
+              </p>
+            </div>
+          </div>
+        `,
+      })
+    );
+
+    await Promise.allSettled(emailPromises);
+    console.log(`✅ Admin closure review emails sent for: ${accountName}`);
+  } catch (error) {
+    console.error('❌ Failed to send admin closure review emails:', error);
+  }
 }

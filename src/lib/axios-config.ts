@@ -10,6 +10,17 @@ export function setupAxiosInterceptors() {
   // Request interceptor - add auth token to all requests
   axios.interceptors.request.use(
     (config) => {
+      // Skip auto-auth for Chain Account routes if Authorization is already set
+      // Chain Account routes manage their own tokens
+      const isChainAccountRoute = config.url?.includes('/api/chain-account/');
+      const hasAuthHeader = config.headers.Authorization;
+
+      if (isChainAccountRoute && hasAuthHeader) {
+        // Don't override - Chain Account routes have their own token
+        return config;
+      }
+
+      // For all other routes, add the regular user session token
       const token = SessionManager.getToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;

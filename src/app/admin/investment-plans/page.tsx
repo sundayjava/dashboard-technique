@@ -18,6 +18,7 @@ interface InvestmentPlan {
   cryptoAddress: string | null;
   cryptoSymbol: string | null;
   cryptoIcon: string | null;
+  chainAccountsEnabled: boolean;
   isActive: boolean;
   createdAt: string;
   _count?: {
@@ -55,6 +56,7 @@ interface PlanFormData {
   profitPercentage: string;
   compoundingCycles: string;
   canBeStoppedByUser: boolean;
+  chainAccountsEnabled: boolean;
   cryptoAddress: string;
   cryptoSymbol: string;
   cryptoIcon: string;
@@ -86,6 +88,7 @@ export default function AdminInvestmentPlansPage() {
     profitPercentage: '',
     compoundingCycles: '0',
     canBeStoppedByUser: true,
+    chainAccountsEnabled: false,
     cryptoAddress: '',
     cryptoSymbol: '',
     cryptoIcon: ''
@@ -214,6 +217,7 @@ export default function AdminInvestmentPlansPage() {
         profitPercentage: plan.profitPercentage.toString(),
         compoundingCycles: plan.compoundingCycles.toString(),
         canBeStoppedByUser: plan.canBeStoppedByUser,
+        chainAccountsEnabled: plan.chainAccountsEnabled,
         cryptoAddress: plan.cryptoAddress || '',
         cryptoSymbol: plan.cryptoSymbol || '',
         cryptoIcon: plan.cryptoIcon || ''
@@ -230,6 +234,7 @@ export default function AdminInvestmentPlansPage() {
         profitPercentage: '',
         compoundingCycles: '0',
         canBeStoppedByUser: true,
+        chainAccountsEnabled: false,
         cryptoAddress: '',
         cryptoSymbol: '',
         cryptoIcon: ''
@@ -251,6 +256,7 @@ export default function AdminInvestmentPlansPage() {
       profitPercentage: '',
       compoundingCycles: '0',
       canBeStoppedByUser: true,
+      chainAccountsEnabled: false,
       cryptoAddress: '',
       cryptoSymbol: '',
       cryptoIcon: ''
@@ -333,6 +339,7 @@ export default function AdminInvestmentPlansPage() {
         profitPercentage,
         compoundingCycles,
         canBeStoppedByUser: formData.canBeStoppedByUser,
+        chainAccountsEnabled: formData.chainAccountsEnabled,
         cryptoAddress: formData.cryptoAddress || null,
         cryptoSymbol: formData.cryptoSymbol || null,
         cryptoIcon: formData.cryptoIcon || null,
@@ -434,6 +441,7 @@ export default function AdminInvestmentPlansPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ARK_II</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Investors</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Restrictions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Chain Account</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -441,7 +449,7 @@ export default function AdminInvestmentPlansPage() {
               <tbody className="divide-y divide-gray-200">
                 {plans.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                       No investment plans found. Create your first plan to get started.
                     </td>
                   </tr>
@@ -510,6 +518,20 @@ export default function AdminInvestmentPlansPage() {
                             </span>
                           )}
                         </button>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {plan.chainAccountsEnabled ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-blue-100 text-blue-800">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Enabled
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-500">
+                            Disabled
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -710,6 +732,25 @@ export default function AdminInvestmentPlansPage() {
                   </div>
                   <p className="mt-1 ml-8 text-sm text-gray-500">
                     If enabled, users can manually stop the compounding cycle before completion
+                  </p>
+                </div>
+
+                {/* Chain Account Enabled */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="chainAccountsEnabled"
+                      checked={formData.chainAccountsEnabled}
+                      onChange={(e) => setFormData({ ...formData, chainAccountsEnabled: e.target.checked })}
+                      className="w-5 h-5 text-blue-600 focus:ring-blue-600 border-gray-300 rounded"
+                    />
+                    <label htmlFor="chainAccountsEnabled" className="text-sm font-medium text-gray-700">
+                      Enable for Chain Accounts
+                    </label>
+                  </div>
+                  <p className="mt-1 ml-8 text-sm text-gray-500">
+                    If enabled, this plan will be available for Chain Account investments
                   </p>
                 </div>
 

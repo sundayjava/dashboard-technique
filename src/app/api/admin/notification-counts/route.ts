@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
       pendingLoansCount,
       pendingCardsCount,
       pendingWithdrawalsCount,
-      pendingTransactionsCount
+      pendingTransactionsCount,
+      pendingChainRemovalCount,
+      pendingChainModificationCount,
+      pendingChainClosureCount
     ] = await Promise.all([
       // New users (registered in last 24 hours)
       prisma.user.count({
@@ -87,6 +90,27 @@ export async function GET(request: NextRequest) {
         where: {
           status: 'PENDING'
         }
+      }).catch(() => 0),
+
+      // Chain Account member removal requests awaiting admin sign-off
+      prisma.chainAccountRemovalRequest.count({
+        where: {
+          status: 'PENDING_ADMIN'
+        }
+      }).catch(() => 0),
+
+      // Chain Account modification requests awaiting admin sign-off
+      prisma.chainAccountModificationRequest.count({
+        where: {
+          status: 'PENDING_ADMIN'
+        }
+      }).catch(() => 0),
+
+      // Chain Account closure requests awaiting admin sign-off
+      prisma.chainAccountClosureRequest.count({
+        where: {
+          status: 'PENDING_ADMIN'
+        }
       }).catch(() => 0)
     ]);
 
@@ -105,7 +129,9 @@ export async function GET(request: NextRequest) {
         // Total finance items (withdrawals + holdings + investment deposits + general transactions)
         finance: pendingWithdrawalsCount + pendingHoldingsCount + pendingInvestmentDepositsCount + pendingTransactionsCount,
         // Total management items (loans + cards)
-        management: pendingLoansCount + pendingCardsCount
+        management: pendingLoansCount + pendingCardsCount,
+        // Chain Account requests awaiting final admin approval
+        chainAccountRequests: pendingChainRemovalCount + pendingChainModificationCount + pendingChainClosureCount
       }
     });
   } catch (error) {

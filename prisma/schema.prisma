@@ -56,6 +56,7 @@ model User {
   holdings                   UserHolding[]
   withdrawals                Withdrawal[]
   arkIIAssignments           ArkIIAssignment[]
+  chainAccountMemberships    ChainAccountMember[]
 
   @@map("users")
 }
@@ -506,11 +507,13 @@ model InvestmentPlan {
   cryptoSymbol         String?
   cryptoIcon           String?      @db.Text
   isActive             Boolean      @default(true)
+  chainAccountsEnabled Boolean      @default(false) // Show in Chain Account dashboard
   createdBy            String?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
   investments          Investment[]
   restrictions         InvestmentPlanRestriction[]
+  chainInvestments     ChainAccountInvestment[]
 
   @@index([isActive])
   @@map("investment_plans")
@@ -907,4 +910,615 @@ model ArkIIAssignment {
 
   @@index([userId])
   @@map("ark_ii_assignments")
+}
+
+// ==================== CHAIN ACCOUNT MODELS ====================
+
+model ChainAccount {
+  id                     String                       @id @default(cuid())
+  accountName            String                       // Auto-generated from member names
+  accountNumber          String                       @unique // CA-[AUTO-GENERATED]
+  
+  // Application Form Data
+  primaryPurpose         String                       // Business Operations, Investment Partnership, etc.
+  purposeDescription     String                       @db.Text
+  numberOfParties        Int                          // 2, 3, or 4
+  relationship           String                       // Spouses, Business Partners, etc.
+  expectedMonthlyVolume  String                       // Under $5,000, etc.
+  combinedCapitalLevel   String                       // Under $50,000, etc.
+  intendedAssetHoldings  String                       // Crypto only, Fiat only, Both, Investment portfolio
+  
+  // Permission Model
+  authorizationModel     ChainAuthModel               // INDEPENDENT, THRESHOLD, MAJORITY
+  thresholdAmount        Float?                       // Transaction threshold amount
+  thresholdCurrency      String?                      @default("USD")
+  
+  // Account Status & Balance
+  status                 ChainAccountStatus           @default(PENDING)
+  balance                Float                        @default(0)
+  currency               String                       @default("USDT") // Chain Accounts operate in USDT
+
+  // Crypto Deposit Address (Admin-assigned)
+  cryptoDepositAddress   String?                      // Admin assigns unique deposit address
+  cryptoNetwork          String?                      // e.g., TRC20, ERC20
+  cryptoToken            String?                      // e.g., USDT
+  depositAddressAssignedAt DateTime?
+  depositAddressAssignedBy String?                    // Admin ID who assigned
+
+  // Dormancy & Freezing (from Memorandum legal terms)
+  isDormant              Boolean                      @default(false)
+  dormancyFlaggedAt      DateTime?                    // When flagged for 180 days inactivity
+  isFrozen               Boolean                      @default(false)
+  frozenAt               DateTime?
+  frozenBy               String?                      // Admin ID who froze the account
+  frozenReason           String?                      @db.Text
+  lastActivityAt         DateTime?                    // Track last deposit/withdrawal/investment activity
+
+  // Metadata
+  createdBy              String                       // Primary Holder user ID
+  activatedAt            DateTime?
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  
+  // Relations
+  members                ChainAccountMember[]
+  memorandum             ChainAccountMemorandum?
+  deposits               ChainAccountDeposit[]
+  investments            ChainAccountInvestment[]
+  withdrawals            ChainAccountWithdrawal[]
+  approvals              ChainAccountApproval[]
+  transactions           ChainAccountTransaction[]
+  notifications          ChainAccountNotification[]
+  removalRequests        ChainAccountRemovalRequest[]
+  modificationRequests   ChainAccountModificationRequest[]
+  closureRequests        ChainAccountClosureRequest[]
+
+  @@index([accountNumber])
+  @@index([status])
+  @@index([createdBy])
+  @@map("chain_accounts")
+}
+
+model ChainAccountMember {
+  id                String               @id @default(cuid())
+  chainAccountId    String
+  userId            String
+  role              ChainMemberRole      // PRIMARY_HOLDER or CO_SIGNATORY
+  
+  // Access Token - stored hashed
+  accessTokenHash   String?              // Unique 6-10 char alphanumeric token (hashed)
+  tokenGeneratedAt  DateTime?
+  
+  // Confirmation Status
+  hasConfirmed      Boolean              @default(false)
+  confirmedAt       DateTime?
+  signingToken      String?              @unique // One-time token for memorandum signing link
+  signingTokenUsed  Boolean              @default(false)
+  
+  // Metadata
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  
+  chainAccount      ChainAccount         @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvals         ChainAccountApproval[]
+  initiatedDeposits ChainAccountDeposit[] @relation("DepositInitiator")
+  initiatedInvestments ChainAccountInvestment[] @relation("InvestmentInitiator")
+  initiatedWithdrawals ChainAccountWithdrawal[] @relation("WithdrawalInitiator")
+
+  @@unique([chainAccountId, userId])
+  @@index([userId])
+  @@index([chainAccountId])
+  @@index([signingToken])
+  @@map("chain_account_members")
+}
+
+model ChainAccountMemorandum {
+  id                String       @id @default(cuid())
+  chainAccountId    String       @unique
+  documentReference String       @unique // CA-2024-00142
+  
+  // Generated Document Content (JSON)
+  content           Json         // Full memorandum data
+  
+  // Status
+  status            MemorandumStatus @default(PENDING)
+  activatedAt       DateTime?
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  chainAccount      ChainAccount @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+
+  @@index([chainAccountId])
+  @@index([documentReference])
+  @@map("chain_account_memorandums")
+}
+
+model ChainAccountDeposit {
+  id                String               @id @default(cuid())
+  chainAccountId    String
+  initiatedBy       String               // Member ID who initiated
+  userId            String               // User ID of the initiator
+  
+  amount            Float
+  currency          String               @default("USD")
+  method            DepositMethod        // WALLET or CRYPTO
+  
+  // For wallet deposits
+  deductedFromWallet Boolean             @default(false)
+  
+  // For crypto deposits
+  transactionHash   String?
+  cryptoNetwork     String?
+  cryptoToken       String?
+  
+  // Status & Processing
+  status            DepositStatus        @default(PENDING)
+  adminNotes        String?
+  processedBy       String?              // Admin ID
+  processedAt       DateTime?
+  rejectionReason   String?
+  
+  // Metadata
+  reference         String               @unique
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  
+  chainAccount      ChainAccount         @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  initiator         ChainAccountMember   @relation("DepositInitiator", fields: [initiatedBy], references: [id], onDelete: Cascade)
+
+  @@index([chainAccountId])
+  @@index([status])
+  @@index([initiatedBy])
+  @@map("chain_account_deposits")
+}
+
+model ChainAccountInvestment {
+  id                String                  @id @default(cuid())
+  chainAccountId    String
+  initiatedBy       String                  // Member ID who initiated
+  planId            String
+  
+  amount            Float
+  currency          String                  @default("USD")
+  
+  // Approval flow
+  requiresApproval  Boolean                 @default(false)
+  allApproved       Boolean                 @default(false)
+  
+  // Investment lifecycle
+  status            ChainInvestmentStatus   @default(PENDING_APPROVAL)
+  startDate         DateTime?
+  endDate           DateTime?
+  profitEarned      Float                   @default(0)
+  completedAt       DateTime?
+  
+  // Metadata
+  reference         String                  @unique
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  
+  chainAccount      ChainAccount            @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  initiator         ChainAccountMember      @relation("InvestmentInitiator", fields: [initiatedBy], references: [id], onDelete: Cascade)
+  plan              InvestmentPlan          @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([chainAccountId])
+  @@index([status])
+  @@index([initiatedBy])
+  @@index([planId])
+  @@map("chain_account_investments")
+}
+
+model ChainAccountWithdrawal {
+  id                String                   @id @default(cuid())
+  chainAccountId    String
+  initiatedBy       String                   // Member ID who initiated
+  
+  totalAmount       Float
+  currency          String                   @default("USD")
+  
+  // Per-member distribution (JSON array)
+  distribution      Json                     // [{ userId: string, amount: number, name: string }]
+  
+  // Approval flow
+  requiresApproval  Boolean                  @default(false)
+  allApproved       Boolean                  @default(false)
+  
+  // Processing
+  status            ChainWithdrawalStatus    @default(PENDING_APPROVAL)
+  adminNotes        String?
+  processedBy       String?                  // Admin ID
+  processedAt       DateTime?
+  rejectionReason   String?
+  
+  // Metadata
+  reference         String                   @unique
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  
+  chainAccount      ChainAccount             @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  initiator         ChainAccountMember       @relation("WithdrawalInitiator", fields: [initiatedBy], references: [id], onDelete: Cascade)
+
+  @@index([chainAccountId])
+  @@index([status])
+  @@index([initiatedBy])
+  @@map("chain_account_withdrawals")
+}
+
+model ChainAccountApproval {
+  id                String               @id @default(cuid())
+  chainAccountId    String
+  memberId          String               // Member who needs to approve
+  
+  // What needs approval
+  actionType        ChainActionType      // INVESTMENT or WITHDRAWAL
+  actionId          String               // ID of the investment or withdrawal
+  
+  // Approval status
+  status            ApprovalStatus       @default(PENDING)
+  decision          ApprovalDecision?    // APPROVED or REJECTED
+  decidedAt         DateTime?
+  notes             String?              // Optional notes from approver
+
+  // One-time token for the email approval link (no login required)
+  approvalToken     String?              @unique
+  approvalTokenUsed Boolean              @default(false)
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  chainAccount      ChainAccount         @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  member            ChainAccountMember   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, actionType, actionId])
+  @@index([chainAccountId])
+  @@index([memberId])
+  @@index([status])
+  @@index([approvalToken])
+  @@map("chain_account_approvals")
+}
+
+model ChainAccountTransaction {
+  id                String                  @id @default(cuid())
+  chainAccountId    String
+  
+  transactionType   ChainTransactionType
+  amount            Float
+  balanceBefore     Float
+  balanceAfter      Float
+  currency          String                  @default("USD")
+  
+  description       String
+  reference         String                  @unique
+  
+  // Related entities
+  relatedUserId     String?                 // User who initiated
+  relatedDepositId  String?
+  relatedInvestmentId String?
+  relatedWithdrawalId String?
+  
+  metadata          Json?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  
+  chainAccount      ChainAccount            @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+
+  @@index([chainAccountId])
+  @@index([transactionType])
+  @@index([createdAt])
+  @@index([reference])
+  @@map("chain_account_transactions")
+}
+
+model ChainAccountNotification {
+  id                String                     @id @default(cuid())
+  chainAccountId    String
+  userId            String                     // Recipient user ID
+  
+  type              ChainNotificationType
+  title             String
+  message           String                     @db.Text
+  
+  // For approval notifications
+  actionType        ChainActionType?
+  actionId          String?
+  
+  isRead            Boolean                    @default(false)
+  readAt            DateTime?
+  
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  
+  chainAccount      ChainAccount               @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+
+  @@index([chainAccountId])
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("chain_account_notifications")
+}
+
+model ChainAccountRemovalRequest {
+  id                String                        @id @default(cuid())
+  chainAccountId    String
+  initiatedBy       String                        // Member ID who initiated removal
+  targetMemberId    String                        // Member to be removed
+
+  reason            String                        @db.Text
+
+  // Approval flow
+  targetApproved    Boolean                       @default(false)
+  targetApprovedAt  DateTime?
+  allApproved       Boolean                       @default(false)
+
+  // Admin processing
+  status            RemovalRequestStatus          @default(PENDING_TARGET_APPROVAL)
+  adminNotes        String?
+  processedBy       String?                       // Admin ID
+  processedAt       DateTime?
+  rejectionReason   String?
+
+  reference         String                        @unique
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+
+  chainAccount      ChainAccount                  @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  approvals         ChainAccountRemovalApproval[]
+
+  @@index([chainAccountId])
+  @@index([status])
+  @@index([initiatedBy])
+  @@index([targetMemberId])
+  @@map("chain_account_removal_requests")
+}
+
+model ChainAccountRemovalApproval {
+  id                String                        @id @default(cuid())
+  removalRequestId  String
+  memberId          String                        // Member who needs to approve
+
+  decision          ApprovalDecision?             // APPROVED or REJECTED
+  decidedAt         DateTime?
+  notes             String?
+
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+
+  removalRequest    ChainAccountRemovalRequest    @relation(fields: [removalRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([removalRequestId, memberId])
+  @@index([removalRequestId])
+  @@index([memberId])
+  @@map("chain_account_removal_approvals")
+}
+
+model ChainAccountModificationRequest {
+  id                     String                              @id @default(cuid())
+  chainAccountId         String
+  initiatedBy            String                              // Member ID who initiated
+
+  // What's being modified
+  modificationType       ModificationType
+
+  // New values (JSON to support different modification types)
+  proposedChanges        Json                                // { field: newValue }
+  reason                 String                              @db.Text
+
+  // Approval flow
+  allApproved            Boolean                             @default(false)
+
+  // Admin processing
+  status                 ModificationRequestStatus           @default(PENDING_APPROVAL)
+  adminNotes             String?
+  processedBy            String?                             // Admin ID
+  processedAt            DateTime?
+  rejectionReason        String?
+
+  reference              String                              @unique
+  createdAt              DateTime                            @default(now())
+  updatedAt              DateTime                            @updatedAt
+
+  chainAccount           ChainAccount                        @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  approvals              ChainAccountModificationApproval[]
+
+  @@index([chainAccountId])
+  @@index([status])
+  @@index([initiatedBy])
+  @@map("chain_account_modification_requests")
+}
+
+model ChainAccountModificationApproval {
+  id                     String                              @id @default(cuid())
+  modificationRequestId  String
+  memberId               String                              // Member who needs to approve
+
+  decision               ApprovalDecision?                   // APPROVED or REJECTED
+  decidedAt              DateTime?
+  notes                  String?
+
+  createdAt              DateTime                            @default(now())
+  updatedAt              DateTime                            @updatedAt
+
+  modificationRequest    ChainAccountModificationRequest     @relation(fields: [modificationRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([modificationRequestId, memberId])
+  @@index([modificationRequestId])
+  @@index([memberId])
+  @@map("chain_account_modification_approvals")
+}
+
+model ChainAccountClosureRequest {
+  id                String                          @id @default(cuid())
+  chainAccountId    String
+  initiatedBy       String                          // Member ID who initiated
+
+  reason            String                          @db.Text
+
+  // Approval flow
+  allApproved       Boolean                         @default(false)
+
+  // Admin processing
+  status            ClosureRequestStatus            @default(PENDING_APPROVAL)
+  adminNotes        String?
+  processedBy       String?                         // Admin ID
+  processedAt       DateTime?
+  rejectionReason   String?
+
+  reference         String                          @unique
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+
+  chainAccount      ChainAccount                    @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  approvals         ChainAccountClosureApproval[]
+
+  @@index([chainAccountId])
+  @@index([status])
+  @@index([initiatedBy])
+  @@map("chain_account_closure_requests")
+}
+
+model ChainAccountClosureApproval {
+  id               String                       @id @default(cuid())
+  closureRequestId String
+  memberId         String                       // Member who needs to approve
+
+  decision         ApprovalDecision?            // APPROVED or REJECTED
+  decidedAt        DateTime?
+  notes            String?
+
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  closureRequest   ChainAccountClosureRequest   @relation(fields: [closureRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([closureRequestId, memberId])
+  @@index([closureRequestId])
+  @@index([memberId])
+  @@map("chain_account_closure_approvals")
+}
+
+// ==================== CHAIN ACCOUNT ENUMS ====================
+
+enum ChainAccountStatus {
+  PENDING          // Waiting for all signatures
+  ACTIVE           // All signed, account operational
+  SUSPENDED        // Temporarily suspended by admin
+  CLOSED           // Permanently closed
+}
+
+enum ChainMemberRole {
+  PRIMARY_HOLDER
+  CO_SIGNATORY
+}
+
+enum ChainAuthModel {
+  INDEPENDENT      // Any signatory can act independently
+  THRESHOLD        // All must approve transactions >= threshold
+  MAJORITY         // Majority must approve transactions >= threshold
+}
+
+enum MemorandumStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+}
+
+enum DepositMethod {
+  WALLET           // From Acredis wallet
+  CRYPTO           // External crypto transfer
+}
+
+enum DepositStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum ChainInvestmentStatus {
+  PENDING_APPROVAL // Waiting for member approvals
+  APPROVED         // Approved by members, waiting for execution
+  ACTIVE           // Investment is running
+  COMPLETED        // Investment completed
+  CANCELLED        // Cancelled (rejected by member or admin)
+  FAILED           // Failed to execute
+}
+
+enum ChainWithdrawalStatus {
+  PENDING_APPROVAL // Waiting for member approvals
+  APPROVED         // Approved by members, waiting for admin
+  PROCESSING       // Admin is processing
+  COMPLETED        // Funds distributed
+  REJECTED         // Rejected by member or admin
+  CANCELLED        // Cancelled by initiator
+}
+
+enum ChainActionType {
+  INVESTMENT
+  WITHDRAWAL
+}
+
+enum ApprovalStatus {
+  PENDING
+  DECIDED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum ChainTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  INVESTMENT
+  INVESTMENT_RETURN
+  INVESTMENT_PROFIT
+  FEE
+  ADJUSTMENT
+}
+
+enum ChainNotificationType {
+  APPROVAL_REQUEST  // Action requires your approval
+  APPROVAL_GRANTED  // Someone approved
+  APPROVAL_REJECTED // Someone rejected
+  ACTION_COMPLETED  // Transaction completed
+  DEPOSIT_CONFIRMED // Deposit confirmed by admin
+  MEMBER_SIGNED     // Member signed memorandum
+  ACCOUNT_ACTIVATED // Account is now active
+  REMOVAL_REQUEST   // Member removal request
+  MODIFICATION_REQUEST // Account modification request
+  CLOSURE_REQUEST   // Account closure request
+  GENERAL           // General notification
+}
+
+enum RemovalRequestStatus {
+  PENDING_TARGET_APPROVAL  // Waiting for target member to approve their removal
+  PENDING_APPROVAL         // Target approved, waiting for other members
+  PENDING_ADMIN            // All members approved, waiting for admin
+  APPROVED                 // Admin approved, member removed
+  REJECTED                 // Rejected by target, members, or admin
+  CANCELLED                // Cancelled by initiator
+}
+
+enum ModificationType {
+  AUTHORIZATION_MODEL  // Change permission model
+  THRESHOLD_AMOUNT     // Change transaction threshold
+  ACCOUNT_PURPOSE      // Change account purpose/description
+}
+
+enum ModificationRequestStatus {
+  PENDING_APPROVAL  // Waiting for all members to approve
+  PENDING_ADMIN     // All members approved, waiting for admin
+  APPROVED          // Admin approved, changes applied
+  REJECTED          // Rejected by members or admin
+  CANCELLED         // Cancelled by initiator
+}
+
+enum ClosureRequestStatus {
+  PENDING_APPROVAL  // Waiting for all members to approve
+  PENDING_ADMIN     // All members approved, waiting for admin
+  APPROVED          // Admin approved, account closed
+  REJECTED          // Rejected by members or admin
+  CANCELLED         // Cancelled by initiator
 }

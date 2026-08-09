@@ -29,12 +29,13 @@ export default function RootLayout({
     setupAxiosInterceptors();
   }, []);
 
-  // Hide header in dashboard routes, admin routes, investment dashboard route, PIN verification, and password reset pages
+  // Hide header in dashboard routes, admin routes, investment dashboard route, chain account routes, PIN verification, and password reset pages
   const hideHeader =
     pathname?.startsWith("/dashboard") ||
     pathname?.startsWith("/admin") ||
     pathname === "/investment" ||
     pathname?.startsWith("/investment/") ||
+    pathname?.startsWith("/chain-account") ||
     pathname?.startsWith("/verify-pin") ||
     pathname?.startsWith("/forgot-password") ||
     pathname?.startsWith("/reset-password");

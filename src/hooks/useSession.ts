@@ -24,8 +24,7 @@ interface UseSessionOptions {
   onSessionExpired?: () => void;
   
   /**
-   * Warning time before expiration (in milliseconds)
-   * Shows a warning toast when session is about to expire
+   * How long before expiration (in milliseconds) to silently refresh the session
    * @default 5 * 60 * 1000 (5 minutes)
    */
   warningTime?: number;
@@ -62,7 +61,7 @@ export function useSession(options: UseSessionOptions = {}) {
   
   const router = useRouter();
   const checkIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const warningShownRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
   const [isOnline, setIsOnline] = useState(true);
   const networkWarningShownRef = useRef(false);
   
@@ -97,26 +96,22 @@ export function useSession(options: UseSessionOptions = {}) {
       return;
     }
     
-    // Show warning if session is about to expire
+    // Silently extend the session if it's about to expire while the user
+    // is still active. Inactivity logout is left alone since refreshing the
+    // token can't fix a genuinely idle user.
     const timeUntilExpiration = SessionManager.getTimeUntilExpiration();
     const timeUntilInactivity = SessionManager.getTimeUntilInactivityLogout();
-    const minTime = Math.min(timeUntilExpiration, timeUntilInactivity);
-    
-    if (minTime <= warningTime && minTime > 0 && !warningShownRef.current) {
-      warningShownRef.current = true;
-      const minutes = Math.ceil(minTime / 60000);
-      toast(
-        `Your session will expire in ${minutes} minute${minutes !== 1 ? 's' : ''}. Please save your work.`,
-        {
-          icon: '⚠️',
-          duration: 10000,
-        }
-      );
-      
-      // Reset warning flag after some time
-      setTimeout(() => {
-        warningShownRef.current = false;
-      }, warningTime / 2);
+
+    if (
+      timeUntilExpiration <= warningTime &&
+      timeUntilExpiration > 0 &&
+      timeUntilInactivity > 0 &&
+      !refreshInFlightRef.current
+    ) {
+      refreshInFlightRef.current = true;
+      SessionManager.refreshSession().finally(() => {
+        refreshInFlightRef.current = false;
+      });
     }
   }, [logout, router, redirectTo, warningTime]);
   

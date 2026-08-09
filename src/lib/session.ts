@@ -186,4 +186,30 @@ export class SessionManager {
     const timeSinceActivity = Date.now() - lastActivity;
     return Math.max(0, this.INACTIVITY_TIMEOUT - timeSinceActivity);
   }
+
+  /**
+   * Silently exchange the current token for a fresh one, extending the
+   * 24-hour expiration without interrupting the user.
+   */
+  static async refreshSession(): Promise<boolean> {
+    const token = this.getToken();
+    if (!token) return false;
+
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) return false;
+
+      const { token: newToken } = await response.json();
+      if (typeof window === 'undefined') return false;
+
+      localStorage.setItem(this.TOKEN_KEY, newToken);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

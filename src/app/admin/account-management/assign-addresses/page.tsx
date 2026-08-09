@@ -70,12 +70,12 @@ export default function AssignAddressesPage() {
       setLoading(true);
       const [assignmentsRes, usersRes, addressesRes] = await Promise.all([
         axios.get('/api/admin/user-addresses').catch(() => ({ data: [] })),
-        axios.get('/api/admin/users').catch(() => ({ data: [] })),
+        axios.get('/api/admin/users').catch(() => ({ data: { users: [] } })),
         axios.get('/api/admin/addresses').catch(() => ({ data: [] })),
       ]);
-      setAssignments(assignmentsRes.data);
-      setUsers(usersRes.data);
-      setAddresses(addressesRes.data);
+      setAssignments(Array.isArray(assignmentsRes.data) ? assignmentsRes.data : []);
+      setUsers(Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data.users || []));
+      setAddresses(Array.isArray(addressesRes.data) ? addressesRes.data : []);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to fetch data');
       setAssignments([]);

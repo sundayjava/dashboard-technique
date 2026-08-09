@@ -14,7 +14,7 @@ import {
   TrendingUp, Send, CreditCard, 
   ArrowUpRight, ArrowDownRight, DollarSign, Wallet,
   BarChart3, Activity, Calendar,
-  ArrowRight, Copy, Check, MoreVertical
+  ArrowRight, Copy, Check, MoreVertical, Users, AlertCircle, X
 } from 'lucide-react';
 
 interface User {
@@ -104,6 +104,10 @@ export default function DashboardPage() {
   const [showPlusModal, setShowPlusModal] = useState(false);
   const [showHoldingsModal, setShowHoldingsModal] = useState(false);
   const [showHighYieldModal, setShowHighYieldModal] = useState(false);
+  const [chainAccountState, setChainAccountState] = useState<'none' | 'pending' | 'active'>('none');
+  const [chainAccountCount, setChainAccountCount] = useState(0);
+  const [chainAccountLoading, setChainAccountLoading] = useState(true);
+  const [chainAccountModalDismissed, setChainAccountModalDismissed] = useState(false);
 
   // Use session hook for automatic logout on inactivity
   useSession({
@@ -157,14 +161,15 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async (userId: string) => {
     try {
-      const [accountRes, investmentsRes, transactionsRes, transactionStatsRes, investmentsListRes, messagesRes, holdingsRes] = await Promise.all([
+      const [accountRes, investmentsRes, transactionsRes, transactionStatsRes, investmentsListRes, messagesRes, holdingsRes, chainAccountRes] = await Promise.all([
         axios.get(`/api/accounts?userId=${userId}`),
         axios.get(`/api/investments/stats?userId=${userId}`),
         axios.get(`/api/transactions?userId=${userId}&limit=5`).catch(() => ({ data: { transactions: [] } })),
         axios.get(`/api/transactions/stats?userId=${userId}`).catch(() => ({ data: { totalInflow: 0, totalOutflow: 0 } })),
         axios.get(`/api/investments?userId=${userId}&status=ACTIVE`).catch(() => ({ data: { investments: [] } })),
         axios.get(`/api/messages?userId=${userId}`).catch(() => ({ data: { messages: [] } })),
-        axios.get(`/api/holdings?userId=${userId}`).catch(() => ({ data: { holdings: [] } }))
+        axios.get(`/api/holdings?userId=${userId}`).catch(() => ({ data: { holdings: [] } })),
+        axios.get(`/api/chain-account/status?userId=${userId}`).catch(() => ({ data: { data: { state: 'none', totalCount: 0 } } }))
       ]);
 
       if (accountRes.data.accounts?.length > 0) {
@@ -204,8 +209,16 @@ export default function DashboardPage() {
           .reduce((sum: number, holding: any) => sum + (holding.currentValue || 0), 0);
         setTotalHoldings(holdingsTotal);
       }
+
+      // Set chain account status
+      if (chainAccountRes.data.data) {
+        setChainAccountState(chainAccountRes.data.data.state);
+        setChainAccountCount(chainAccountRes.data.data.totalCount);
+      }
+      setChainAccountLoading(false);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setChainAccountLoading(false);
     } finally {
       setLoading(false);
     }
@@ -451,6 +464,54 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
+
+
+        {/* Chain Account Section - only render once we're sure of the state */}
+        {!chainAccountLoading && (chainAccountState === 'pending' || chainAccountState === 'active') && (
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-900">Chain Account</h2>
+              <Users className="w-8 h-8 text-blue-600" />
+            </div>
+
+            {/* State B: Pending Chain Account */}
+            {chainAccountState === 'pending' && (
+              <div className="space-y-3">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-yellow-900">Chain Account Pending</p>
+                    <p className="text-sm text-yellow-800 mt-1">
+                      Waiting for all members to sign the memorandum. The account will activate once everyone has confirmed.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="w-full py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  View Status
+                </button>
+              </div>
+            )}
+
+            {/* State C: Active Chain Account */}
+            {chainAccountState === 'active' && (
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500">
+                  {chainAccountCount} active Chain Account{chainAccountCount > 1 ? 's' : ''}
+                </p>
+                <button
+                  onClick={() => router.push('/chain-account/login')}
+                  className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center"
+                >
+                  <Users className="w-5 h-5 mr-2" />
+                  Login to Chain Account
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
 
         {/* High Yield Investment Promo Banner */}
@@ -1054,6 +1115,55 @@ export default function DashboardPage() {
                 {validatingKey ? 'Validating...' : 'Verify'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chain Account Introduction Modal */}
+      {!chainAccountLoading && chainAccountState === 'none' && !chainAccountModalDismissed && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-sm w-full p-5 relative">
+            <button
+              onClick={() => setChainAccountModalDismissed(true)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center mb-3">
+              <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center mr-3 shrink-0">
+                <Users className="w-5 h-5 text-gray-900" />
+              </div>
+              <h2 className="text-sm font-bold text-gray-900">Chain Accounts are here</h2>
+            </div>
+
+            <p className="text-xs text-gray-600 mb-3">
+              You can now open a shared investment account with partners, family, or business associates — up to 4 people, with flexible permissions for transactions.
+            </p>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <ul className="space-y-1.5 text-xs text-gray-900">
+                <li className="flex items-start">
+                  <Check className="w-3.5 h-3.5 mr-1.5 mt-0.5 text-gray-600 shrink-0" />
+                  <span>Share investments and banking with 2-4 trusted parties</span>
+                </li>
+                <li className="flex items-start">
+                  <Check className="w-3.5 h-3.5 mr-1.5 mt-0.5 text-gray-600 shrink-0" />
+                  <span>Secure individual access tokens for each member</span>
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => {
+                setChainAccountModalDismissed(true);
+                router.push('/chain-account/create');
+              }}
+              className="w-full py-2.5 bg-[#e0ff57] text-black rounded-lg hover:bg-[#e0ff57]/70 cursor-pointer transition-colors text-sm font-semibold flex items-center justify-center"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Create a Chain Account
+            </button> 
           </div>
         </div>
       )}

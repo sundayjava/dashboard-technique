@@ -5,6 +5,18 @@ let cachedRates: Record<string, number> | null = null;
 let cacheExpiry: number = 0;
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 
+// Stablecoins aren't in the fiat Currency table - they're pegged to USD at 1:1
+const STABLECOIN_RATES: Record<string, number> = {
+  USDT: 1,
+  USDC: 1,
+  BUSD: 1,
+  DAI: 1,
+  TUSD: 1,
+  USDP: 1,
+  GUSD: 1,
+  USDD: 1,
+};
+
 // Fallback exchange rates (used if database fetch fails)
 const FALLBACK_RATES: Record<string, number> = {
   USD: 1,
@@ -124,8 +136,8 @@ export async function convertCurrency(
   }
 
   const rates = await getExchangeRates();
-  const fromRate = rates[from];
-  const toRate = rates[to];
+  const fromRate = rates[from] ?? STABLECOIN_RATES[from];
+  const toRate = rates[to] ?? STABLECOIN_RATES[to];
 
   if (!fromRate || !toRate) {
     throw new Error(`Exchange rate not found for ${from} or ${to}`);
@@ -157,8 +169,8 @@ export async function getExchangeRate(
   }
 
   const rates = await getExchangeRates();
-  const fromRate = rates[from];
-  const toRate = rates[to];
+  const fromRate = rates[from] ?? STABLECOIN_RATES[from];
+  const toRate = rates[to] ?? STABLECOIN_RATES[to];
 
   if (!fromRate || !toRate) {
     throw new Error(`Exchange rate not found for ${from} or ${to}`);
