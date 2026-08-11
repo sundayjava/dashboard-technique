@@ -842,45 +842,51 @@ model Withdrawal {
   accountId           String?
   amount              Float
   currency            String            @default("USD")
-  
+  method              WithdrawalMethod  @default(BANK)
+
   // Beneficiary Details
-  beneficiaryName     String
+  beneficiaryName     String?
   beneficiaryEmail    String?
   beneficiaryPhone    String?
-  
+
   // Bank Details
-  bankName            String
+  bankName            String?
   bankAddress         String?
-  accountNumber       String
-  swiftCode           String
+  accountNumber       String?
+  swiftCode           String?
   iban                String?
   routingNumber       String?
   sortCode            String?
-  
+
   // Beneficiary Address
-  beneficiaryAddress  String
-  city                String
+  beneficiaryAddress  String?
+  city                String?
   state               String?
-  zipCode             String
-  countryCode         String
-  
+  zipCode             String?
+  countryCode         String?
+
+  // Crypto Details
+  cryptoToken         String?
+  cryptoNetwork       String?
+  cryptoAddress       String?
+
   // Transaction Details
   reference           String            @unique
   status              WithdrawalStatus  @default(PENDING)
   description         String?
   fee                 Float             @default(0)
   totalAmount         Float             // amount + fee
-  
+
   // Admin Actions
   adminNotes          String?
   processedBy         String?
   processedAt         DateTime?
   rejectionReason     String?
-  
+
   // Timestamps
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
-  
+
   user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -896,6 +902,11 @@ enum WithdrawalStatus {
   COMPLETED
   REJECTED
   CANCELLED
+}
+
+enum WithdrawalMethod {
+  BANK
+  CRYPTO
 }
 
 model ArkIIAssignment {

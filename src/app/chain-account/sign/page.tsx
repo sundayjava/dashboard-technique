@@ -250,12 +250,11 @@ function SignMemorandumContent() {
             </div>
             <div className="sm:text-right">
               <h2 className="text-base sm:text-xl font-bold leading-tight">CHAIN ACCOUNT MEMORANDUM</h2>
-              <p className="text-xs sm:text-sm text-blue-200">UAE Jurisdiction</p>
             </div>
           </div>
 
           <div className="border-t border-blue-400 pt-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
               <div>
                 <p className="text-blue-200 text-xs">Document Reference</p>
                 <p className="font-semibold text-xs sm:text-sm break-all">{memorandum.documentReference}</p>
@@ -267,10 +266,6 @@ function SignMemorandumContent() {
               <div>
                 <p className="text-blue-200 text-xs">Document Status</p>
                 <p className="font-semibold text-xs sm:text-sm">PENDING — Awaiting All Signatures</p>
-              </div>
-              <div>
-                <p className="text-blue-200 text-xs">Jurisdiction</p>
-                <p className="font-semibold text-xs sm:text-sm">United Arab Emirates</p>
               </div>
             </div>
           </div>
@@ -294,7 +289,7 @@ function SignMemorandumContent() {
           <div className="text-gray-700 space-y-3 text-sm leading-relaxed">
             <p>
               This Memorandum of Agreement (&quot;Agreement&quot;) is issued by <strong>Acredis Finance</strong>, a digital blockchain
-              banking and investment platform operating under the laws of the United Arab Emirates, to formalize the establishment
+              banking and investment platform, to formalize the establishment
               and governance of a <strong>Chain Account</strong> between the undersigned parties (&quot;the Parties&quot;).
             </p>
             <p>
@@ -541,7 +536,7 @@ function SignMemorandumContent() {
             <div className="bg-gray-50 rounded-lg p-5">
               <p className="font-semibold text-gray-900 mb-2">6.1 Governing Law</p>
               <p>
-                This agreement is governed under the applicable VARA or FSRA virtual asset regulations.
+                This agreement is governed under the applicable virtual asset regulations.
               </p>
             </div>
 
@@ -679,7 +674,7 @@ function SignMemorandumContent() {
         {/* Footer */}
         <div className="mt-8 text-center text-xs text-gray-500">
           <p>© {new Date().getFullYear()} Acredis Finance. All rights reserved.</p>
-          <p className="mt-1">Document Reference: {memorandum.documentReference} | United Arab Emirates</p>
+          <p className="mt-1">Document Reference: {memorandum.documentReference}</p>
         </div>
       </div>
     </div>

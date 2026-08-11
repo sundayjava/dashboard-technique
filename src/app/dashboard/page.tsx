@@ -7,6 +7,7 @@ import MiniLineChart from '@/components/MiniLineChart';
 import CardDisplay from '@/components/sections/CardDisplay';
 import AcredisPlusModal from '@/components/modals/AcredisPlusModal';
 import HoldingsModal from '@/components/modals/HoldingsModal';
+import WithdrawMethodModal from '@/components/modals/WithdrawMethodModal';
 import { useSession } from '@/hooks/useSession';
 import { SessionManager } from '@/lib/session';
 import axios from 'axios';
@@ -99,6 +100,7 @@ export default function DashboardPage() {
   const [cryptoUpdating, setCryptoUpdating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showTradeKeyModal, setShowTradeKeyModal] = useState(false);
+  const [showWithdrawMethodModal, setShowWithdrawMethodModal] = useState(false);
   const [tradeKey, setTradeKey] = useState('');
   const [validatingKey, setValidatingKey] = useState(false);
   const [showPlusModal, setShowPlusModal] = useState(false);
@@ -310,7 +312,7 @@ export default function DashboardPage() {
     { icon: Send, label: 'Transfer', color: 'blue', href: '/dashboard/transfer/acredis-to-acredis' },
     { icon: CreditCard, label: 'Deposit', color: 'green', href: '/dashboard/monetary/digital-deposit' },
     { icon: BarChart3, label: 'Invest', color: 'purple', requiresTradeKey: true },
-    { icon: ArrowDownRight, label: 'Withdraw', color: 'orange', href: '/dashboard/monetary/withdraw' },
+    { icon: ArrowDownRight, label: 'Withdraw', color: 'orange', requiresWithdrawMethod: true },
   ];
 
   return (
@@ -432,6 +434,8 @@ export default function DashboardPage() {
                   onClick={() => {
                     if (action.requiresTradeKey) {
                       setShowTradeKeyModal(true);
+                    } else if (action.requiresWithdrawMethod) {
+                      setShowWithdrawMethodModal(true);
                     } else if (action.href) {
                       router.push(action.href);
                     }
@@ -1134,6 +1138,12 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Withdraw Method Modal */}
+      <WithdrawMethodModal
+        isOpen={showWithdrawMethodModal}
+        onClose={() => setShowWithdrawMethodModal(false)}
+      />
 
       {/* Chain Account Introduction Modal */}
       {!chainAccountLoading && chainAccountState === 'none' && !chainAccountModalDismissed && (

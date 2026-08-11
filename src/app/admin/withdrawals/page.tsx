@@ -6,7 +6,7 @@ import axios from 'axios';
 import {
   Search, Filter, Download, Eye, Check, X, Edit, Trash2,
   Loader2, AlertCircle, ChevronDown, ChevronUp, DollarSign,
-  Calendar, User, Building, MapPin
+  Calendar, User, Building, MapPin, Coins
 } from 'lucide-react';
 
 interface Withdrawal {
@@ -14,21 +14,25 @@ interface Withdrawal {
   userId: string;
   amount: number;
   currency: string;
-  beneficiaryName: string;
+  method: 'BANK' | 'CRYPTO';
+  beneficiaryName: string | null;
   beneficiaryEmail: string | null;
   beneficiaryPhone: string | null;
-  bankName: string;
+  bankName: string | null;
   bankAddress: string | null;
-  accountNumber: string;
-  swiftCode: string;
+  accountNumber: string | null;
+  swiftCode: string | null;
   iban: string | null;
   routingNumber: string | null;
   sortCode: string | null;
-  beneficiaryAddress: string;
-  city: string;
+  beneficiaryAddress: string | null;
+  city: string | null;
   state: string | null;
-  zipCode: string;
-  countryCode: string;
+  zipCode: string | null;
+  countryCode: string | null;
+  cryptoToken: string | null;
+  cryptoNetwork: string | null;
+  cryptoAddress: string | null;
   reference: string;
   status: string;
   description: string | null;
@@ -108,10 +112,12 @@ export default function AdminWithdrawalsPage() {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(w =>
         w.reference.toLowerCase().includes(term) ||
-        w.beneficiaryName.toLowerCase().includes(term) ||
+        w.beneficiaryName?.toLowerCase().includes(term) ||
         w.user.email.toLowerCase().includes(term) ||
         w.user.name?.toLowerCase().includes(term) ||
-        w.bankName.toLowerCase().includes(term)
+        w.bankName?.toLowerCase().includes(term) ||
+        w.cryptoToken?.toLowerCase().includes(term) ||
+        w.cryptoAddress?.toLowerCase().includes(term)
       );
     }
 
@@ -303,6 +309,7 @@ export default function AdminWithdrawalsPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Reference</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">User</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Amount</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Method</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Beneficiary</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
@@ -347,10 +354,30 @@ export default function AdminWithdrawalsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{withdrawal.beneficiaryName}</p>
-                            <p className="text-xs text-gray-500">{withdrawal.bankName}</p>
-                          </div>
+                          {withdrawal.method === 'CRYPTO' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+                              <Coins className="w-3 h-3" />
+                              Crypto
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                              <Building className="w-3 h-3" />
+                              Bank
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {withdrawal.method === 'CRYPTO' ? (
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{withdrawal.cryptoToken}</p>
+                              <p className="text-xs text-gray-500 font-mono truncate max-w-[160px]">{withdrawal.cryptoAddress}</p>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{withdrawal.beneficiaryName}</p>
+                              <p className="text-xs text-gray-500">{withdrawal.bankName}</p>
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           {getStatusBadge(withdrawal.status)}
@@ -411,48 +438,71 @@ export default function AdminWithdrawalsPage() {
                       </tr>
                       {expandedRows.has(withdrawal.id) && (
                         <tr>
-                          <td colSpan={7} className="px-4 py-4 bg-gray-50">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <td colSpan={8} className="px-4 py-4 bg-gray-50">
+                            {withdrawal.method === 'CRYPTO' ? (
                               <div>
                                 <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                                  <Building className="w-4 h-4 mr-2" />
-                                  Bank Details
+                                  <Coins className="w-4 h-4 mr-2" />
+                                  Crypto Wallet Details
                                 </h4>
-                                <dl className="space-y-1">
+                                <dl className="space-y-1 text-sm">
                                   <div className="flex">
-                                    <dt className="font-medium text-gray-600 w-32">Account:</dt>
-                                    <dd className="text-gray-900">{withdrawal.accountNumber}</dd>
+                                    <dt className="font-medium text-gray-600 w-32">Token:</dt>
+                                    <dd className="text-gray-900">{withdrawal.cryptoToken}</dd>
                                   </div>
                                   <div className="flex">
-                                    <dt className="font-medium text-gray-600 w-32">SWIFT:</dt>
-                                    <dd className="text-gray-900">{withdrawal.swiftCode}</dd>
+                                    <dt className="font-medium text-gray-600 w-32">Network:</dt>
+                                    <dd className="text-gray-900">{withdrawal.cryptoNetwork}</dd>
                                   </div>
-                                  {withdrawal.iban && (
-                                    <div className="flex">
-                                      <dt className="font-medium text-gray-600 w-32">IBAN:</dt>
-                                      <dd className="text-gray-900">{withdrawal.iban}</dd>
-                                    </div>
-                                  )}
-                                  {withdrawal.routingNumber && (
-                                    <div className="flex">
-                                      <dt className="font-medium text-gray-600 w-32">Routing:</dt>
-                                      <dd className="text-gray-900">{withdrawal.routingNumber}</dd>
-                                    </div>
-                                  )}
+                                  <div className="flex">
+                                    <dt className="font-medium text-gray-600 w-32">Address:</dt>
+                                    <dd className="text-gray-900 font-mono break-all">{withdrawal.cryptoAddress}</dd>
+                                  </div>
                                 </dl>
                               </div>
-                              <div>
-                                <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                                  <MapPin className="w-4 h-4 mr-2" />
-                                  Address
-                                </h4>
-                                <p className="text-gray-900">
-                                  {withdrawal.beneficiaryAddress}<br />
-                                  {withdrawal.city}, {withdrawal.state} {withdrawal.zipCode}<br />
-                                  {withdrawal.countryCode}
-                                </p>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                                    <Building className="w-4 h-4 mr-2" />
+                                    Bank Details
+                                  </h4>
+                                  <dl className="space-y-1">
+                                    <div className="flex">
+                                      <dt className="font-medium text-gray-600 w-32">Account:</dt>
+                                      <dd className="text-gray-900">{withdrawal.accountNumber}</dd>
+                                    </div>
+                                    <div className="flex">
+                                      <dt className="font-medium text-gray-600 w-32">SWIFT:</dt>
+                                      <dd className="text-gray-900">{withdrawal.swiftCode}</dd>
+                                    </div>
+                                    {withdrawal.iban && (
+                                      <div className="flex">
+                                        <dt className="font-medium text-gray-600 w-32">IBAN:</dt>
+                                        <dd className="text-gray-900">{withdrawal.iban}</dd>
+                                      </div>
+                                    )}
+                                    {withdrawal.routingNumber && (
+                                      <div className="flex">
+                                        <dt className="font-medium text-gray-600 w-32">Routing:</dt>
+                                        <dd className="text-gray-900">{withdrawal.routingNumber}</dd>
+                                      </div>
+                                    )}
+                                  </dl>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                                    <MapPin className="w-4 h-4 mr-2" />
+                                    Address
+                                  </h4>
+                                  <p className="text-gray-900">
+                                    {withdrawal.beneficiaryAddress}<br />
+                                    {withdrawal.city}, {withdrawal.state} {withdrawal.zipCode}<br />
+                                    {withdrawal.countryCode}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </td>
                         </tr>
                       )}
@@ -492,57 +542,85 @@ export default function AdminWithdrawalsPage() {
                     {selectedWithdrawal.currency} {selectedWithdrawal.totalAmount.toFixed(2)}
                   </p>
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Method</label>
+                  <p className="text-gray-900 font-bold">
+                    {selectedWithdrawal.method === 'CRYPTO' ? 'Crypto Withdrawal' : 'Bank Transfer'}
+                  </p>
+                </div>
               </div>
 
               <hr />
 
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Beneficiary Information</h3>
-                <dl className="grid grid-cols-2 gap-4">
+              {selectedWithdrawal.method === 'CRYPTO' ? (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Crypto Wallet Information</h3>
+                  <dl className="grid grid-cols-2 gap-4">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-600">Token</dt>
+                      <dd className="text-gray-900">{selectedWithdrawal.cryptoToken}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-600">Network</dt>
+                      <dd className="text-gray-900">{selectedWithdrawal.cryptoNetwork}</dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-sm font-medium text-gray-600">Wallet Address</dt>
+                      <dd className="text-gray-900 font-mono break-all">{selectedWithdrawal.cryptoAddress}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ) : (
+                <>
                   <div>
-                    <dt className="text-sm font-medium text-gray-600">Name</dt>
-                    <dd className="text-gray-900">{selectedWithdrawal.beneficiaryName}</dd>
+                    <h3 className="font-semibold text-gray-900 mb-2">Beneficiary Information</h3>
+                    <dl className="grid grid-cols-2 gap-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-600">Name</dt>
+                        <dd className="text-gray-900">{selectedWithdrawal.beneficiaryName}</dd>
+                      </div>
+                      {selectedWithdrawal.beneficiaryEmail && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-600">Email</dt>
+                          <dd className="text-gray-900">{selectedWithdrawal.beneficiaryEmail}</dd>
+                        </div>
+                      )}
+                      {selectedWithdrawal.beneficiaryPhone && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-600">Phone</dt>
+                          <dd className="text-gray-900">{selectedWithdrawal.beneficiaryPhone}</dd>
+                        </div>
+                      )}
+                    </dl>
                   </div>
-                  {selectedWithdrawal.beneficiaryEmail && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-600">Email</dt>
-                      <dd className="text-gray-900">{selectedWithdrawal.beneficiaryEmail}</dd>
-                    </div>
-                  )}
-                  {selectedWithdrawal.beneficiaryPhone && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-600">Phone</dt>
-                      <dd className="text-gray-900">{selectedWithdrawal.beneficiaryPhone}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
 
-              <hr />
+                  <hr />
 
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Bank Information</h3>
-                <dl className="grid grid-cols-2 gap-4">
                   <div>
-                    <dt className="text-sm font-medium text-gray-600">Bank Name</dt>
-                    <dd className="text-gray-900">{selectedWithdrawal.bankName}</dd>
+                    <h3 className="font-semibold text-gray-900 mb-2">Bank Information</h3>
+                    <dl className="grid grid-cols-2 gap-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-600">Bank Name</dt>
+                        <dd className="text-gray-900">{selectedWithdrawal.bankName}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-600">Account Number</dt>
+                        <dd className="text-gray-900 font-mono">{selectedWithdrawal.accountNumber}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-600">SWIFT Code</dt>
+                        <dd className="text-gray-900 font-mono">{selectedWithdrawal.swiftCode}</dd>
+                      </div>
+                      {selectedWithdrawal.iban && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-600">IBAN</dt>
+                          <dd className="text-gray-900 font-mono">{selectedWithdrawal.iban}</dd>
+                        </div>
+                      )}
+                    </dl>
                   </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-600">Account Number</dt>
-                    <dd className="text-gray-900 font-mono">{selectedWithdrawal.accountNumber}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-600">SWIFT Code</dt>
-                    <dd className="text-gray-900 font-mono">{selectedWithdrawal.swiftCode}</dd>
-                  </div>
-                  {selectedWithdrawal.iban && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-600">IBAN</dt>
-                      <dd className="text-gray-900 font-mono">{selectedWithdrawal.iban}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
+                </>
+              )}
 
               {selectedWithdrawal.description && (
                 <>

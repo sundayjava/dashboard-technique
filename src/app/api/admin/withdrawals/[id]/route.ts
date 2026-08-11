@@ -77,17 +77,29 @@ export async function PUT(
             amount: withdrawal.amount,
             balanceAfter: account.balance - withdrawal.totalAmount,
             currency: withdrawal.currency,
-            description: `International Wire Transfer to ${withdrawal.beneficiaryName}`,
+            description: withdrawal.method === 'CRYPTO'
+              ? `Crypto Withdrawal (${withdrawal.cryptoToken}) to ${withdrawal.cryptoAddress}`
+              : `International Wire Transfer to ${withdrawal.beneficiaryName}`,
             reference: withdrawal.reference,
             status: 'COMPLETED',
-            recipientName: withdrawal.beneficiaryName,
-            recipientAccount: withdrawal.accountNumber,
+            channel: withdrawal.method === 'CRYPTO' ? 'CRYPTO' : 'BANK',
             fee: withdrawal.fee,
-            bankName: withdrawal.bankName,
-            swiftCode: withdrawal.swiftCode,
-            iban: withdrawal.iban,
-            routingNumber: withdrawal.routingNumber,
-            processedAt: new Date()
+            processedAt: new Date(),
+            ...(withdrawal.method === 'CRYPTO'
+              ? {
+                  tokenName: withdrawal.cryptoToken,
+                  tokenSymbol: withdrawal.cryptoToken,
+                  network: withdrawal.cryptoNetwork,
+                  walletAddress: withdrawal.cryptoAddress,
+                }
+              : {
+                  recipientName: withdrawal.beneficiaryName,
+                  recipientAccount: withdrawal.accountNumber,
+                  bankName: withdrawal.bankName,
+                  swiftCode: withdrawal.swiftCode,
+                  iban: withdrawal.iban,
+                  routingNumber: withdrawal.routingNumber,
+                }),
           }
         })
       ]);
@@ -116,10 +128,18 @@ export async function PUT(
               <li><strong>Amount:</strong> ${withdrawal.currency} ${withdrawal.amount.toFixed(2)}</li>
               <li><strong>Fee:</strong> ${withdrawal.currency} ${withdrawal.fee.toFixed(2)}</li>
               <li><strong>Total Debited:</strong> ${withdrawal.currency} ${withdrawal.totalAmount.toFixed(2)}</li>
+              ${withdrawal.method === 'CRYPTO' ? `
+              <li><strong>Token:</strong> ${withdrawal.cryptoToken}</li>
+              <li><strong>Network:</strong> ${withdrawal.cryptoNetwork}</li>
+              <li><strong>Address:</strong> ${withdrawal.cryptoAddress}</li>
+              ` : `
               <li><strong>Beneficiary:</strong> ${withdrawal.beneficiaryName}</li>
+              `}
               <li><strong>Reference:</strong> ${withdrawal.reference}</li>
             </ul>
-            <p>The funds will be transferred to the beneficiary's account within 1-3 business days.</p>
+            <p>${withdrawal.method === 'CRYPTO'
+              ? 'The funds will be sent to the provided wallet address shortly.'
+              : "The funds will be transferred to the beneficiary's account within 1-3 business days."}</p>
             ${adminNotes ? `<p><strong>Admin Notes:</strong> ${adminNotes}</p>` : ''}
             <p>Thank you for banking with us!</p>
           `

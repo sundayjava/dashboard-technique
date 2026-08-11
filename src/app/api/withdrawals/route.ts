@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       userId,
       amount,
       currency,
+      method,
       beneficiaryName,
       beneficiaryEmail,
       beneficiaryPhone,
@@ -32,22 +33,43 @@ export async function POST(request: NextRequest) {
       state,
       zipCode,
       countryCode,
+      cryptoToken,
+      cryptoNetwork,
+      cryptoAddress,
       description
     } = body;
 
-    // Validate required fields
-    if (!userId || !amount || !beneficiaryName || !bankName || !accountNumber || !swiftCode) {
+    const withdrawalMethod: 'BANK' | 'CRYPTO' = method === 'CRYPTO' ? 'CRYPTO' : 'BANK';
+
+    if (!userId || !amount) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    if (!beneficiaryAddress || !city || !zipCode || !countryCode) {
-      return NextResponse.json(
-        { error: 'Beneficiary address is incomplete' },
-        { status: 400 }
-      );
+    if (withdrawalMethod === 'BANK') {
+      // Validate required fields
+      if (!beneficiaryName || !bankName || !accountNumber || !swiftCode) {
+        return NextResponse.json(
+          { error: 'Missing required fields' },
+          { status: 400 }
+        );
+      }
+
+      if (!beneficiaryAddress || !city || !zipCode || !countryCode) {
+        return NextResponse.json(
+          { error: 'Beneficiary address is incomplete' },
+          { status: 400 }
+        );
+      }
+    } else {
+      if (!cryptoToken || !cryptoNetwork || !cryptoAddress) {
+        return NextResponse.json(
+          { error: 'Missing required crypto wallet details' },
+          { status: 400 }
+        );
+      }
     }
 
     // Get user and account
@@ -101,21 +123,30 @@ export async function POST(request: NextRequest) {
         accountId: account.id,
         amount: withdrawalAmount,
         currency: currency || account.currency,
-        beneficiaryName,
-        beneficiaryEmail,
-        beneficiaryPhone,
-        bankName,
-        bankAddress,
-        accountNumber,
-        swiftCode,
-        iban,
-        routingNumber,
-        sortCode,
-        beneficiaryAddress,
-        city,
-        state,
-        zipCode,
-        countryCode,
+        method: withdrawalMethod,
+        ...(withdrawalMethod === 'BANK'
+          ? {
+              beneficiaryName,
+              beneficiaryEmail,
+              beneficiaryPhone,
+              bankName,
+              bankAddress,
+              accountNumber,
+              swiftCode,
+              iban,
+              routingNumber,
+              sortCode,
+              beneficiaryAddress,
+              city,
+              state,
+              zipCode,
+              countryCode,
+            }
+          : {
+              cryptoToken,
+              cryptoNetwork,
+              cryptoAddress,
+            }),
         description,
         fee,
         totalAmount,
@@ -151,13 +182,20 @@ export async function POST(request: NextRequest) {
             <p>A new withdrawal request has been submitted:</p>
             <ul>
               <li><strong>User:</strong> ${user.name || user.email}</li>
+              <li><strong>Method:</strong> ${withdrawalMethod === 'CRYPTO' ? 'Crypto' : 'Bank Transfer'}</li>
               <li><strong>Amount:</strong> ${currency || account.currency} ${withdrawalAmount.toFixed(2)}</li>
               <li><strong>Fee:</strong> ${currency || account.currency} ${fee.toFixed(2)}</li>
               <li><strong>Total:</strong> ${currency || account.currency} ${totalAmount.toFixed(2)}</li>
+              ${withdrawalMethod === 'CRYPTO' ? `
+              <li><strong>Token:</strong> ${cryptoToken}</li>
+              <li><strong>Network:</strong> ${cryptoNetwork}</li>
+              <li><strong>Address:</strong> ${cryptoAddress}</li>
+              ` : `
               <li><strong>Beneficiary:</strong> ${beneficiaryName}</li>
               <li><strong>Bank:</strong> ${bankName}</li>
               <li><strong>Account:</strong> ${accountNumber}</li>
               <li><strong>SWIFT:</strong> ${swiftCode}</li>
+              `}
               <li><strong>Reference:</strong> ${reference}</li>
             </ul>
             <p>Please review and process this request in the admin panel.</p>
@@ -192,8 +230,14 @@ export async function POST(request: NextRequest) {
             <li><strong>Amount:</strong> ${currency || account.currency} ${withdrawalAmount.toFixed(2)}</li>
             <li><strong>Fee:</strong> ${currency || account.currency} ${fee.toFixed(2)}</li>
             <li><strong>Total:</strong> ${currency || account.currency} ${totalAmount.toFixed(2)}</li>
+            ${withdrawalMethod === 'CRYPTO' ? `
+            <li><strong>Token:</strong> ${cryptoToken}</li>
+            <li><strong>Network:</strong> ${cryptoNetwork}</li>
+            <li><strong>Address:</strong> ${cryptoAddress}</li>
+            ` : `
             <li><strong>Beneficiary:</strong> ${beneficiaryName}</li>
             <li><strong>Bank:</strong> ${bankName}</li>
+            `}
             <li><strong>Reference:</strong> ${reference}</li>
           </ul>
           <p>Your request is currently pending approval. We will notify you once it has been processed.</p>
