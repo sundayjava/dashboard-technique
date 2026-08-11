@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SessionManager } from '@/lib/session';
 import axios from 'axios';
@@ -28,6 +28,23 @@ interface ClosureData {
 }
 
 export default function ApproveClosurePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading closure request...</p>
+          </div>
+        </div>
+      }
+    >
+      <ApproveClosureContent />
+    </Suspense>
+  );
+}
+
+function ApproveClosureContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reference = searchParams.get('ref');

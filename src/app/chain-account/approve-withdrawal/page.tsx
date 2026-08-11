@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import axios from 'axios';
 import { AlertCircle, Loader2, CheckCircle, XCircle, ArrowUpCircle } from 'lucide-react';
@@ -21,6 +21,23 @@ interface WithdrawalApprovalData {
 }
 
 export default function ApproveWithdrawalPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading withdrawal request...</p>
+          </div>
+        </div>
+      }
+    >
+      <ApproveWithdrawalContent />
+    </Suspense>
+  );
+}
+
+function ApproveWithdrawalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
