@@ -1,8 +1,91 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+const CAROUSEL_IMAGES = [
+  { src: "/carousel/cr1.png", alt: "Acredis dashboard — portfolio overview" },
+  { src: "/carousel/cr2.png", alt: "Acredis dashboard — investment tracking" },
+  { src: "/carousel/cr3.png", alt: "Acredis dashboard — asset allocation" },
+];
+
+function HeroCarousel() {
+  const [index, setIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const goTo = useCallback((i: number) => {
+    setIndex((i + CAROUSEL_IMAGES.length) % CAROUSEL_IMAGES.length);
+  }, []);
+
+  useEffect(() => {
+    if (isPaused) return;
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [isPaused]);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* Image frame */}
+      <div className="relative overflow-hidden rounded-none sm:rounded-2xl border-y sm:border border-gray-200 bg-white">
+        {/* Slides */}
+        <div className="relative aspect-video sm:aspect-2/1 bg-gray-50 overflow-hidden">
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, x: 60, filter: "blur(16px)" }}
+              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, x: -60, filter: "blur(16px)" }}
+              transition={{ duration: 0.7, ease: "easeInOut" }}
+              className="absolute inset-0"
+            >
+              <Image
+                src={CAROUSEL_IMAGES[index].src}
+                alt={CAROUSEL_IMAGES[index].alt}
+                fill
+                priority={index === 0}
+                sizes="(min-width: 1280px) 1152px, 100vw"
+                className="object-cover object-top"
+              />
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Subtle inner gradient for polish */}
+          <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/5 via-transparent to-transparent" />
+        </div>
+      </div>
+
+      {/* Dot navigation */}
+      <div className="mt-5 flex items-center justify-center gap-2">
+        {CAROUSEL_IMAGES.map((img, i) => (
+          <button
+            key={img.src}
+            onClick={() => goTo(i)}
+            aria-label={`Show slide ${i + 1}`}
+            className="group relative flex h-6 items-center px-1 cursor-pointer"
+          >
+            <span
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === index
+                  ? "w-8 bg-[#c1ff72]"
+                  : "w-1.5 bg-gray-300 group-hover:bg-gray-400"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+
+      {/* White gradient blur at bottom edge, matches section background */}
+      <div className="absolute -bottom-1 left-0 right-0 h-16 sm:h-20 bg-linear-to-t from-white via-white/70 to-transparent pointer-events-none" />
+    </div>
+  );
+}
 
 export function Hero() {
   const [portfolioValue, setPortfolioValue] = useState(168.02);
@@ -182,7 +265,18 @@ export function Hero() {
             </motion.div>
           </motion.div>
 
-          {/* Dashboard Image - Bottom */}
+          {/* Dashboard Carousel - Bottom */}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+            className="w-full max-w-6xl -mx-4 sm:mx-0 px-0 sm:px-4"
+          >
+            <HeroCarousel />
+          </motion.div>
+
+          {/* Original dashboard mockup — kept for reference, not rendered */}
+          {false && (
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -313,6 +407,7 @@ export function Hero() {
               <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-20 bg-linear-to-t from-white via-white/95 to-transparent pointer-events-none z-10" />
             </div>
           </motion.div>
+          )}
 
           {/* Trusted Platforms - Infinite Scroll */}
           <motion.div

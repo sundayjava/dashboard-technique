@@ -35,6 +35,33 @@ interface HoldingToken {
   };
 }
 
+interface ChainAccountHolding {
+  id: string;
+  chainAccountId: string;
+  depositedAmount: number;
+  tokenAmount: number;
+  currentValue: number;
+  interestEarned: number;
+  status: string;
+  reference: string;
+  createdAt: string;
+  adminNotes: string | null;
+  chainAccount: {
+    id: string;
+    accountName: string;
+    accountNumber: string;
+    currency: string;
+  };
+  initiator: {
+    user: {
+      id: string;
+      name: string | null;
+      email: string;
+    };
+  };
+  token: HoldingToken;
+}
+
 interface UserHolding {
   id: string;
   userId: string;
@@ -66,6 +93,12 @@ export default function AdminHoldingsPage() {
   const [tokens, setTokens] = useState<HoldingToken[]>([]);
   const [holdings, setHoldings] = useState<UserHolding[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [chainHoldings, setChainHoldings] = useState<ChainAccountHolding[]>([]);
+  const [chainStats, setChainStats] = useState<any>(null);
+  const [selectedChainHolding, setSelectedChainHolding] = useState<ChainAccountHolding | null>(null);
+  const [showChainApprovalModal, setShowChainApprovalModal] = useState(false);
+  const [chainAdminNotes, setChainAdminNotes] = useState('');
+  const [processingChainHolding, setProcessingChainHolding] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [showHoldingsModal, setShowHoldingsModal] = useState(false);
@@ -117,14 +150,17 @@ export default function AdminHoldingsPage() {
   const fetchData = async (adminId: string) => {
     try {
       setLoading(true);
-      const [tokensRes, holdingsRes] = await Promise.all([
+      const [tokensRes, holdingsRes, chainHoldingsRes] = await Promise.all([
         axios.get(`/api/admin/holding-tokens?adminId=${adminId}`),
         axios.get(`/api/admin/user-holdings?adminId=${adminId}`),
+        axios.get(`/api/admin/chain-holdings?adminId=${adminId}`),
       ]);
 
       setTokens(tokensRes.data.tokens);
       setHoldings(holdingsRes.data.holdings);
       setStats(holdingsRes.data.stats);
+      setChainHoldings(chainHoldingsRes.data.holdings);
+      setChainStats(chainHoldingsRes.data.stats);
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('Failed to fetch data');
@@ -316,6 +352,40 @@ export default function AdminHoldingsPage() {
     } catch (error: any) {
       console.error('Error rejecting holding:', error);
       alert(error.response?.data?.error || 'Failed to reject holding');
+    }
+  };
+
+  const openChainApprovalModal = (holding: ChainAccountHolding) => {
+    setSelectedChainHolding(holding);
+    setChainAdminNotes('');
+    setShowChainApprovalModal(true);
+  };
+
+  const handleChainHoldingDecision = async (action: 'APPROVE' | 'REJECT') => {
+    if (!user || !selectedChainHolding) return;
+
+    if (action === 'REJECT' && !confirm('Are you sure you want to reject this holding? The amount will be refunded to the Chain Account balance.')) {
+      return;
+    }
+
+    try {
+      setProcessingChainHolding(true);
+      await axios.post('/api/admin/approve-chain-holding', {
+        adminId: user.id,
+        holdingId: selectedChainHolding.id,
+        action,
+        adminNotes: chainAdminNotes,
+      });
+
+      alert(action === 'APPROVE' ? 'Holding approved successfully' : 'Holding rejected and refunded successfully');
+      setShowChainApprovalModal(false);
+      setSelectedChainHolding(null);
+      fetchData(user.id);
+    } catch (error: any) {
+      console.error('Error processing chain account holding:', error);
+      alert(error.response?.data?.error || 'Failed to process holding');
+    } finally {
+      setProcessingChainHolding(false);
     }
   };
 
@@ -554,6 +624,155 @@ export default function AdminHoldingsPage() {
                         <Eye className="w-4 h-4" />
                         Review
                       </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Chain Account Holdings (Pending Approvals) */}
+      {chainHoldings.filter(h => h.status === 'PENDING').length > 0 && (
+        <div className="bg-white rounded-lg shadow mb-6 border-2 border-yellow-400">
+          <div className="p-4 border-b border-gray-200 bg-yellow-50">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <span className="bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded">
+                {chainHoldings.filter(h => h.status === 'PENDING').length}
+              </span>
+              Chain Account Holdings — Pending Approvals
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">Review and approve or reject Chain Account holding requests</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chain Account</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requested By</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Token</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Token Qty</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {chainHoldings.filter(h => h.status === 'PENDING').map((holding) => (
+                  <tr key={holding.id} className="hover:bg-yellow-50">
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">{holding.chainAccount.accountName}</p>
+                      <p className="text-xs text-gray-500">{holding.chainAccount.accountNumber}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">{holding.initiator.user.name || 'Unknown'}</p>
+                      <p className="text-xs text-gray-500">{holding.initiator.user.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {holding.token.logo && (
+                          <img src={holding.token.logo} alt={holding.token.name} className="w-6 h-6 rounded-full" />
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900">{holding.token.symbol}</p>
+                          <p className="text-xs text-gray-500">{holding.token.name}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">
+                        {holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {holding.chainAccount.currency}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-900">{holding.tokenAmount.toFixed(8)}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-gray-600">{new Date(holding.createdAt).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">{new Date(holding.createdAt).toLocaleTimeString()}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => openChainApprovalModal(holding)}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Review
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Chain Account Holdings (All) */}
+      {chainHoldings.length > 0 && (
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-lg font-bold text-gray-900">Chain Account Holdings</h2>
+            {chainStats && (
+              <p className="text-sm text-gray-600 mt-1">
+                {chainStats.activeHoldings} active · ${chainStats.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })} total value
+              </p>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Chain Account</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requested By</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Token</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Current Value</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Interest</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {chainHoldings.slice(0, 10).map((holding) => (
+                  <tr key={holding.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">{holding.chainAccount.accountName}</p>
+                      <p className="text-xs text-gray-500">{holding.chainAccount.accountNumber}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">{holding.initiator.user.name || 'Unknown'}</p>
+                      <p className="text-xs text-gray-500">{holding.initiator.user.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-900">{holding.token.symbol}</p>
+                      <p className="text-xs text-gray-500">{holding.tokenAmount.toFixed(8)}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-900">
+                        {holding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {holding.chainAccount.currency}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-900">${holding.currentValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-green-600">${holding.interestEarned.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        holding.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
+                        holding.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                        holding.status === 'WITHDRAWN' ? 'bg-gray-100 text-gray-700' :
+                        holding.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {holding.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-gray-600">{new Date(holding.createdAt).toLocaleDateString()}</p>
                     </td>
                   </tr>
                 ))}
@@ -1218,6 +1437,117 @@ export default function AdminHoldingsPage() {
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Update Holding
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chain Account Holding Approval Modal */}
+      {showChainApprovalModal && selectedChainHolding && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Review Chain Account Holding Request</h2>
+              <button
+                onClick={() => {
+                  setShowChainApprovalModal(false);
+                  setSelectedChainHolding(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Chain Account Info */}
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Chain Account</h3>
+              <p className="font-medium text-gray-900">{selectedChainHolding.chainAccount.accountName}</p>
+              <p className="text-sm text-gray-600">{selectedChainHolding.chainAccount.accountNumber}</p>
+              <p className="text-sm text-gray-600 mt-2">
+                Requested by <span className="font-medium">{selectedChainHolding.initiator.user.name || selectedChainHolding.initiator.user.email}</span> ({selectedChainHolding.initiator.user.email})
+              </p>
+            </div>
+
+            {/* Token Info */}
+            <div className="bg-purple-50 rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Token Information</h3>
+              <div className="flex items-center gap-3">
+                {selectedChainHolding.token.logo && (
+                  <img src={selectedChainHolding.token.logo} alt={selectedChainHolding.token.name} className="w-10 h-10 rounded-full" />
+                )}
+                <div>
+                  <p className="font-medium text-gray-900">{selectedChainHolding.token.name} ({selectedChainHolding.token.symbol})</p>
+                  <p className="text-sm text-gray-600">
+                    Current Price: ${selectedChainHolding.token.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-sm text-gray-600">Interest Rate: {selectedChainHolding.token.interestRate}% APY</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Request Details */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600">Amount:</p>
+                  <p className="font-medium text-gray-900">
+                    {selectedChainHolding.depositedAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} {selectedChainHolding.chainAccount.currency}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Token Quantity:</p>
+                  <p className="font-medium text-gray-900">{selectedChainHolding.tokenAmount.toFixed(8)} {selectedChainHolding.token.symbol}</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Reference:</p>
+                  <p className="font-medium text-gray-900 font-mono text-xs">{selectedChainHolding.reference}</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Request Date:</p>
+                  <p className="font-medium text-gray-900">{new Date(selectedChainHolding.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Admin Notes</label>
+              <textarea
+                value={chainAdminNotes}
+                onChange={(e) => setChainAdminNotes(e.target.value)}
+                placeholder="Add notes about this approval/rejection..."
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowChainApprovalModal(false);
+                  setSelectedChainHolding(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleChainHoldingDecision('REJECT')}
+                disabled={processingChainHolding}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+                Reject & Refund
+              </button>
+              <button
+                onClick={() => handleChainHoldingDecision('APPROVE')}
+                disabled={processingChainHolding}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" />
+                Approve
               </button>
             </div>
           </div>

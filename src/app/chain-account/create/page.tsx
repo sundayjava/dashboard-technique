@@ -101,24 +101,29 @@ export default function CreateChainAccountPage() {
     { number: 5, title: 'Declaration', icon: Check },
   ];
 
-  // Update number of co-signatories when numberOfParties changes
+  // Update number of parties and resize co-signatory slots in one atomic update
   const updateCoSignatories = (count: number) => {
-    const coSignatoriesCount = count - 1; // Subtract 1 for primary holder
-    const current = formData.coSignatories;
+    setFormData((prev) => {
+      const coSignatoriesCount = count - 1; // Subtract 1 for primary holder
+      const current = prev.coSignatories;
 
-    if (coSignatoriesCount > current.length) {
-      // Add more slots
-      const newSlots = Array(coSignatoriesCount - current.length).fill(null).map(() => ({
-        email: '',
-        name: null,
-        userId: '',
-        verified: false,
-      }));
-      setFormData({ ...formData, coSignatories: [...current, ...newSlots] });
-    } else if (coSignatoriesCount < current.length) {
-      // Remove excess slots
-      setFormData({ ...formData, coSignatories: current.slice(0, coSignatoriesCount) });
-    }
+      let coSignatories = current;
+      if (coSignatoriesCount > current.length) {
+        // Add more slots
+        const newSlots = Array(coSignatoriesCount - current.length).fill(null).map(() => ({
+          email: '',
+          name: null,
+          userId: '',
+          verified: false,
+        }));
+        coSignatories = [...current, ...newSlots];
+      } else if (coSignatoriesCount < current.length) {
+        // Remove excess slots
+        coSignatories = current.slice(0, coSignatoriesCount);
+      }
+
+      return { ...prev, numberOfParties: count, coSignatories };
+    });
   };
 
   // Validate email and fetch user data
@@ -341,13 +346,21 @@ export default function CreateChainAccountPage() {
                 <p className="text-xs text-gray-500">Chain Account Creation</p>
               </div>
             </div>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="flex items-center text-gray-300 cursor-pointer hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Exit
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push('/chain-account/login')}
+                className="flex items-center text-gray-300 cursor-pointer hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                Already have an account? Login
+              </button>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="flex items-center text-gray-300 cursor-pointer hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Exit
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -497,11 +510,7 @@ export default function CreateChainAccountPage() {
                 </label>
                 <select
                   value={formData.numberOfParties}
-                  onChange={(e) => {
-                    const count = parseInt(e.target.value);
-                    setFormData({ ...formData, numberOfParties: count });
-                    updateCoSignatories(count);
-                  }}
+                  onChange={(e) => updateCoSignatories(parseInt(e.target.value))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                 >
                   <option value={2}>2 parties (You + 1 Co-Signatory)</option>

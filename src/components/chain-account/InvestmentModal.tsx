@@ -4,17 +4,19 @@ import { useState, useEffect } from 'react';
 import { X, TrendingUp, Loader2, AlertCircle, Clock, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { ChainAccountSessionManager } from '@/lib/chain-account-session';
 
 interface InvestmentPlan {
   id: string;
   planName: string;
-  minimumAmount: number;
-  maximumAmount: number | null;
-  returnRate: number;
+  minAmount: number;
+  maxAmount: number;
+  arkIIAllocation: number;
+  profitPercentage: number;
   duration: number;
-  durationType: string;
-  riskLevel: string;
-  isChainAccountEligible: boolean;
+  compoundingCycles: number;
+  cryptoSymbol: string | null;
+  cryptoIcon: string | null;
 }
 
 interface InvestmentModalProps {
@@ -25,6 +27,7 @@ interface InvestmentModalProps {
   authorizationModel: string;
   thresholdAmount: number | null;
   onSuccess: () => void;
+  initialPlanId?: string | null;
 }
 
 export default function InvestmentModal({
@@ -35,6 +38,7 @@ export default function InvestmentModal({
   authorizationModel,
   thresholdAmount,
   onSuccess,
+  initialPlanId,
 }: InvestmentModalProps) {
   const [step, setStep] = useState<'plans' | 'amount' | 'confirm'>('plans');
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
@@ -51,6 +55,16 @@ export default function InvestmentModal({
   }, [isOpen, step]);
 
   useEffect(() => {
+    if (isOpen && initialPlanId && plans.length > 0) {
+      const plan = plans.find(p => p.id === initialPlanId);
+      if (plan) {
+        setSelectedPlan(plan);
+        setStep('amount');
+      }
+    }
+  }, [isOpen, initialPlanId, plans]);
+
+  useEffect(() => {
     if (amount && selectedPlan) {
       checkApprovalRequirement();
     }
@@ -61,7 +75,7 @@ export default function InvestmentModal({
     try {
       const response = await axios.get('/api/chain-account/investment-plans');
       if (response.data.success) {
-        setPlans(response.data.plans.filter((p: InvestmentPlan) => p.isChainAccountEligible));
+        setPlans(response.data.plans);
       }
     } catch (error) {
       console.error('Error fetching investment plans:', error);
@@ -98,13 +112,13 @@ export default function InvestmentModal({
 
     const investAmount = parseFloat(amount);
 
-    if (investAmount < selectedPlan.minimumAmount) {
-      toast.error(`Minimum investment is $${selectedPlan.minimumAmount.toLocaleString()}`);
+    if (investAmount < selectedPlan.minAmount) {
+      toast.error(`Minimum investment is $${selectedPlan.minAmount.toLocaleString()}`);
       return;
     }
 
-    if (selectedPlan.maximumAmount && investAmount > selectedPlan.maximumAmount) {
-      toast.error(`Maximum investment is $${selectedPlan.maximumAmount.toLocaleString()}`);
+    if (selectedPlan.maxAmount && investAmount > selectedPlan.maxAmount) {
+      toast.error(`Maximum investment is $${selectedPlan.maxAmount.toLocaleString()}`);
       return;
     }
 
@@ -122,12 +136,16 @@ export default function InvestmentModal({
     setSubmitting(true);
 
     try {
-      const response = await axios.post('/api/chain-account/invest', {
-        chainAccountId,
-        investmentPlanId: selectedPlan.id,
-        amount: parseFloat(amount),
-        currency: 'USD',
-      });
+      const response = await axios.post(
+        '/api/chain-account/invest',
+        {
+          chainAccountId,
+          investmentPlanId: selectedPlan.id,
+          amount: parseFloat(amount),
+          currency: 'USD',
+        },
+        { headers: { Authorization: `Bearer ${ChainAccountSessionManager.getToken()}` } }
+      );
 
       if (response.data.success) {
         if (requiresApproval) {
@@ -158,7 +176,7 @@ export default function InvestmentModal({
   const calculateReturns = () => {
     if (!selectedPlan || !amount) return 0;
     const principal = parseFloat(amount);
-    const rate = selectedPlan.returnRate / 100;
+    const rate = selectedPlan.profitPercentage / 100;
     return principal * rate;
   };
 
@@ -222,38 +240,39 @@ export default function InvestmentModal({
                       onClick={() => handleSelectPlan(plan)}
                       className="p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
                     >
-                      <h3 className="font-semibold text-gray-900 text-lg mb-2">
-                        {plan.planName}
-                      </h3>
-                      
+                      <div className="flex items-center gap-2 mb-2">
+                        {plan.cryptoIcon && (
+                          <img src={plan.cryptoIcon} alt={plan.cryptoSymbol || 'Crypto'} className="w-6 h-6 rounded-full object-cover" />
+                        )}
+                        <h3 className="font-semibold text-gray-900 text-lg">
+                          {plan.planName}
+                        </h3>
+                      </div>
+
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600">Return Rate</span>
                           <span className="font-bold text-green-600 text-lg">
-                            {plan.returnRate}%
+                            {plan.profitPercentage}%
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600">Duration</span>
                           <span className="font-semibold text-gray-900">
-                            {plan.duration} {plan.durationType}
+                            {plan.duration} days
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600">Minimum</span>
                           <span className="font-semibold text-gray-900">
-                            ${plan.minimumAmount.toLocaleString()}
+                            ${plan.minAmount.toLocaleString()}
                           </span>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          plan.riskLevel === 'LOW' ? 'bg-green-100 text-green-700' :
-                          plan.riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {plan.riskLevel} RISK
+                        <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
+                          {plan.compoundingCycles > 0 ? `${plan.compoundingCycles}x cycles` : 'Simple Interest'}
                         </span>
                         <span className="text-xs text-gray-500 group-hover:text-blue-600">
                           Select →
@@ -284,17 +303,19 @@ export default function InvestmentModal({
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <p className="text-gray-600 mb-1">Return Rate</p>
-                    <p className="font-bold text-green-600 text-xl">{selectedPlan.returnRate}%</p>
+                    <p className="font-bold text-green-600 text-xl">{selectedPlan.profitPercentage}%</p>
                   </div>
                   <div>
                     <p className="text-gray-600 mb-1">Duration</p>
                     <p className="font-semibold text-gray-900">
-                      {selectedPlan.duration} {selectedPlan.durationType}
+                      {selectedPlan.duration} days
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600 mb-1">Risk Level</p>
-                    <p className="font-semibold text-gray-900">{selectedPlan.riskLevel}</p>
+                    <p className="text-gray-600 mb-1">Compounding</p>
+                    <p className="font-semibold text-gray-900">
+                      {selectedPlan.compoundingCycles > 0 ? `${selectedPlan.compoundingCycles}x cycles` : 'Simple Interest'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -309,12 +330,12 @@ export default function InvestmentModal({
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
                   step="0.01"
-                  min={selectedPlan.minimumAmount}
-                  max={selectedPlan.maximumAmount || accountBalance}
+                  min={selectedPlan.minAmount}
+                  max={selectedPlan.maxAmount || accountBalance}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
                 />
                 <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                  <span>Min: ${selectedPlan.minimumAmount.toLocaleString()}</span>
+                  <span>Min: ${selectedPlan.minAmount.toLocaleString()}</span>
                   <span>Available: ${accountBalance.toLocaleString()}</span>
                 </div>
               </div>
@@ -408,12 +429,12 @@ export default function InvestmentModal({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Return Rate</span>
-                    <span className="font-semibold text-green-600">{selectedPlan.returnRate}%</span>
+                    <span className="font-semibold text-green-600">{selectedPlan.profitPercentage}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Duration</span>
                     <span className="font-semibold text-gray-900">
-                      {selectedPlan.duration} {selectedPlan.durationType}
+                      {selectedPlan.duration} days
                     </span>
                   </div>
                   <div className="flex justify-between">

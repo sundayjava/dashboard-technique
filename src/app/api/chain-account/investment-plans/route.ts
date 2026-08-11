@@ -21,8 +21,12 @@ export async function GET(request: NextRequest) {
         planName: plan.planName,
         minAmount: plan.minAmount,
         maxAmount: plan.maxAmount,
+        arkIIAllocation: plan.arkIIAllocation,
         profitPercentage: plan.profitPercentage,
         duration: plan.duration,
+        compoundingCycles: plan.compoundingCycles,
+        cryptoSymbol: plan.cryptoSymbol,
+        cryptoIcon: plan.cryptoIcon,
         chainAccountsEnabled: plan.chainAccountsEnabled,
       })),
     });

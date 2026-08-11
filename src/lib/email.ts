@@ -808,3 +808,326 @@ export async function sendClosureAdminReviewEmail({
     console.error('❌ Failed to send admin closure review emails:', error);
   }
 }
+
+/**
+ * Notify a Chain Account member that a co-signer requested to close an active investment early.
+ * Informational only — the member does not need to act, only the admin approves.
+ */
+export async function sendChainInvestmentCloseRequestedEmail({
+  to,
+  recipientName,
+  requesterName,
+  accountName,
+  accountNumber,
+  planName,
+  amount,
+  currency,
+  reference,
+  reason,
+}: {
+  to: string;
+  recipientName: string;
+  requesterName: string;
+  accountName: string;
+  accountNumber: string;
+  planName: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  reason?: string;
+}) {
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/chain-account/dashboard`;
+
+  return sendEmail({
+    to,
+    subject: `Investment Close Requested — ${accountName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Investment Close Requested</h1>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hello ${recipientName},
+          </p>
+
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+            <strong>${requesterName}</strong> has requested to close an active investment early for
+            <strong>${accountName}</strong> (${accountNumber}). This request is awaiting admin approval —
+            no action is required from you, this is for your records.
+          </p>
+
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f97316;">
+            <table style="width: 100%; font-size: 14px; line-height: 2;">
+              <tr>
+                <td style="color: #6b7280;">Plan:</td>
+                <td style="text-align: right; font-weight: bold;">${planName}</td>
+              </tr>
+              <tr>
+                <td style="color: #6b7280;">Amount:</td>
+                <td style="text-align: right; font-weight: bold;">${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              </tr>
+              <tr>
+                <td style="color: #6b7280;">Reference:</td>
+                <td style="text-align: right; font-family: monospace; font-size: 12px;">${reference}</td>
+              </tr>
+            </table>
+            ${reason ? `<p style="margin: 10px 0 0 0; color: #374151; font-size: 13px;"><strong>Reason:</strong> ${reason}</p>` : ''}
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}" style="background: #f97316; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              View Chain Account
+            </a>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+            This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Notify all Chain Account members of the admin's decision on an early close request.
+ */
+export async function sendChainInvestmentCloseDecisionEmail({
+  to,
+  recipientName,
+  accountName,
+  planName,
+  amount,
+  currency,
+  reference,
+  decision,
+  refundAmount,
+  adminNotes,
+}: {
+  to: string;
+  recipientName: string;
+  accountName: string;
+  planName: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  decision: 'APPROVED' | 'REJECTED';
+  refundAmount?: number;
+  adminNotes?: string;
+}) {
+  const isApproved = decision === 'APPROVED';
+  const color = isApproved ? '#10b981' : '#dc2626';
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/chain-account/dashboard`;
+
+  return sendEmail({
+    to,
+    subject: `Investment Close ${isApproved ? 'Approved' : 'Rejected'} — ${accountName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: ${color}; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Close Request ${isApproved ? 'Approved' : 'Rejected'}</h1>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hello ${recipientName},
+          </p>
+
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+            The request to close the <strong>${planName}</strong> investment of
+            <strong>${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+            for <strong>${accountName}</strong> has been ${isApproved
+              ? `approved. $${(refundAmount ?? amount).toLocaleString('en-US', { minimumFractionDigits: 2 })} (principal + prorated profit) has been credited back to the Chain Account balance.`
+              : 'rejected. The investment remains active.'}
+          </p>
+
+          ${adminNotes ? `
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${color};">
+            <p style="margin: 0; color: #374151; font-size: 14px;"><strong>Note:</strong> ${adminNotes}</p>
+          </div>
+          ` : ''}
+
+          <p style="color: #9ca3af; font-size: 12px; margin: 20px 0;">Reference: ${reference}</p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}" style="background: ${color}; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              View Chain Account
+            </a>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+            This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Notify a Chain Account member that a co-signer initiated a crypto holding request.
+ * Informational only — the member does not need to act, only the admin approves.
+ */
+export async function sendChainHoldingInitiatedEmail({
+  to,
+  recipientName,
+  initiatorName,
+  accountName,
+  accountNumber,
+  tokenName,
+  tokenSymbol,
+  amount,
+  currency,
+  reference,
+}: {
+  to: string;
+  recipientName: string;
+  initiatorName: string;
+  accountName: string;
+  accountNumber: string;
+  tokenName: string;
+  tokenSymbol: string;
+  amount: number;
+  currency: string;
+  reference: string;
+}) {
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/chain-account/dashboard`;
+
+  return sendEmail({
+    to,
+    subject: `Crypto Holding Requested — ${accountName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #4338ca 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Crypto Holding Requested</h1>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hello ${recipientName},
+          </p>
+
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+            <strong>${initiatorName}</strong> has requested to move funds from <strong>${accountName}</strong>
+            (${accountNumber}) into a crypto holding. This request is awaiting admin approval — no action is
+            required from you, this is for your records.
+          </p>
+
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+            <table style="width: 100%; font-size: 14px; line-height: 2;">
+              <tr>
+                <td style="color: #6b7280;">Asset:</td>
+                <td style="text-align: right; font-weight: bold;">${tokenName} (${tokenSymbol})</td>
+              </tr>
+              <tr>
+                <td style="color: #6b7280;">Amount:</td>
+                <td style="text-align: right; font-weight: bold;">${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+              </tr>
+              <tr>
+                <td style="color: #6b7280;">Reference:</td>
+                <td style="text-align: right; font-family: monospace; font-size: 12px;">${reference}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}" style="background: #3b82f6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              View Chain Account
+            </a>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+            This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Notify the Chain Account member who requested a crypto holding of the admin's decision.
+ */
+export async function sendChainHoldingDecisionEmail({
+  to,
+  recipientName,
+  accountName,
+  tokenName,
+  tokenSymbol,
+  amount,
+  currency,
+  reference,
+  decision,
+  adminNotes,
+}: {
+  to: string;
+  recipientName: string;
+  accountName: string;
+  tokenName: string;
+  tokenSymbol: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  decision: 'APPROVED' | 'REJECTED';
+  adminNotes?: string;
+}) {
+  const isApproved = decision === 'APPROVED';
+  const color = isApproved ? '#10b981' : '#dc2626';
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://acredisfinance.com'}/chain-account/dashboard`;
+
+  return sendEmail({
+    to,
+    subject: `Crypto Holding ${isApproved ? 'Approved' : 'Rejected'} — ${accountName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: ${color}; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Holding ${isApproved ? 'Approved' : 'Rejected'}</h1>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hello ${recipientName},
+          </p>
+
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+            Your request to hold <strong>${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+            in <strong>${tokenName} (${tokenSymbol})</strong> for <strong>${accountName}</strong> has been
+            ${isApproved ? 'approved and is now active' : 'rejected and the amount has been refunded to the Chain Account balance'}.
+          </p>
+
+          ${adminNotes ? `
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${color};">
+            <p style="margin: 0; color: #374151; font-size: 14px;"><strong>Note:</strong> ${adminNotes}</p>
+          </div>
+          ` : ''}
+
+          <p style="color: #9ca3af; font-size: 12px; margin: 20px 0;">Reference: ${reference}</p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}" style="background: ${color}; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              View Chain Account
+            </a>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
+            This is an automated notification from ${process.env.APP_NAME || 'Acredis Finance'}<br>
+            Please do not reply to this email.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}

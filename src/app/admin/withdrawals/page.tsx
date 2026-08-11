@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import {
@@ -311,8 +311,8 @@ export default function AdminWithdrawalsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredWithdrawals.map((withdrawal, index) => (
-                    <>
-                      <tr key={index} className="hover:bg-gray-50">
+                    <Fragment key={withdrawal.id}>
+                      <tr className="hover:bg-gray-50">
                         <td className="px-4 py-3">
                           <div className="flex items-center">
                             <button
@@ -456,7 +456,7 @@ export default function AdminWithdrawalsPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

@@ -9,12 +9,13 @@ import WithdrawalModal from '@/components/chain-account/WithdrawalModal';
 import RemoveMemberModal from '@/components/chain-account/RemoveMemberModal';
 import ModifyAccountModal from '@/components/chain-account/ModifyAccountModal';
 import CloseAccountModal from '@/components/chain-account/CloseAccountModal';
+import ChainHoldingsModal from '@/components/chain-account/ChainHoldingsModal';
 import axios from 'axios';
 import {
   LogOut, Users, DollarSign, TrendingUp, ArrowDownCircle,
   ArrowUpCircle, Bell, Loader2, AlertCircle, CheckCircle,
   RefreshCw, CreditCard, PieChart, Plus, Settings, UserX,
-  XCircle, FileEdit
+  XCircle, FileEdit, Wallet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -86,9 +87,12 @@ export default function ChainAccountDashboardPage() {
   const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
   const [showModifyAccountModal, setShowModifyAccountModal] = useState(false);
   const [showCloseAccountModal, setShowCloseAccountModal] = useState(false);
+  const [showHoldingsModal, setShowHoldingsModal] = useState(false);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [investments, setInvestments] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [investmentPlans, setInvestmentPlans] = useState<any[]>([]);
+  const [selectedInvestmentPlanId, setSelectedInvestmentPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     // Check Chain Account session
@@ -159,8 +163,12 @@ export default function ChainAccountDashboardPage() {
         const response = await axios.get(`/api/chain-account/deposit?chainAccountId=${session.chainAccountId}`, { headers });
         if (response.data.success) setDeposits(response.data.deposits);
       } else if (activeTab === 'investments') {
-        const response = await axios.get(`/api/chain-account/invest?chainAccountId=${session.chainAccountId}`, { headers });
-        if (response.data.success) setInvestments(response.data.investments);
+        const [investmentsRes, plansRes] = await Promise.all([
+          axios.get(`/api/chain-account/invest?chainAccountId=${session.chainAccountId}`, { headers }),
+          axios.get('/api/chain-account/investment-plans'),
+        ]);
+        if (investmentsRes.data.success) setInvestments(investmentsRes.data.investments);
+        if (plansRes.data.success) setInvestmentPlans(plansRes.data.plans);
       } else if (activeTab === 'withdrawals') {
         const response = await axios.get(`/api/chain-account/withdraw?chainAccountId=${session.chainAccountId}`, { headers });
         if (response.data.success) setWithdrawals(response.data.withdrawals);
@@ -185,6 +193,27 @@ export default function ChainAccountDashboardPage() {
 
   const handleModalSuccess = () => {
     handleRefresh();
+  };
+
+  const handleRequestCloseInvestment = async (investmentId: string) => {
+    if (!session) return;
+
+    const reason = window.prompt('Optional: why are you requesting to close this investment early?') || '';
+
+    if (!confirm('Request to close this investment early? It will be sent to the admin for approval.')) return;
+
+    try {
+      await axios.post(
+        '/api/chain-account/invest/close',
+        { chainAccountId: session.chainAccountId, investmentId, reason },
+        { headers: { Authorization: `Bearer ${ChainAccountSessionManager.getToken()}` } }
+      );
+      toast.success('Close request submitted and is awaiting admin approval');
+      handleRefresh();
+    } catch (error: any) {
+      console.error('Error requesting investment close:', error);
+      toast.error(error.response?.data?.error || 'Failed to request investment close');
+    }
   };
 
   const handleExit = () => {
@@ -212,81 +241,90 @@ export default function ChainAccountDashboardPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Distinct Header - Blue Theme */}
       <header className="bg-linear-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center space-x-3 mb-2">
-                <Users className="w-8 h-8" />
-                <div>
-                  <h1 className="text-2xl font-bold">{data.chainAccount.accountName}</h1>
-                  <p className="text-blue-100 text-sm">Chain Account • {data.chainAccount.accountNumber}</p>
-                </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex flex-row items-center justify-between gap-3">
+            <div className="flex items-center space-x-3 min-w-0">
+              <Users className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-2xl font-bold truncate">{data.chainAccount.accountName}</h1>
+                <p className="text-blue-100 text-xs sm:text-sm truncate">Chain Account • {data.chainAccount.accountNumber}</p>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
+
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
+                className="p-2 hover:bg-blue-500 rounded-lg transition-colors shrink-0"
                 title="Refresh"
               >
                 <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
               <button
                 onClick={handleExit}
-                className="flex items-center px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+                className="flex items-center p-2 sm:px-4 sm:py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-sm sm:text-base whitespace-nowrap"
+                title="Exit to Personal Dashboard"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Exit to Personal Dashboard
+                <LogOut className="w-5 h-5 sm:w-4 sm:h-4 sm:mr-2 shrink-0" />
+                <span className="hidden sm:inline">Exit to Personal Dashboard</span>
               </button>
             </div>
           </div>
 
           {/* Balance Display */}
-          <div className="mt-6 grid grid-cols-3 gap-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-              <p className="text-blue-100 text-sm mb-1">Available Balance</p>
+          <div className="mt-4 sm:mt-6 grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-6">
+            <div className="col-span-2 sm:col-span-1 bg-white/10 backdrop-blur-sm rounded-lg p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <p className="text-blue-100 text-xs sm:text-sm">Available Balance</p>
+                <button
+                  onClick={() => setShowHoldingsModal(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-[11px] sm:text-xs font-medium text-white bg-white/20 hover:bg-white/30 rounded transition-colors shrink-0"
+                  title="View Crypto Holdings"
+                >
+                  <Wallet className="w-3.5 h-3.5" />
+                  <span>Holdings</span>
+                </button>
+              </div>
               <p className="text-3xl font-bold">
                 ${data.chainAccount.balance.toLocaleString()}
               </p>
-              <p className="text-blue-100 text-xs mt-1">{data.chainAccount.currency}</p>
+              <p className="text-blue-100 text-[11px] sm:text-xs mt-1">{data.chainAccount.currency}</p>
             </div>
-            
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-              <p className="text-blue-100 text-sm mb-1">Investment Balance</p>
-              <p className="text-3xl font-bold">
+
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 sm:p-4">
+              <p className="text-blue-100 text-xs sm:text-sm mb-1">Investment Balance</p>
+              <p className="text-lg sm:text-3xl font-bold truncate">
                 ${data.chainAccount.investmentBalance.toLocaleString()}
               </p>
-              <p className="text-blue-100 text-xs mt-1">Active Investments: {data.stats.activeInvestments}</p>
+              <p className="text-blue-100 text-[11px] sm:text-xs mt-1">Active: {data.stats.activeInvestments}</p>
             </div>
-            
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-              <p className="text-blue-100 text-sm mb-1">Total Value</p>
-              <p className="text-3xl font-bold">
+
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 sm:p-4">
+              <p className="text-blue-100 text-xs sm:text-sm mb-1">Total Value</p>
+              <p className="text-lg sm:text-3xl font-bold truncate">
                 ${(data.chainAccount.balance + data.chainAccount.investmentBalance).toLocaleString()}
               </p>
-              <p className="text-blue-100 text-xs mt-1">Combined Holdings</p>
+              <p className="text-blue-100 text-[11px] sm:text-xs mt-1">Combined</p>
             </div>
           </div>
 
           {/* Member Info */}
-          <div className="mt-4 flex items-center justify-between text-sm">
-            <div className="flex items-center space-x-4">
-              <span className="bg-white/20 px-3 py-1 rounded-full">
-                Your Role: <span className="font-semibold">{session.role.replace('_', ' ')}</span>
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 text-xs sm:text-sm">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="bg-white/20 px-2 sm:px-3 py-1 rounded-full">
+                Role: <span className="font-semibold">{session.role.replace('_', ' ')}</span>
               </span>
-              <span className="bg-white/20 px-3 py-1 rounded-full">
-                Authorization: <span className="font-semibold">{data.chainAccount.authorizationModel}</span>
+              <span className="bg-white/20 px-2 sm:px-3 py-1 rounded-full">
+                Auth: <span className="font-semibold">{data.chainAccount.authorizationModel}</span>
               </span>
               {data.chainAccount.thresholdAmount && (
-                <span className="bg-white/20 px-3 py-1 rounded-full">
+                <span className="bg-white/20 px-2 sm:px-3 py-1 rounded-full">
                   Threshold: <span className="font-semibold">${data.chainAccount.thresholdAmount.toLocaleString()} {data.chainAccount.thresholdCurrency}</span>
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-2">
-              <Users className="w-4 h-4" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>{data.members.length} Members</span>
             </div>
           </div>
@@ -295,8 +333,8 @@ export default function ChainAccountDashboardPage() {
 
       {/* Navigation Tabs */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-auto">
+          <nav className="flex space-x-4 sm:space-x-8 min-w-max">
             {[
               { id: 'overview', label: 'Overview', icon: PieChart },
               { id: 'deposits', label: 'Deposits', icon: ArrowDownCircle },
@@ -307,18 +345,18 @@ export default function ChainAccountDashboardPage() {
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
-              
+
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  className={`flex items-center py-3 sm:py-4 px-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap shrink-0 ${
                     isActive
                       ? 'border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <Icon className="w-4 h-4 mr-2" />
+                  <Icon className="w-4 h-4 mr-1.5 sm:mr-2" />
                   {tab.label}
                   {tab.badge && tab.badge > 0 && (
                     <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
@@ -333,84 +371,84 @@ export default function ChainAccountDashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Grid */}
-            <div className="grid grid-cols-4 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm">Total Deposits</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-gray-600 text-xs sm:text-sm">Total Deposits</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1 truncate">
                       ${data.stats.totalDeposits.toLocaleString()}
                     </p>
                   </div>
-                  <ArrowDownCircle className="w-10 h-10 text-green-500" />
+                  <ArrowDownCircle className="w-8 h-8 sm:w-10 sm:h-10 text-green-500 shrink-0" />
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm">Total Investments</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-gray-600 text-xs sm:text-sm">Total Investments</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1 truncate">
                       ${data.stats.totalInvestments.toLocaleString()}
                     </p>
                   </div>
-                  <TrendingUp className="w-10 h-10 text-blue-500" />
+                  <TrendingUp className="w-8 h-8 sm:w-10 sm:h-10 text-blue-500 shrink-0" />
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm">Total Withdrawals</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-gray-600 text-xs sm:text-sm">Total Withdrawals</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1 truncate">
                       ${data.stats.totalWithdrawals.toLocaleString()}
                     </p>
                   </div>
-                  <ArrowUpCircle className="w-10 h-10 text-orange-500" />
+                  <ArrowUpCircle className="w-8 h-8 sm:w-10 sm:h-10 text-orange-500 shrink-0" />
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm">Pending Approvals</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-gray-600 text-xs sm:text-sm">Pending Approvals</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1">
                       {data.stats.pendingApprovals}
                     </p>
                   </div>
-                  <AlertCircle className="w-10 h-10 text-yellow-500" />
+                  <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-500 shrink-0" />
                 </div>
               </div>
             </div>
 
             {/* Two Column Layout */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Account Members */}
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <Users className="w-5 h-5 mr-2 text-blue-600" />
                   Account Members
                 </h3>
                 <div className="space-y-3">
                   {data.members.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">
+                    <div key={member.id} className="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
                           {member.user.name || 'User'}
                           {member.id === session.memberId && (
                             <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">You</span>
                           )}
                         </p>
-                        <p className="text-sm text-gray-600">{member.user.email}</p>
+                        <p className="text-sm text-gray-600 truncate">{member.user.email}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <p className="text-xs font-medium text-gray-600">{member.role.replace('_', ' ')}</p>
                         {member.hasConfirmed ? (
-                          <span className="text-xs text-green-600 flex items-center">
+                          <span className="text-xs text-green-600 flex items-center justify-end">
                             <CheckCircle className="w-3 h-3 mr-1" />
                             Active
                           </span>
@@ -424,7 +462,7 @@ export default function ChainAccountDashboardPage() {
               </div>
 
               {/* Recent Transactions */}
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <CreditCard className="w-5 h-5 mr-2 text-blue-600" />
                   Recent Transactions
@@ -432,19 +470,19 @@ export default function ChainAccountDashboardPage() {
                 {data.recentTransactions.length > 0 ? (
                   <div className="space-y-3">
                     {data.recentTransactions.slice(0, 3).map((tx) => (
-                      <div key={tx.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          {tx.type === 'DEPOSIT' && <ArrowDownCircle className="w-5 h-5 text-green-500" />}
-                          {tx.type === 'WITHDRAWAL' && <ArrowUpCircle className="w-5 h-5 text-orange-500" />}
-                          {tx.type === 'INVESTMENT' && <TrendingUp className="w-5 h-5 text-blue-500" />}
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{tx.description}</p>
+                      <div key={tx.id} className="flex items-center justify-between gap-3 p-3 border border-gray-200 rounded-lg">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          {tx.type === 'DEPOSIT' && <ArrowDownCircle className="w-5 h-5 text-green-500 shrink-0" />}
+                          {tx.type === 'WITHDRAWAL' && <ArrowUpCircle className="w-5 h-5 text-orange-500 shrink-0" />}
+                          {tx.type === 'INVESTMENT' && <TrendingUp className="w-5 h-5 text-blue-500 shrink-0" />}
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{tx.description}</p>
                             <p className="text-xs text-gray-500">
                               {new Date(tx.createdAt).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
-                        <p className={`font-semibold ${
+                        <p className={`font-semibold shrink-0 ${
                           tx.type === 'DEPOSIT' ? 'text-green-600' : 'text-gray-900'
                         }`}>
                           {tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toLocaleString()}
@@ -465,8 +503,8 @@ export default function ChainAccountDashboardPage() {
 
         {activeTab === 'deposits' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Deposits</h2>
                 <button
                   onClick={() => setShowDepositModal(true)}
@@ -476,13 +514,13 @@ export default function ChainAccountDashboardPage() {
                   New Deposit
                 </button>
               </div>
-              
+
               {deposits.length > 0 ? (
                 <div className="space-y-3">
                   {deposits.map((deposit) => (
-                    <div key={deposit.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">{deposit.depositReference}</p>
+                    <div key={deposit.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border border-gray-200 rounded-lg">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{deposit.depositReference}</p>
                         <p className="text-sm text-gray-600">
                           {deposit.depositMethod} • Deposited by {deposit.depositedBy?.name || deposit.depositedBy?.email || 'Unknown'}
                         </p>
@@ -490,7 +528,7 @@ export default function ChainAccountDashboardPage() {
                           {new Date(deposit.createdAt).toLocaleString()}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="sm:text-right shrink-0">
                         <p className="font-bold text-gray-900">{deposit.currency} {deposit.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <span className={`text-xs px-2 py-1 rounded ${
                           deposit.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
@@ -521,48 +559,132 @@ export default function ChainAccountDashboardPage() {
 
         {activeTab === 'investments' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Investments</h2>
+            {/* Available Investment Plans */}
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Available Investment Plans</h2>
                 <button
-                  onClick={() => setShowInvestmentModal(true)}
+                  onClick={() => {
+                    setSelectedInvestmentPlanId(null);
+                    setShowInvestmentModal(true);
+                  }}
                   className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   New Investment
                 </button>
               </div>
-              
+
+              {investmentPlans.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {investmentPlans.map((plan) => (
+                    <div key={plan.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="bg-linear-to-r from-blue-600 to-indigo-700 p-4 text-white">
+                        <div className="flex items-center gap-2 mb-1">
+                          {plan.cryptoIcon && (
+                            <img src={plan.cryptoIcon} alt={plan.cryptoSymbol || 'Crypto'} className="w-6 h-6 rounded-full object-cover" />
+                          )}
+                          <h3 className="font-bold">{plan.planName}</h3>
+                          {plan.cryptoSymbol && (
+                            <span className="text-xs font-semibold px-1.5 py-0.5 bg-white/20 rounded">
+                              {plan.cryptoSymbol}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xl font-bold">{plan.profitPercentage}%</div>
+                        <p className="text-xs opacity-90">Expected Returns</p>
+                      </div>
+                      <div className="p-4 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Duration</span>
+                          <span className="font-semibold text-gray-900">{plan.duration} days</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Min. Investment</span>
+                          <span className="font-semibold text-gray-900">${plan.minAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Max. Investment</span>
+                          <span className="font-semibold text-gray-900">${plan.maxAmount.toLocaleString()}</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedInvestmentPlanId(plan.id);
+                            setShowInvestmentModal(true);
+                          }}
+                          className="w-full mt-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Invest Now
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <TrendingUp className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No investment plans available for Chain Accounts</p>
+                </div>
+              )}
+            </div>
+
+            {/* My Investments */}
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">My Investments</h2>
+
               {investments.length > 0 ? (
                 <div className="space-y-3">
                   {investments.map((investment) => (
-                    <div key={investment.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <p className="font-medium text-gray-900">{investment.plan.planName}</p>
-                          <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
-                            {investment.plan.returnRate}% ROI
+                    <div key={investment.id} className="p-4 border border-gray-200 rounded-lg">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <p className="font-medium text-gray-900">{investment.plan.planName}</p>
+                            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                              {investment.plan.profitPercentage}% ROI
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {investment.reference} • Initiated by {investment.initiatedBy}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(investment.startDate).toLocaleDateString()} → {new Date(investment.endDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="sm:text-right shrink-0">
+                          <p className="font-bold text-gray-900">${investment.amount.toLocaleString()}</p>
+                          <p className="text-xs text-green-600">+${investment.expectedReturn.toLocaleString()} return</p>
+                          <span className={`text-xs px-2 py-1 rounded mt-1 inline-block ${
+                            investment.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
+                            investment.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-700' :
+                            investment.status === 'CLOSE_REQUESTED' ? 'bg-orange-100 text-orange-700' :
+                            investment.status === 'CLOSED_EARLY' ? 'bg-gray-100 text-gray-700' :
+                            investment.status === 'COMPLETED' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {investment.status.replace('_', ' ')}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600">
-                          {investment.investmentReference} • Initiated by {investment.initiatedBy}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {new Date(investment.startDate).toLocaleDateString()} → {new Date(investment.maturityDate).toLocaleDateString()}
-                        </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-gray-900">${investment.amount.toLocaleString()}</p>
-                        <p className="text-xs text-green-600">+${investment.expectedReturn.toLocaleString()} return</p>
-                        <span className={`text-xs px-2 py-1 rounded mt-1 inline-block ${
-                          investment.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
-                          investment.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-700' :
-                          investment.status === 'MATURED' ? 'bg-blue-100 text-blue-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {investment.status.replace('_', ' ')}
-                        </span>
-                      </div>
+
+                      {investment.status === 'ACTIVE' && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <button
+                            onClick={() => handleRequestCloseInvestment(investment.id)}
+                            className="text-xs font-medium text-red-600 hover:text-red-700"
+                          >
+                            Request Early Close →
+                          </button>
+                        </div>
+                      )}
+
+                      {investment.status === 'CLOSE_REQUESTED' && (
+                        <div className="mt-3 pt-3 border-t border-gray-100 bg-orange-50 -mx-4 -mb-4 px-4 pb-3 rounded-b-lg">
+                          <p className="text-xs text-orange-800">
+                            ⏳ Close request submitted{investment.closeRequestReason ? `: "${investment.closeRequestReason}"` : ''}. Awaiting admin approval.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -584,8 +706,8 @@ export default function ChainAccountDashboardPage() {
 
         {activeTab === 'withdrawals' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Withdrawals</h2>
                 <button
                   onClick={() => setShowWithdrawalModal(true)}
@@ -595,20 +717,20 @@ export default function ChainAccountDashboardPage() {
                   New Withdrawal
                 </button>
               </div>
-              
+
               {withdrawals.length > 0 ? (
                 <div className="space-y-3">
                   {withdrawals.map((withdrawal) => (
                     <div key={withdrawal.id} className="p-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="font-medium text-gray-900">{withdrawal.withdrawalReference}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{withdrawal.withdrawalReference}</p>
                           <p className="text-sm text-gray-600">Initiated by {withdrawal.initiatedBy}</p>
                           <p className="text-xs text-gray-500 mt-1">
                             {new Date(withdrawal.createdAt).toLocaleString()}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right shrink-0">
                           <p className="font-bold text-gray-900">${withdrawal.totalAmount.toLocaleString()}</p>
                           <span className={`text-xs px-2 py-1 rounded ${
                             withdrawal.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
@@ -650,7 +772,7 @@ export default function ChainAccountDashboardPage() {
         )}
 
         {activeTab === 'notifications' && (
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Notifications</h2>
             {data.notifications.length > 0 ? (
               <div className="space-y-3">
@@ -690,7 +812,7 @@ export default function ChainAccountDashboardPage() {
         {activeTab === 'settings' && (
           <div className="space-y-6">
             {/* Account Management */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                 <Settings className="w-6 h-6 mr-2 text-blue-600" />
                 Account Management
@@ -698,11 +820,11 @@ export default function ChainAccountDashboardPage() {
 
               <div className="space-y-4">
                 {/* Modify Account Settings */}
-                <div className="border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                <div className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:border-blue-300 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-2">
-                        <FileEdit className="w-5 h-5 text-blue-600" />
+                        <FileEdit className="w-5 h-5 text-blue-600 shrink-0" />
                         <h3 className="text-lg font-semibold text-gray-900">Modify Account Settings</h3>
                       </div>
                       <p className="text-sm text-gray-600 mb-3">
@@ -715,7 +837,7 @@ export default function ChainAccountDashboardPage() {
                     </div>
                     <button
                       onClick={() => setShowModifyAccountModal(true)}
-                      className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center shrink-0"
+                      className="sm:ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center shrink-0"
                     >
                       <FileEdit className="w-4 h-4 mr-2" />
                       Modify Settings
@@ -724,11 +846,11 @@ export default function ChainAccountDashboardPage() {
                 </div>
 
                 {/* Remove Member */}
-                <div className="border border-gray-200 rounded-lg p-6 hover:border-orange-300 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                <div className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:border-orange-300 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-2">
-                        <UserX className="w-5 h-5 text-orange-600" />
+                        <UserX className="w-5 h-5 text-orange-600 shrink-0" />
                         <h3 className="text-lg font-semibold text-gray-900">Remove Member</h3>
                       </div>
                       <p className="text-sm text-gray-600 mb-3">
@@ -741,7 +863,7 @@ export default function ChainAccountDashboardPage() {
                     </div>
                     <button
                       onClick={() => setShowRemoveMemberModal(true)}
-                      className="ml-4 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center shrink-0"
+                      className="sm:ml-4 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center shrink-0"
                     >
                       <UserX className="w-4 h-4 mr-2" />
                       Remove Member
@@ -750,11 +872,11 @@ export default function ChainAccountDashboardPage() {
                 </div>
 
                 {/* Close Account */}
-                <div className="border-2 border-red-200 bg-red-50 rounded-lg p-6 hover:border-red-300 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                <div className="border-2 border-red-200 bg-red-50 rounded-lg p-4 sm:p-6 hover:border-red-300 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-2">
-                        <XCircle className="w-5 h-5 text-red-600" />
+                        <XCircle className="w-5 h-5 text-red-600 shrink-0" />
                         <h3 className="text-lg font-semibold text-red-900">Close Account</h3>
                       </div>
                       <p className="text-sm text-red-800 mb-3">
@@ -774,7 +896,7 @@ export default function ChainAccountDashboardPage() {
                     </div>
                     <button
                       onClick={() => setShowCloseAccountModal(true)}
-                      className="ml-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center shrink-0"
+                      className="sm:ml-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center shrink-0"
                     >
                       <XCircle className="w-4 h-4 mr-2" />
                       Close Account
@@ -785,9 +907,9 @@ export default function ChainAccountDashboardPage() {
             </div>
 
             {/* Current Settings Display */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Settings</h2>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">Authorization Model</h3>
                   <p className="text-lg font-semibold text-gray-900">
@@ -837,12 +959,16 @@ export default function ChainAccountDashboardPage() {
 
           <InvestmentModal
             isOpen={showInvestmentModal}
-            onClose={() => setShowInvestmentModal(false)}
+            onClose={() => {
+              setShowInvestmentModal(false);
+              setSelectedInvestmentPlanId(null);
+            }}
             chainAccountId={data.chainAccount.id}
             accountBalance={data.chainAccount.balance}
             authorizationModel={data.chainAccount.authorizationModel}
             thresholdAmount={data.chainAccount.thresholdAmount}
             onSuccess={handleModalSuccess}
+            initialPlanId={selectedInvestmentPlanId}
           />
 
           <WithdrawalModal
@@ -886,6 +1012,15 @@ export default function ChainAccountDashboardPage() {
             accountName={data.chainAccount.accountName}
             balance={data.chainAccount.balance}
             accessToken={ChainAccountSessionManager.getToken() || ''}
+          />
+
+          <ChainHoldingsModal
+            isOpen={showHoldingsModal}
+            onClose={() => setShowHoldingsModal(false)}
+            chainAccountId={data.chainAccount.id}
+            accountBalance={data.chainAccount.balance}
+            accountCurrency={data.chainAccount.currency}
+            onSuccess={handleModalSuccess}
           />
         </>
       )}

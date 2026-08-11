@@ -122,11 +122,15 @@ export async function GET(
       })),
       investments: account.investments.map((investment: any) => {
         const expectedReturn = investment.amount * (investment.plan.profitPercentage / 100);
+        const closeRequester = investment.closeRequestedBy
+          ? account.members.find((m: any) => m.id === investment.closeRequestedBy)
+          : null;
         return {
           ...investment,
           expectedReturn,
           maturityDate: investment.endDate,
           initiatedBy: investment.initiator.user,
+          closeRequestedByUser: closeRequester?.user || null,
           initiator: undefined,
           endDate: undefined
         };

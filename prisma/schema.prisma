@@ -799,6 +799,7 @@ model HoldingToken {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   userHoldings    UserHolding[]
+  chainAccountHoldings ChainAccountHolding[]
 
   @@map("holding_tokens")
 }
@@ -966,6 +967,7 @@ model ChainAccount {
   deposits               ChainAccountDeposit[]
   investments            ChainAccountInvestment[]
   withdrawals            ChainAccountWithdrawal[]
+  holdings               ChainAccountHolding[]
   approvals              ChainAccountApproval[]
   transactions           ChainAccountTransaction[]
   notifications          ChainAccountNotification[]
@@ -1005,6 +1007,7 @@ model ChainAccountMember {
   initiatedDeposits ChainAccountDeposit[] @relation("DepositInitiator")
   initiatedInvestments ChainAccountInvestment[] @relation("InvestmentInitiator")
   initiatedWithdrawals ChainAccountWithdrawal[] @relation("WithdrawalInitiator")
+  initiatedHoldings ChainAccountHolding[] @relation("HoldingInitiator")
 
   @@unique([chainAccountId, userId])
   @@index([userId])
@@ -1093,12 +1096,20 @@ model ChainAccountInvestment {
   endDate           DateTime?
   profitEarned      Float                   @default(0)
   completedAt       DateTime?
-  
+
+  // Early close request (member-initiated, admin-approved)
+  closeRequestedBy   String?                // Member ID who requested the early close
+  closeRequestedAt   DateTime?
+  closeRequestReason String?                @db.Text
+  adminNotes         String?
+  processedBy        String?                // Admin ID who approved/rejected the close request
+  processedAt        DateTime?
+
   // Metadata
   reference         String                  @unique
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
-  
+
   chainAccount      ChainAccount            @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
   initiator         ChainAccountMember      @relation("InvestmentInitiator", fields: [initiatedBy], references: [id], onDelete: Cascade)
   plan              InvestmentPlan          @relation(fields: [planId], references: [id], onDelete: Cascade)
@@ -1144,6 +1155,38 @@ model ChainAccountWithdrawal {
   @@index([status])
   @@index([initiatedBy])
   @@map("chain_account_withdrawals")
+}
+
+model ChainAccountHolding {
+  id                String               @id @default(cuid())
+  chainAccountId    String
+  initiatedBy       String               // Member ID who initiated
+  userId            String               // User ID of the initiator
+  tokenId           String
+
+  depositedAmount   Float                // Amount deducted from Chain Account balance (USDT)
+  tokenAmount       Float                // Amount in tokens (calculated at request/approval time)
+  currentValue      Float                // Current value in USD
+  interestEarned    Float                @default(0)
+
+  status            HoldingStatus        @default(PENDING)
+  adminNotes        String?
+  processedBy       String?              // Admin ID who approved/rejected
+  processedAt       DateTime?
+
+  reference         String               @unique
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  chainAccount      ChainAccount         @relation(fields: [chainAccountId], references: [id], onDelete: Cascade)
+  initiator         ChainAccountMember   @relation("HoldingInitiator", fields: [initiatedBy], references: [id], onDelete: Cascade)
+  token             HoldingToken         @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@index([chainAccountId])
+  @@index([tokenId])
+  @@index([status])
+  @@index([initiatedBy])
+  @@map("chain_account_holdings")
 }
 
 model ChainAccountApproval {
@@ -1439,6 +1482,8 @@ enum ChainInvestmentStatus {
   PENDING_APPROVAL // Waiting for member approvals
   APPROVED         // Approved by members, waiting for execution
   ACTIVE           // Investment is running
+  CLOSE_REQUESTED  // Member requested an early close, awaiting admin approval
+  CLOSED_EARLY     // Admin approved the early close; principal + prorated profit refunded
   COMPLETED        // Investment completed
   CANCELLED        // Cancelled (rejected by member or admin)
   FAILED           // Failed to execute
@@ -1474,6 +1519,7 @@ enum ChainTransactionType {
   INVESTMENT
   INVESTMENT_RETURN
   INVESTMENT_PROFIT
+  HOLDING
   FEE
   ADJUSTMENT
 }

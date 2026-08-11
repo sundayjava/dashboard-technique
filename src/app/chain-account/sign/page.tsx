@@ -222,57 +222,57 @@ export default function SignMemorandumPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Professional Header */}
       <header className="bg-linear-to-r from-[#1e3a8a] to-[#1e40af] text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4">
-              <Image src="/logo/WG_Gbg_Fin-No-bg.png" alt="Acredis Finance" width={60} height={60} className="w-14 h-14" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <Image src="/logo/WG_Gbg_Fin-No-bg.png" alt="Acredis Finance" width={60} height={60} className="w-10 h-10 sm:w-14 sm:h-14 shrink-0" />
               <div>
-                <h1 className="text-2xl font-bold">ACREDIS FINANCE</h1>
-                <p className="text-sm text-blue-200">Digital Blockchain Banking & Investment</p>
+                <h1 className="text-lg sm:text-2xl font-bold leading-tight">ACREDIS FINANCE</h1>
+                <p className="text-xs sm:text-sm text-blue-200">Digital Blockchain Banking &amp; Investment</p>
               </div>
             </div>
-            <div className="text-right">
-              <h2 className="text-xl font-bold">CHAIN ACCOUNT MEMORANDUM</h2>
-              <p className="text-sm text-blue-200">UAE Jurisdiction</p>
+            <div className="sm:text-right">
+              <h2 className="text-base sm:text-xl font-bold leading-tight">CHAIN ACCOUNT MEMORANDUM</h2>
+              <p className="text-xs sm:text-sm text-blue-200">UAE Jurisdiction</p>
             </div>
           </div>
 
           <div className="border-t border-blue-400 pt-4">
-            <div className="grid grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 text-sm">
               <div>
                 <p className="text-blue-200 text-xs">Document Reference</p>
-                <p className="font-semibold">{memorandum.documentReference}</p>
+                <p className="font-semibold text-xs sm:text-sm break-all">{memorandum.documentReference}</p>
               </div>
               <div>
                 <p className="text-blue-200 text-xs">Date Issued</p>
-                <p className="font-semibold">{new Date(memorandum.dateIssued).toLocaleDateString()}</p>
+                <p className="font-semibold text-xs sm:text-sm">{new Date(memorandum.dateIssued).toLocaleDateString()}</p>
               </div>
               <div>
                 <p className="text-blue-200 text-xs">Document Status</p>
-                <p className="font-semibold">PENDING — Awaiting All Signatures</p>
+                <p className="font-semibold text-xs sm:text-sm">PENDING — Awaiting All Signatures</p>
               </div>
               <div>
                 <p className="text-blue-200 text-xs">Jurisdiction</p>
-                <p className="font-semibold">United Arab Emirates</p>
+                <p className="font-semibold text-xs sm:text-sm">United Arab Emirates</p>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto py-8 px-4">
+      <div className="max-w-5xl mx-auto py-6 sm:py-8 px-3 sm:px-4">
         {/* MEMORANDUM TITLE */}
-        <div className="bg-white border-b-4 border-yellow-500 shadow-sm p-6 mb-6">
-          <h1 className="text-4xl font-bold text-center text-gray-900">
+        <div className="bg-white border-b-4 border-yellow-500 shadow-sm p-4 sm:p-6 mb-6">
+          <h1 className="text-2xl sm:text-4xl font-bold text-center text-gray-900">
             MEMORANDUM OF AGREEMENT
           </h1>
-          <p className="text-center text-yellow-600 font-semibold mt-2 text-lg">
+          <p className="text-center text-yellow-600 font-semibold mt-2 text-base sm:text-lg">
             Chain Account Establishment
           </p>
         </div>
 
         {/* PREAMBLE */}
-        <div className="bg-white shadow-sm p-8 mb-6 border border-gray-200">
+        <div className="bg-white shadow-sm p-4 sm:p-8 mb-6 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 border-b-2 border-blue-600 pb-2">PREAMBLE</h2>
           <div className="text-gray-700 space-y-3 text-sm leading-relaxed">
             <p>
@@ -292,13 +292,13 @@ export default function SignMemorandumPage() {
         </div>
 
         {/* PART 1: Account Details */}
-        <div className="bg-white shadow-sm p-8 mb-6 border border-gray-200">
+        <div className="bg-white shadow-sm p-4 sm:p-8 mb-6 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center border-b-2 border-blue-600 pb-2">
             <FileText className="w-6 h-6 mr-2 text-blue-600" />
             PART 1 — ACCOUNT DETAILS
           </h2>
           <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <div>
                 <span className="text-gray-600 font-medium">Account Name:</span>
                 <p className="font-semibold text-gray-900 mt-1">{content.accountDetails.accountName}</p>
@@ -319,10 +319,6 @@ export default function SignMemorandumPage() {
                 <span className="text-gray-600 font-medium">Primary Applicant:</span>
                 <p className="font-semibold text-gray-900 mt-1">{content.accountDetails.primaryApplicant}</p>
               </div>
-              <div>
-                <span className="text-gray-600 font-medium">Platform Jurisdiction:</span>
-                <p className="font-semibold text-gray-900 mt-1">{content.accountDetails.platformJurisdiction}</p>
-              </div>
             </div>
             <div className="border-t border-gray-200 pt-4">
               <span className="text-gray-600 font-medium">Account Purpose:</span>
@@ -339,7 +335,7 @@ export default function SignMemorandumPage() {
         </div>
 
         {/* PART 2: Parties to Agreement */}
-        <div className="bg-white shadow-sm p-8 mb-6 border border-gray-200">
+        <div className="bg-white shadow-sm p-4 sm:p-8 mb-6 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center border-b-2 border-blue-600 pb-2">
             <Users className="w-6 h-6 mr-2 text-blue-600" />
             PART 2 — PARTIES TO AGREEMENT
@@ -347,16 +343,16 @@ export default function SignMemorandumPage() {
           <div className="space-y-4">
             {content.parties.map((party: any, index: number) => (
               <div key={index} className="bg-gray-50 rounded-lg p-6 border-l-4 border-blue-600">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                   <h3 className="font-bold text-lg text-gray-900">{party.role}</h3>
-                  <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold">
+                  <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold whitespace-nowrap">
                     Verified Acredis User ✓
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Full Name:</span>
-                    <p className="font-semibold text-gray-900">{party.fullName}</p>
+                    <p className="font-semibold text-gray-900">{party.fullName || party.email?.split('@')[0]}</p>
                   </div>
                   <div>
                     <span className="text-gray-600">Email Address:</span>
@@ -369,13 +365,13 @@ export default function SignMemorandumPage() {
         </div>
 
         {/* PART 3: Financial Profile */}
-        <div className="bg-white shadow-sm p-8 mb-6 border border-gray-200">
+        <div className="bg-white shadow-sm p-4 sm:p-8 mb-6 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center border-b-2 border-blue-600 pb-2">
             <DollarSign className="w-6 h-6 mr-2 text-blue-600" />
             PART 3 — FINANCIAL PROFILE
           </h2>
           <div className="bg-gray-50 rounded-lg p-6 space-y-3">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <div>
                 <span className="text-gray-600 font-medium">Expected Monthly Activity:</span>
                 <p className="font-semibold text-gray-900 mt-1">{content.financialProfile.expectedMonthlyActivity}</p>
@@ -393,171 +389,189 @@ export default function SignMemorandumPage() {
         </div>
 
         {/* PART 4: Account Permissions & Governance */}
-        <div className="bg-white shadow-sm p-8 mb-6 border border-gray-200">
+        <div className="bg-white shadow-sm p-4 sm:p-8 mb-6 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center border-b-2 border-blue-600 pb-2">
             <Shield className="w-6 h-6 mr-2 text-blue-600" />
             PART 4 — ACCOUNT PERMISSIONS & GOVERNANCE
           </h2>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-4">
-            <div className="flex items-center mb-2">
-              <span className="text-gray-700 font-medium">Authorization Model:</span>
-              <span className="ml-3 font-bold text-blue-700 text-lg">
-                {content.permissions.authorizationModel === 'INDEPENDENT' && 'INDEPENDENT AUTHORIZATION'}
-                {content.permissions.authorizationModel === 'THRESHOLD' && 'THRESHOLD AUTHORIZATION (All Must Approve)'}
-                {content.permissions.authorizationModel === 'MAJORITY' && 'MAJORITY AUTHORIZATION'}
-              </span>
-            </div>
 
-            {content.permissions.thresholdAmount && (
-              <div className="mt-3 pt-3 border-t border-blue-300">
-                <span className="text-gray-700 font-medium">Transaction Threshold:</span>
-                <span className="ml-2 font-bold text-gray-900">
-                  {content.permissions.thresholdCurrency} {content.permissions.thresholdAmount}
+          {/* 4.1 Transaction Authorization Model */}
+          <div className="mb-6">
+            <p className="font-semibold text-gray-900 mb-3">4.1 Transaction Authorization Model</p>
+            <p className="text-sm text-gray-700 mb-3">
+              The parties have selected the following authorization structure for this Chain Account:
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 space-y-3">
+              <label className="flex items-start gap-3">
+                <span className={`mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center text-xs font-bold ${
+                  content.permissions.authorizationModel === 'INDEPENDENT'
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'border-gray-400 text-transparent'
+                }`}>✓</span>
+                <span className="text-sm text-gray-800">
+                  <strong>Independent Authorization</strong> — Any signatory may conduct transactions independently using their unique signature key
                 </span>
-                <p className="text-sm text-gray-600 mt-1">
-                  Transactions at or above this amount require group approval
-                </p>
-              </div>
-            )}
+              </label>
+              <label className="flex items-start gap-3">
+                <span className={`mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center text-xs font-bold ${
+                  content.permissions.authorizationModel === 'THRESHOLD'
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'border-gray-400 text-transparent'
+                }`}>✓</span>
+                <span className="text-sm text-gray-800">
+                  <strong>Threshold Authorization</strong> — Any transaction above{' '}
+                  <strong>
+                    {content.permissions.authorizationModel === 'THRESHOLD' && content.permissions.thresholdAmount
+                      ? `${content.permissions.thresholdCurrency} ${content.permissions.thresholdAmount}`
+                      : '$[AMOUNT]'}
+                  </strong>{' '}
+                  requires approval from all signatories
+                </span>
+              </label>
+              <label className="flex items-start gap-3">
+                <span className={`mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center text-xs font-bold ${
+                  content.permissions.authorizationModel === 'MAJORITY'
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'border-gray-400 text-transparent'
+                }`}>✓</span>
+                <span className="text-sm text-gray-800">
+                  <strong>Majority Authorization</strong> — Transactions above the set threshold require majority signatory approval
+                  {content.permissions.authorizationModel === 'MAJORITY' && content.permissions.thresholdAmount && (
+                    <> (threshold: <strong>{content.permissions.thresholdCurrency} {content.permissions.thresholdAmount}</strong>)</>
+                  )}
+                </span>
+              </label>
+            </div>
           </div>
 
-          <div className="space-y-4">
+          {/* 4.2 Permitted Account Activities */}
+          <div className="mb-6">
+            <p className="font-semibold text-gray-900 mb-3 flex items-center">
+              <Check className="w-5 h-5 mr-2 text-green-600" />
+              4.2 Permitted Account Activities
+            </p>
+            <p className="text-sm text-gray-700 mb-2">
+              Each signatory&apos;s unique signature key grants independent authorization for the following:
+            </p>
             <div className="bg-gray-50 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-3 flex items-center">
-                <Check className="w-5 h-5 mr-2 text-green-600" />
-                Individual Signatory Rights
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 ml-5">
-                <li>Deposit funds into the Chain Account</li>
-                <li>View full account transaction history and balances</li>
-                {content.permissions.authorizationModel === 'INDEPENDENT' && (
-                  <>
-                    <li>Make withdrawals of any amount</li>
-                    <li>Enroll in investment plans of any amount</li>
-                  </>
-                )}
+              <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 ml-1">
+                <li>Deposits into the Chain Account</li>
+                <li>Withdrawals within the agreed authorization threshold</li>
+                <li>Enrollment into Acredis investment plans</li>
+                <li>Viewing of full account transaction history and balances</li>
+                <li>Initiating internal transfers between Acredis accounts</li>
               </ul>
             </div>
+          </div>
 
+          {/* 4.3 Activities Requiring All-Party Consent */}
+          <div>
+            <p className="font-semibold text-gray-900 mb-3 flex items-center">
+              <AlertCircle className="w-5 h-5 mr-2 text-yellow-600" />
+              4.3 Activities Requiring All-Party Consent
+            </p>
+            <p className="text-sm text-gray-700 mb-2">
+              The following actions require written confirmation from all signatories before execution:
+            </p>
             <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-3 flex items-center">
-                <AlertCircle className="w-5 h-5 mr-2 text-yellow-600" />
-                Group Approval Required For
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 ml-5">
-                <li>Modification of account permissions or settings</li>
+              <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 ml-1">
+                <li>Modification of account permissions or authorization model</li>
                 <li>Addition or removal of a signatory</li>
-                <li>Closure of the Chain Account (balance must be $0)</li>
-                {(content.permissions.authorizationModel === 'THRESHOLD' || content.permissions.authorizationModel === 'MAJORITY') && (
-                  <li>Withdrawals and investments at or above the threshold amount</li>
-                )}
+                <li>Closure of the Chain Account</li>
+                <li>Withdrawal of the total account balance</li>
+                <li>
+                  Enrollment in investment plans above{' '}
+                  {content.permissions.thresholdAmount
+                    ? `${content.permissions.thresholdCurrency} ${content.permissions.thresholdAmount}`
+                    : 'the agreed threshold amount'}
+                </li>
               </ul>
             </div>
           </div>
         </div>
 
         {/* PART 5: Signature Key Disclosure */}
-        <div className="bg-white shadow-sm p-8 mb-6 border border-gray-200">
+        <div className="bg-white shadow-sm p-4 sm:p-8 mb-6 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center border-b-2 border-blue-600 pb-2">
             <Key className="w-6 h-6 mr-2 text-blue-600" />
             PART 5 — SIGNATURE KEY DISCLOSURE & ACCESS TOKEN
           </h2>
           <div className="bg-blue-50 border-l-4 border-blue-600 p-6 text-sm text-gray-700 leading-relaxed">
             <p className="mb-3 font-semibold text-blue-900">
-              Upon activation of this Chain Account, each signatory will receive a unique access token.
+              Upon activation of this Chain Account, each signatory will receive a unique cryptographic signature key (access token).
             </p>
             <p className="mb-3">
-              This token will be delivered via secure email and in-app notification. It serves as your private key to access
-              and operate the Chain Account.
+              This token will be delivered via secure email and in-app notification to their registered Acredis account. It serves
+              as your private key to access and operate the Chain Account.
             </p>
-            <p className="mb-3 font-semibold text-gray-900">Each party must:</p>
+            <p className="mb-3 font-semibold text-gray-900">Each party acknowledges and agrees that:</p>
             <ul className="list-disc list-inside space-y-1 ml-3">
-              <li>Keep their access token private and not share it with anyone, including other signatories</li>
-              <li>Store it securely and treat it with the same confidentiality as a bank password or PIN</li>
-              <li>Report any loss, theft, or suspected compromise to Acredis immediately</li>
-              <li>Understand that Acredis bears no liability for unauthorized access resulting from a shared or compromised token</li>
+              <li>Their signature key is personal and must not be shared with any third party, including other signatories</li>
+              <li>Acredis bears no liability for unauthorized transactions resulting from a compromised signature key</li>
+              <li>Loss or compromise of a signature key must be reported to Acredis immediately</li>
+              <li>A replacement key request requires identity re-verification and confirmation from at least one other signatory</li>
             </ul>
           </div>
         </div>
 
         {/* PART 6: Terms & Conditions */}
-        <div className="bg-white shadow-sm p-8 mb-6 border border-gray-200">
+        <div className="bg-white shadow-sm p-4 sm:p-8 mb-6 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center border-b-2 border-blue-600 pb-2">
             <FileCheck className="w-6 h-6 mr-2 text-blue-600" />
             PART 6 — TERMS & CONDITIONS
           </h2>
           <div className="space-y-4 text-sm text-gray-700 leading-relaxed">
             <div className="bg-gray-50 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-2">1. Governing Law</p>
+              <p className="font-semibold text-gray-900 mb-2">6.1 Governing Law</p>
               <p>
-                This Agreement and the Chain Account are governed by the laws of the United Arab Emirates, including all applicable
-                regulations issued by the Virtual Assets Regulatory Authority (VARA) or the Financial Services Regulatory Authority (FSRA)
-                as applicable to the jurisdiction in which Acredis Finance operates.
+                This agreement is governed under the applicable VARA or FSRA virtual asset regulations.
               </p>
             </div>
 
             <div className="bg-gray-50 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-2">2. Joint and Several Liability</p>
+              <p className="font-semibold text-gray-900 mb-2">6.2 Liability</p>
               <p>
-                All parties to this Agreement share equal responsibility for all activity conducted through the Chain Account.
-                Each signatory is jointly and severally liable for obligations arising from the account&apos;s use.
+                All parties share equal responsibility for the activity conducted on this Chain Account unless otherwise
+                stipulated in a separate legal agreement between the parties.
               </p>
             </div>
 
             <div className="bg-gray-50 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-2">3. Dispute Resolution</p>
+              <p className="font-semibold text-gray-900 mb-2">6.3 Dispute Resolution</p>
               <p className="mb-2">
-                In the event of a dispute between parties regarding account activity, governance, or any matter related to this Agreement:
+                In the event of a dispute between signatories regarding account activity, Acredis will:
               </p>
               <ul className="list-disc list-inside space-y-1 ml-3">
-                <li>Acredis will temporarily freeze the account to prevent further transactions</li>
-                <li>The account will remain frozen until Acredis receives written instruction from all parties to resume operations</li>
-                <li>Acredis does not arbitrate between parties and bears no responsibility for resolving inter-party disputes</li>
+                <li>Temporarily freeze the account pending resolution</li>
+                <li>Require written instruction from all parties before resuming activity</li>
+                <li>Not arbitrate disputes between parties — parties are advised to seek independent legal counsel</li>
               </ul>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-2">4. Account Dormancy</p>
+              <p className="font-semibold text-gray-900 mb-2">6.4 Account Dormancy</p>
               <p>
-                If no deposits, withdrawals, investments, or other account activity occur for <strong>180 consecutive days</strong>,
-                Acredis reserves the right to flag the account for review, notify all signatories, and may impose dormancy fees or
-                request confirmation of continued intent to maintain the account.
+                If the Chain Account records no activity for <strong>180 consecutive days</strong>, Acredis reserves the right
+                to flag the account for review and notify all signatories.
               </p>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-2">5. Account Freezing by Platform</p>
+              <p className="font-semibold text-gray-900 mb-2">6.5 Platform Rights</p>
               <p className="mb-2">
-                Acredis reserves the right to suspend, freeze, or close the Chain Account under the following circumstances:
+                Acredis reserves the right to suspend or close a Chain Account in the event of:
               </p>
               <ul className="list-disc list-inside space-y-1 ml-3">
-                <li>Suspected fraudulent activity or breach of platform Terms of Service</li>
-                <li>Failure to comply with Know Your Customer (KYC) or Anti-Money Laundering (AML) requirements</li>
-                <li>Legal or regulatory order from competent authorities</li>
-                <li>Any activity that violates UAE law or platform policies</li>
+                <li>Suspected fraudulent or unlawful activity</li>
+                <li>Failure to maintain KYC/AML compliance by any signatory</li>
+                <li>Breach of platform terms by any party</li>
               </ul>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-2">6. Amendments</p>
-              <p>
-                Any modification to this Agreement or the account governance structure requires the written consent of all parties
-                and must be submitted through the Chain Account modification workflow.
-              </p>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-5">
-              <p className="font-semibold text-gray-900 mb-2">7. Platform Terms</p>
-              <p>
-                This Memorandum is supplemental to and does not replace the general Acredis Finance Terms of Service. All parties
-                remain bound by the platform&apos;s general terms in addition to the specific provisions outlined herein.
-              </p>
             </div>
           </div>
         </div>
 
         {/* PART 7: Signatory Confirmation */}
-        <div className="bg-white shadow-sm p-8 mb-6 border border-gray-200">
+        <div className="bg-white shadow-sm p-4 sm:p-8 mb-6 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center border-b-2 border-blue-600 pb-2">
             <CheckCircle className="w-6 h-6 mr-2 text-blue-600" />
             PART 7 — SIGNATORY CONFIRMATION
@@ -568,15 +582,15 @@ export default function SignMemorandumPage() {
           <div className="bg-gray-50 rounded-lg p-6">
             <div className="space-y-3">
               {allMembers.map((m, index) => (
-                <div key={index} className="flex items-center justify-between border-b border-gray-200 pb-3 last:border-0">
+                <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3 last:border-0">
                   <div>
                     <p className="font-semibold text-gray-900">{m.name || m.email}</p>
                     <p className="text-sm text-gray-600">{m.role.replace('_', ' ')}</p>
                   </div>
                   {m.hasConfirmed ? (
                     <div className="flex items-center text-green-600">
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      <div className="text-right">
+                      <CheckCircle className="w-5 h-5 mr-2 shrink-0" />
+                      <div className="sm:text-right">
                         <p className="font-semibold">Confirmed</p>
                         {m.confirmedAt && (
                           <p className="text-xs text-gray-500">
@@ -598,8 +612,8 @@ export default function SignMemorandumPage() {
         </div>
 
         {/* Declaration & Sign Button */}
-        <div className="bg-white shadow-lg border-2 border-blue-600 rounded-lg p-8">
-          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 mb-6">
+        <div className="bg-white shadow-lg border-2 border-blue-600 rounded-lg p-4 sm:p-8">
+          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 sm:p-6 mb-6">
             <div className="flex items-start">
               <AlertCircle className="w-6 h-6 text-yellow-600 mr-3 shrink-0 mt-1" />
               <div>
@@ -618,7 +632,7 @@ export default function SignMemorandumPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <button
               onClick={() => router.push('/dashboard')}
               className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
@@ -628,7 +642,7 @@ export default function SignMemorandumPage() {
             <button
               onClick={handleSign}
               disabled={signing}
-              className="px-8 py-4 bg-linear-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-lg font-bold"
+              className="px-8 py-4 bg-linear-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-base sm:text-lg font-bold"
             >
               {signing ? (
                 <>

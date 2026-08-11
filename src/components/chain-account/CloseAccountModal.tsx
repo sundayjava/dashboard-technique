@@ -94,19 +94,10 @@ export default function CloseAccountModal({
           {/* Danger Warning */}
           <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
             <div className="flex items-start">
-              <AlertTriangle className="w-6 h-6 text-red-600 mr-3 shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-bold text-red-900 mb-2">⚠️ Permanent Action</h3>
-                <p className="text-sm text-red-800 mb-3">
-                  Closing this account is <strong>permanent and irreversible</strong>. Once closed:
-                </p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-red-800">
-                  <li>All members will lose access immediately</li>
-                  <li>Account history will be archived</li>
-                  <li>The account cannot be reopened</li>
-                  <li>All access tokens will be invalidated</li>
-                </ul>
-              </div>
+              <AlertTriangle className="w-5 h-5 text-red-600 mr-3 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800">
+                <strong>Permanent action.</strong> All members lose access immediately and the account cannot be reopened.
+              </p>
             </div>
           </div>
 
@@ -115,43 +106,29 @@ export default function CloseAccountModal({
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-start">
                 <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 shrink-0 mt-0.5" />
-                <div className="text-sm text-yellow-800">
-                  <p className="font-semibold mb-1">Account Has Remaining Balance</p>
-                  <p>
-                    Current balance: <strong>${balance.toLocaleString()}</strong>
-                  </p>
-                  <p className="mt-2">
-                    You must withdraw all funds before closing this account.
-                  </p>
-                </div>
+                <p className="text-sm text-yellow-800">
+                  Balance is <strong>${balance.toLocaleString()}</strong>. Withdraw all funds before closing.
+                </p>
               </div>
             </div>
           ) : (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-start">
                 <AlertCircle className="w-5 h-5 text-green-600 mr-3 shrink-0 mt-0.5" />
-                <div className="text-sm text-green-800">
-                  <p className="font-semibold">✓ Account balance is zero</p>
-                  <p>The account is eligible for closure.</p>
-                </div>
+                <p className="text-sm text-green-800 font-semibold">✓ Balance is zero — eligible for closure</p>
               </div>
             </div>
           )}
 
           {/* Closure Process */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Closure Process:</h3>
-            <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-              <li>Every member will receive an email with a link to confirm or reject the closure</li>
-              <li>Once all members confirm, an admin must give final approval</li>
-              <li>If any member rejects, the closure is cancelled</li>
-              <li>Once approved, the account closes permanently</li>
-            </ol>
+            <p className="text-sm text-gray-700">
+              Every member gets an email to confirm or reject the closure. Once all confirm, an admin gives final approval — a single rejection cancels it.
+            </p>
           </div>
 
           {/* Account Info */}
           <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Account Details</h3>
             <div className="text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-gray-600">Account Name:</span>
@@ -172,7 +149,7 @@ export default function CloseAccountModal({
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              rows={4}
+              rows={3}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
               placeholder="Explain why this account should be closed..."
               disabled={balance > 0}

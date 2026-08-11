@@ -467,12 +467,28 @@ export default function DashboardPage() {
 
 
         {/* Chain Account Section - only render once we're sure of the state */}
-        {!chainAccountLoading && (chainAccountState === 'pending' || chainAccountState === 'active') && (
+        {!chainAccountLoading && (
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-bold text-gray-900">Chain Account</h2>
               <Users className="w-8 h-8 text-blue-600" />
             </div>
+
+            {/* State A: No Chain Account yet */}
+            {chainAccountState === 'none' && (
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500">
+                  Already have a Chain Account access token, or want to check?
+                </p>
+                <button
+                  onClick={() => router.push('/chain-account/login')}
+                  className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center"
+                >
+                  <Users className="w-5 h-5 mr-2" />
+                  Login to Chain Account
+                </button>
+              </div>
+            )}
 
             {/* State B: Pending Chain Account */}
             {chainAccountState === 'pending' && (

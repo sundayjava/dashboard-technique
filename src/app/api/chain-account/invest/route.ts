@@ -321,6 +321,10 @@ export async function GET(request: NextRequest) {
         plan: inv.plan,
         initiatedBy: inv.initiator.user.name || inv.initiator.user.email,
         createdAt: inv.createdAt,
+        closeRequestedBy: inv.closeRequestedBy,
+        closeRequestedAt: inv.closeRequestedAt,
+        closeRequestReason: inv.closeRequestReason,
+        adminNotes: inv.adminNotes,
       })),
     });
 

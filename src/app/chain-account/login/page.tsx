@@ -193,7 +193,7 @@ export default function ChainAccountLoginPage() {
             </form>
 
             {/* Help Text */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="mt-6 pt-6 border-t border-gray-200 space-y-2">
               <p className="text-xs text-gray-500 text-center">
                 Can't find your access token?{' '}
                 <button
@@ -201,6 +201,15 @@ export default function ChainAccountLoginPage() {
                   className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer hover:underline"
                 >
                   Contact Support
+                </button>
+              </p>
+              <p className="text-xs text-gray-500 text-center">
+                Don't have a Chain Account yet?{' '}
+                <button
+                  onClick={() => router.push('/chain-account/create')}
+                  className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer hover:underline"
+                >
+                  Register a Chain Account
                 </button>
               </p>
             </div>

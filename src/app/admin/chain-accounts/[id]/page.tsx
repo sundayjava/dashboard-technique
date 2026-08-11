@@ -62,6 +62,9 @@ interface ChainAccountDetails {
     maturityDate: string;
     status: string;
     createdAt: string;
+    closeRequestReason: string | null;
+    closeRequestedAt: string | null;
+    closeRequestedByUser: { name: string | null; email: string } | null;
     plan: {
       planName: string;
       profitPercentage: number;
@@ -91,7 +94,7 @@ interface ChainAccountDetails {
     initiatedBy: {
       name: string | null;
       email: string;
-    };
+    } | null;
   }>;
   notifications: Array<{
     id: string;
@@ -118,6 +121,8 @@ const statusConfig = {
   PROCESSING: { label: 'Processing', bg: 'bg-blue-100', text: 'text-blue-800', icon: Clock },
   CANCELLED: { label: 'Cancelled', bg: 'bg-gray-100', text: 'text-gray-800', icon: XCircle },
   MATURED: { label: 'Matured', bg: 'bg-blue-100', text: 'text-blue-800', icon: CheckCircle },
+  CLOSE_REQUESTED: { label: 'Close Requested', bg: 'bg-orange-100', text: 'text-orange-800', icon: Clock },
+  CLOSED_EARLY: { label: 'Closed Early', bg: 'bg-gray-100', text: 'text-gray-800', icon: CheckCircle },
 };
 
 export default function AdminChainAccountDetailPage() {
@@ -239,6 +244,44 @@ export default function AdminChainAccountDetailPage() {
     } catch (error: any) {
       console.error('Error rejecting withdrawal:', error);
       toast.error(error.response?.data?.error || 'Failed to reject withdrawal');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleApproveInvestmentClose = async (investmentId: string) => {
+    if (!confirm('Approve this early close request? Principal + prorated profit will be refunded to the Chain Account balance.')) return;
+
+    try {
+      setProcessingId(investmentId);
+      await axios.post(`/api/admin/chain-accounts/investments/close/approve`, {
+        investmentId
+      });
+      toast.success('Investment close approved and refunded');
+      await fetchAccountDetails();
+    } catch (error: any) {
+      console.error('Error approving investment close:', error);
+      toast.error(error.response?.data?.error || 'Failed to approve investment close');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleRejectInvestmentClose = async (investmentId: string) => {
+    const reason = prompt('Please provide a reason for rejection:');
+    if (!reason) return;
+
+    try {
+      setProcessingId(investmentId);
+      await axios.post(`/api/admin/chain-accounts/investments/close/reject`, {
+        investmentId,
+        reason
+      });
+      toast.success('Investment close request rejected');
+      await fetchAccountDetails();
+    } catch (error: any) {
+      console.error('Error rejecting investment close:', error);
+      toast.error(error.response?.data?.error || 'Failed to reject investment close');
     } finally {
       setProcessingId(null);
     }
@@ -544,7 +587,38 @@ export default function AdminChainAccountDetailPage() {
                                 By {investment.initiatedBy.name || investment.initiatedBy.email} • {new Date(investment.createdAt).toLocaleString()}
                               </p>
                             </div>
+
+                            {investment.status === 'CLOSE_REQUESTED' && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleApproveInvestmentClose(investment.id)}
+                                  disabled={processingId === investment.id}
+                                  className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleRejectInvestmentClose(investment.id)}
+                                  disabled={processingId === investment.id}
+                                  className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  Reject
+                                </button>
+                              </div>
+                            )}
                           </div>
+
+                          {investment.status === 'CLOSE_REQUESTED' && (
+                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mt-3">
+                              <p className="text-xs text-orange-800">
+                                <strong>Early close requested</strong> by {investment.closeRequestedByUser?.name || investment.closeRequestedByUser?.email || 'a member'}
+                                {investment.closeRequestedAt && ` on ${new Date(investment.closeRequestedAt).toLocaleString()}`}
+                                {investment.closeRequestReason && `: "${investment.closeRequestReason}"`}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -662,7 +736,7 @@ export default function AdminChainAccountDetailPage() {
                             <div>
                               <p className="font-medium text-gray-900 text-sm">{txn.transactionType}</p>
                               <p className="text-xs text-gray-500">
-                                {txn.initiatedBy.name || txn.initiatedBy.email} • {new Date(txn.createdAt).toLocaleString()}
+                                {txn.initiatedBy ? (txn.initiatedBy.name || txn.initiatedBy.email) : 'System'} • {new Date(txn.createdAt).toLocaleString()}
                               </p>
                             </div>
                           </div>
