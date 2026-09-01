@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
           recipientName: account.accountName,
           recipientAccount: account.accountNumber,
           fee: 0,
+          createdAt: transactionDate ? new Date(transactionDate) : new Date(),
           metadata: {
             senderBank: senderBank || 'N/A',
             processedBy: 'admin',
