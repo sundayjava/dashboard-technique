@@ -85,13 +85,13 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Cron] Error syncing exchange rates:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: 'Failed to sync exchange rates',
-        details: error.message 
+        details: error instanceof Error ? error.message : String(error)
       },
       { status: 500 }
     );

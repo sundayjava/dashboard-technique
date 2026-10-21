@@ -1579,3 +1579,136 @@ enum ClosureRequestStatus {
   REJECTED          // Rejected by members or admin
   CANCELLED         // Cancelled by initiator
 }
+
+// ============================================================================
+// RETIREMENT VAULT — MARKET DATA LAYER
+// ----------------------------------------------------------------------------
+// Prices for the Retirement Vault are never fetched from a vendor at render
+// time. A scheduled sync writes them into these tables and every vault read
+// goes to the database. This keeps dashboards fast, immune to vendor rate
+// limits and outages, and gives us an immutable price history we own — which
+// is what the 401k benchmark comparison and quarterly report cards are built
+// from.
+// ============================================================================
+
+model VaultAsset {
+  id                String               @id @default(cuid())
+  symbol            String               @unique // Ticker as we display it, e.g. "VT", "BTC"
+  name              String               // e.g. "Vanguard Total World Stock ETF"
+  assetClass        VaultAssetClass
+  role              VaultAssetRole       @default(PORTFOLIO)
+
+  // Provider wiring
+  provider          PriceProvider        // Which feed owns this symbol
+  providerSymbol    String               // Vendor's identifier, e.g. CoinGecko "ripple" for XRP
+  fallbackProvider  PriceProvider?       // Optional secondary feed
+  fallbackSymbol    String?              // Vendor identifier on the fallback feed
+
+  // Weight of this asset inside its own asset-class sleeve (sums to 1.0 per
+  // class). The asset-class percentages themselves live with the risk profile,
+  // not here — this only splits a sleeve across its instruments, e.g. the 5%
+  // crypto sleeve across BTC / ETH / XRP.
+  sleeveWeight      Float                @default(1)
+
+  // Latest known price — denormalised for fast reads, mirrors HoldingToken
+  currentPrice      Float                @default(0)
+  previousClose     Float                @default(0)
+  priceChange24h    Float                @default(0) // Percentage
+  lastSyncedAt      DateTime?
+  lastSyncError     String?              @db.Text
+  consecutiveFailures Int                @default(0) // Trips a stale-data warning in admin
+
+  // Presentation
+  logo              String?
+  displayOrder      Int                  @default(0)
+  isActive          Boolean              @default(true)
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  snapshots         AssetPriceSnapshot[]
+
+  @@index([assetClass])
+  @@index([role])
+  @@index([isActive])
+  @@map("vault_assets")
+}
+
+model AssetPriceSnapshot {
+  id            String        @id @default(cuid())
+  assetId       String
+  priceDate     DateTime      @db.Date // Trading day this close belongs to (UTC)
+
+  open          Float?
+  high          Float?
+  low           Float?
+  close         Float         // The value all vault maths uses
+  volume        Float?
+  changePercent Float?        // Versus prior trading day
+
+  source        PriceProvider // Which feed actually answered
+  createdAt     DateTime      @default(now())
+
+  asset         VaultAsset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  // Makes the sync idempotent: re-running a day's sync updates that row
+  // instead of duplicating history.
+  @@unique([assetId, priceDate])
+  @@index([priceDate])
+  @@index([assetId, priceDate])
+  @@map("asset_price_snapshots")
+}
+
+model PriceSyncRun {
+  id               String           @id @default(cuid())
+  trigger          PriceSyncTrigger
+  status           PriceSyncStatus  @default(RUNNING)
+
+  assetsAttempted  Int              @default(0)
+  assetsSucceeded  Int              @default(0)
+  assetsFailed     Int              @default(0)
+  errors           String?          @db.Text // JSON array of { symbol, message }
+
+  startedAt        DateTime         @default(now())
+  completedAt      DateTime?
+  durationMs       Int?
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("price_sync_runs")
+}
+
+enum VaultAssetClass {
+  GLOBAL_EQUITIES
+  FIXED_INCOME
+  COMMODITIES
+  REAL_ESTATE
+  FUTURES_MACRO
+  CRYPTO
+}
+
+enum VaultAssetRole {
+  PORTFOLIO // Held inside member vaults
+  BENCHMARK // Only used to build the traditional-401k comparison line
+  BOTH
+}
+
+enum PriceProvider {
+  TWELVE_DATA // Equities, bonds, commodities, REITs, futures proxies
+  COINGECKO   // Crypto primary — already in production use
+  BINANCE     // Crypto fallback — already in production use
+  MANUAL      // Admin-entered, last resort
+}
+
+enum PriceSyncTrigger {
+  CRON      // Nightly scheduled run
+  ON_DEMAND // Stale-read self-heal from a dashboard load
+  MANUAL    // Admin-triggered from the panel
+}
+
+enum PriceSyncStatus {
+  RUNNING
+  SUCCESS // Every active asset priced
+  PARTIAL // Some assets failed, vault still valuable
+  FAILED  // Nothing priced
+}

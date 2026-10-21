@@ -1,26 +1,91 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PriceSyncTrigger } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { sendInvestmentMaturityNotification } from '@/lib/email';
+import { syncAssetPrices } from '@/lib/vault/price-sync';
 
 export const dynamic = 'force-dynamic';
+
+// Raised from the 10s default: this route now also drives the Retirement Vault
+// price sync, which pays DNS and TLS per provider on a cold start. 60s is the
+// Vercel Hobby maximum.
+export const maxDuration = 60;
 
 // This endpoint should be called by a cron job (e.g., Vercel Cron, GitHub Actions, or external cron service)
 // Call it every hour or day: GET /api/cron/check-investments
 // You can protect it with a secret token in production
 
 export async function GET(request: NextRequest) {
-  try {
-    // Optional: Add authentication token check for security
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+  // Optional: Add authentication token check for security
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
 
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  // Investment maturity processing runs FIRST and to completion.
+  //
+  // It moves real money, so it must not be left truncated because a price
+  // vendor was slow. The sync below can consume ~20s of the 60s budget when
+  // feeds time out, and running it first risked the function being killed
+  // mid-loop with investments half-processed.
+  let investmentPayload: Record<string, unknown>;
+  let httpStatus = 200;
+
+  try {
+    investmentPayload = await processMaturedInvestments();
+  } catch (error) {
+    console.error('❌ Error in investment maturity check:', error);
+    investmentPayload = {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to check investments',
+    };
+    httpStatus = 500;
+  }
+
+  // --- Retirement Vault price sync ---------------------------------------
+  // Folded in here because the Vercel Hobby plan allows only two cron entries
+  // and both are already in use.
+  //
+  // It runs LAST and is fully isolated: a vendor outage can neither throw into
+  // the investment work above nor steal function time from it. Failures are
+  // logged and recorded in price_sync_runs, never thrown.
+  const vaultPriceSync = await runVaultPriceSync();
+
+  return NextResponse.json({ ...investmentPayload, vaultPriceSync }, { status: httpStatus });
+}
+
+async function runVaultPriceSync() {
+  try {
+    const result = await syncAssetPrices(PriceSyncTrigger.CRON);
+    console.log(
+      `💹 Vault price sync: ${result.status} ` +
+        `(${result.succeeded} ok, ${result.failed} failed, ${result.durationMs}ms)`,
+    );
+    return {
+      status: result.status,
+      skipped: result.skipped,
+      succeeded: result.succeeded,
+      failed: result.failed,
+      durationMs: result.durationMs,
+    };
+  } catch (error) {
+    console.error('❌ Vault price sync threw:', error);
+    return { status: 'ERROR', skipped: false, succeeded: 0, failed: 0, durationMs: 0 };
+  }
+}
+
+/**
+ * Existing investment maturity logic, unchanged apart from returning a payload
+ * object rather than a NextResponse, so the caller can attach the price sync
+ * result and choose the HTTP status.
+ */
+async function processMaturedInvestments(): Promise<Record<string, unknown>> {
+  {
     const now = new Date();
     console.log('🔍 Checking for matured investments at:', now.toISOString());
 
@@ -104,14 +169,14 @@ export async function GET(request: NextRequest) {
     console.log(`🔄 Auto-compounded: ${autoCompoundedCount}, Needs admin completion: ${needsAdminCount}`);
 
     if (investmentsNeedingAdmin.length === 0) {
-      return NextResponse.json({
+      return {
         success: true,
-        message: autoCompoundedCount > 0 
+        message: autoCompoundedCount > 0
           ? `Auto-compounded ${autoCompoundedCount} investments. No investments need admin completion.`
           : 'No matured investments found',
         autoCompoundedCount,
         needsAdminCount: 0,
-      });
+      };
     }
 
     // Get all admin users for final completion notifications
@@ -130,12 +195,12 @@ export async function GET(request: NextRequest) {
 
     if (admins.length === 0) {
       console.error('❌ No admin users found in the database');
-      return NextResponse.json({
+      return {
         success: false,
         error: 'No admin users found',
         autoCompoundedCount,
         needsAdminCount,
-      });
+      };
     }
 
     // Send email to admins about investments needing final completion
@@ -207,7 +272,7 @@ export async function GET(request: NextRequest) {
       console.log(`⚠️ Failed to send ${failureCount} notifications`);
     }
 
-    return NextResponse.json({
+    return {
       success: true,
       message: `Processed ${maturedInvestments.length} matured investments: ${autoCompoundedCount} auto-compounded, ${needsAdminCount} need admin completion`,
       totalMatured: maturedInvestments.length,
@@ -225,16 +290,6 @@ export async function GET(request: NextRequest) {
         currentCycle: inv.currentCycle,
         totalCycles: inv.totalCycles,
       })),
-    });
-
-  } catch (error) {
-    console.error('❌ Error in investment maturity check:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to check investments',
-      },
-      { status: 500 }
-    );
+    };
   }
 }
