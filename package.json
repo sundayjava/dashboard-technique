@@ -15,6 +15,7 @@
     "db:seed:vault-assets": "tsx scripts/seed_vault_assets.ts",
     "vault:sync-test": "tsx scripts/test_vault_price_sync.ts",
     "vault:inspect": "tsx scripts/test_vault_inspect.ts",
+    "vault:test-allocation": "tsx scripts/test_vault_allocation.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },
