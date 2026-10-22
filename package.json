@@ -19,6 +19,8 @@
     "vault:test-questionnaire": "tsx scripts/test_vault_questionnaire.ts",
     "vault:test-valuation": "tsx scripts/test_vault_valuation.ts",
     "vault:test-onboarding": "tsx scripts/test_vault_onboarding.ts",
+    "vault:reset-user": "tsx scripts/reset_vault_for_user.ts",
+    "vault:test-deposit": "tsx scripts/test_vault_deposit.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },
