@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import {
-  AlertCircle, ArrowLeft, Loader2, Plus, TrendingDown, TrendingUp, Wallet,
+  AlertCircle, ArrowLeft, Loader2, Minus, Plus, TrendingDown, TrendingUp, Wallet, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SessionManager } from '@/lib/session';
 import VaultDepositModal from '@/components/retirement-vault/VaultDepositModal';
+import VaultWithdrawModal from '@/components/retirement-vault/VaultWithdrawModal';
 
 interface Holding {
   symbol: string;
@@ -19,6 +20,18 @@ interface Holding {
   costBasis: number;
   gainLoss: number;
   gainLossPercent: number;
+}
+
+interface WithdrawalRow {
+  id: string;
+  amount: number;
+  penaltyAmount: number;
+  netAmount: number;
+  isEarlyWithdrawal: boolean;
+  status: string;
+  requestedAt: string;
+  noticeEndsAt: string;
+  canCancel: boolean;
 }
 
 interface DashboardData {
@@ -71,18 +84,47 @@ export default function RetirementVaultDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);
   const [depositOpen, setDepositOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
+  const [availableToWithdraw, setAvailableToWithdraw] = useState(0);
 
   const load = useCallback(async () => {
     try {
       const res = await axios.get('/api/retirement-vault/dashboard');
       setData(res.data);
-      if (!res.data.hasVault) router.push('/retirement-vault/create');
+      if (!res.data.hasVault) {
+        router.push('/retirement-vault/create');
+        return;
+      }
+      // Withdrawals live on their own endpoint; a failure here must not blank
+      // the whole dashboard.
+      try {
+        const w = await axios.get('/api/retirement-vault/withdraw');
+        setWithdrawals(w.data?.requests ?? []);
+        setAvailableToWithdraw(w.data?.availableToWithdraw ?? 0);
+      } catch {
+        setWithdrawals([]);
+      }
     } catch {
       toast.error('Could not load your vault.');
     } finally {
       setLoading(false);
     }
   }, [router]);
+
+  const cancelWithdrawal = async (id: string) => {
+    try {
+      await axios.delete(`/api/retirement-vault/withdraw?id=${id}`);
+      toast.success('Request cancelled.');
+      await load();
+    } catch (error) {
+      toast.error(
+        axios.isAxiosError(error) && error.response?.data?.error
+          ? error.response.data.error
+          : 'Could not cancel.',
+      );
+    }
+  };
 
   useEffect(() => {
     if (!SessionManager.getUser()) {
@@ -224,13 +266,24 @@ export default function RetirementVaultDashboardPage() {
               <p className="text-sm font-semibold text-gray-900 capitalize">{value}</p>
             </div>
           ))}
-          <button
-            onClick={() => setDepositOpen(true)}
-            className="ml-auto flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Deposit
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {!pendingActivation && (
+              <button
+                onClick={() => setWithdrawOpen(true)}
+                className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                <Minus className="w-4 h-4" />
+                Withdraw
+              </button>
+            )}
+            <button
+              onClick={() => setDepositOpen(true)}
+              className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Deposit
+            </button>
+          </div>
         </div>
 
         {/* Allocation */}
@@ -334,6 +387,66 @@ export default function RetirementVaultDashboardPage() {
           )}
         </div>
 
+        {withdrawals.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-900">Withdrawal requests</h2>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {withdrawals.map((w) => {
+                const noticeRunning = w.status === 'PENDING_NOTICE';
+                return (
+                  <div key={w.id} className="px-5 py-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {money(w.amount)}
+                        </span>
+                        {w.penaltyAmount > 0 && (
+                          <span className="text-xs text-red-600">
+                            −{money(w.penaltyAmount)} penalty
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-500">
+                          you receive {money(w.netAmount)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {noticeRunning
+                          ? `Released after ${new Date(w.noticeEndsAt).toLocaleDateString()}`
+                          : `Requested ${new Date(w.requestedAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-1 rounded font-medium whitespace-nowrap ${
+                        w.status === 'PAID'
+                          ? 'bg-green-50 text-green-700'
+                          : w.status === 'CANCELLED' || w.status === 'REJECTED'
+                            ? 'bg-gray-100 text-gray-500'
+                            : 'bg-amber-50 text-amber-700'
+                      }`}
+                    >
+                      {w.status.replace(/_/g, ' ').toLowerCase()}
+                    </span>
+                    {w.canCancel && (
+                      <button
+                        onClick={() => cancelWithdrawal(w.id)}
+                        title="Cancel this request"
+                        className="text-gray-400 hover:text-red-600 cursor-pointer shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="px-5 py-3 text-xs text-gray-400 border-t border-gray-100">
+              You can cancel at any point before funds are released.
+            </p>
+          </div>
+        )}
+
         <p className="text-xs text-gray-400 text-center pb-6">
           Values are based on the most recent closing prices. Target returns shown elsewhere are
           targets, not guarantees.
@@ -347,6 +460,13 @@ export default function RetirementVaultDashboardPage() {
         accountBalance={fundingAccount?.balance ?? 0}
         accountNumber={fundingAccount?.accountNumber ?? null}
         isActivation={pendingActivation}
+      />
+
+      <VaultWithdrawModal
+        open={withdrawOpen}
+        onClose={() => setWithdrawOpen(false)}
+        onSuccess={load}
+        availableToWithdraw={availableToWithdraw}
       />
     </div>
   );

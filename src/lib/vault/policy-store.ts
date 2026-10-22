@@ -75,6 +75,28 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     unit: 'days',
   },
   {
+    key: 'softLockPenaltyPercent',
+    label: 'Early withdrawal penalty (soft lock)',
+    description:
+      'Percentage charged when a soft-lock member withdraws before their retirement ' +
+      'horizon. Never applied at or after the horizon.',
+    min: 0,
+    max: 20,
+    defaultValue: DEFAULT_VAULT_POLICY.softLockPenaltyPercent,
+    unit: 'percent',
+  },
+  {
+    key: 'flexiblePenaltyPercent',
+    label: 'Early withdrawal penalty (flexible)',
+    description:
+      'Percentage charged when a flexible member withdraws before their retirement ' +
+      'horizon. Lower than the soft-lock rate, which is what the member traded away.',
+    min: 0,
+    max: 20,
+    defaultValue: DEFAULT_VAULT_POLICY.flexiblePenaltyPercent,
+    unit: 'percent',
+  },
+  {
     key: 'focusedConcentrationPercent',
     label: 'Focused concentration',
     description:

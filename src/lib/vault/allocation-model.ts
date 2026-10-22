@@ -29,6 +29,17 @@ export const MODE_SWITCH_COOLDOWN_DAYS = 30;
 export const WITHDRAWAL_NOTICE_DAYS = 14;
 
 /**
+ * Penalty on an EARLY withdrawal, as a percentage of the amount taken.
+ *
+ * Two rates because the member chose a lock-in preference at onboarding: a
+ * soft lock trades access for a better targeted return, so leaving early costs
+ * more. Withdrawing at or after the retirement horizon is never penalised --
+ * that is the vault working as intended, not short-termism.
+ */
+export const SOFT_LOCK_PENALTY_PERCENT = 5;
+export const FLEXIBLE_PENALTY_PERCENT = 2;
+
+/**
  * Share placed in the chosen class under FOCUSED mode.
  *
  * NOTE — product decision, confirm before launch. The spec says only
@@ -99,6 +110,8 @@ export interface VaultPolicy {
   driftThresholdPercent: number;
   modeSwitchCooldownDays: number;
   withdrawalNoticeDays: number;
+  softLockPenaltyPercent: number;
+  flexiblePenaltyPercent: number;
   focusedConcentrationPercent: number;
   targetAllocations: Record<RiskProfile, AllocationMap>;
 }
@@ -115,6 +128,8 @@ export const DEFAULT_VAULT_POLICY: VaultPolicy = {
   driftThresholdPercent: DRIFT_THRESHOLD_PERCENT,
   modeSwitchCooldownDays: MODE_SWITCH_COOLDOWN_DAYS,
   withdrawalNoticeDays: WITHDRAWAL_NOTICE_DAYS,
+  softLockPenaltyPercent: SOFT_LOCK_PENALTY_PERCENT,
+  flexiblePenaltyPercent: FLEXIBLE_PENALTY_PERCENT,
   focusedConcentrationPercent: FOCUSED_CONCENTRATION_PERCENT,
   targetAllocations: TARGET_ALLOCATIONS,
 };

@@ -185,6 +185,10 @@ export const adminSidebarItems: AdminSidebarItem[] = [
         label: "Retirement Vault Policy",
         href: "/admin/vault-policy",
       },
+      {
+        label: "Vault Withdrawals",
+        href: "/admin/vault-withdrawals",
+      },
     ],
   },
   {

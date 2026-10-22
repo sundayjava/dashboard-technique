@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { sendInvestmentMaturityNotification } from '@/lib/email';
 import { syncAssetPrices } from '@/lib/vault/price-sync';
 import { valueAllActiveVaults } from '@/lib/vault/valuation';
+import { serveElapsedNotices } from '@/lib/vault/withdrawal-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,8 +65,21 @@ export async function GET(request: NextRequest) {
   const vaultValuations =
     vaultPriceSync.succeeded > 0 ? await runVaultValuations() : null;
 
+  // Promote withdrawal requests whose notice period has elapsed, so the admin
+  // queue reflects what is genuinely ready to pay. Independent of pricing: a
+  // notice period passes whether or not a feed responded.
+  let withdrawalNoticesServed = 0;
+  try {
+    withdrawalNoticesServed = await serveElapsedNotices();
+    if (withdrawalNoticesServed > 0) {
+      console.log(`📤 Withdrawal notices served: ${withdrawalNoticesServed}`);
+    }
+  } catch (error) {
+    console.error('❌ Serving withdrawal notices failed:', error);
+  }
+
   return NextResponse.json(
-    { ...investmentPayload, vaultPriceSync, vaultValuations },
+    { ...investmentPayload, vaultPriceSync, vaultValuations, withdrawalNoticesServed },
     { status: httpStatus },
   );
 }

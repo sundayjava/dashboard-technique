@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { RiskProfile, VaultAssetClass } from '@prisma/client';
 import { prisma } from '../src/lib/prisma';
 import {
+  POLICY_SETTINGS,
   invalidatePolicyCache,
   loadVaultPolicyDetailed,
   seedVaultPolicy,
@@ -25,7 +26,13 @@ async function main() {
   console.log(`  created ${seeded.settingsCreated} settings, ${seeded.allocationsCreated} allocation rows`);
   const settingCount = await prisma.vaultPolicySetting.count();
   const allocCount = await prisma.vaultProfileAllocation.count();
-  check('5 policy settings stored', settingCount === 5, `got ${settingCount}`);
+  // Asserted against the definition list rather than a literal, so adding a
+  // setting does not fail a test that is not about counting.
+  check(
+    `${POLICY_SETTINGS.length} policy settings stored`,
+    settingCount === POLICY_SETTINGS.length,
+    `got ${settingCount}`,
+  );
   check('18 allocation rows stored (3 profiles x 6 classes)', allocCount === 18, `got ${allocCount}`);
 
   const reseed = await seedVaultPolicy();
