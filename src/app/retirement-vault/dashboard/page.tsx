@@ -11,6 +11,9 @@ import { SessionManager } from '@/lib/session';
 import VaultDepositModal from '@/components/retirement-vault/VaultDepositModal';
 import VaultWithdrawModal from '@/components/retirement-vault/VaultWithdrawModal';
 import AutoContributionCard from '@/components/retirement-vault/AutoContributionCard';
+import AllocationDoughnut from '@/components/retirement-vault/AllocationDoughnut';
+import PerformanceChart from '@/components/retirement-vault/PerformanceChart';
+import ReportCards from '@/components/retirement-vault/ReportCards';
 
 interface Holding {
   symbol: string;
@@ -312,10 +315,20 @@ export default function RetirementVaultDashboardPage() {
           </div>
         </div>
 
-        {/* Allocation */}
+        {/* Composition at a glance */}
+        <AllocationDoughnut
+          allocation={valuation?.currentAllocation ?? {}}
+          totalValue={valuation?.holdingsValue ?? 0}
+          targetAllocation={targetAllocation}
+        />
+
+        {/* Performance vs the 401k benchmark */}
+        <PerformanceChart />
+
+        {/* Actual vs target — the comparison a doughnut cannot make */}
         <div className="bg-white rounded-lg shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">Allocation</h2>
+            <h2 className="text-sm font-semibold text-gray-900">Against your target</h2>
             {drift?.rebalanceRequired && (
               <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
                 Drifted {drift.maxAbsoluteDrift.toFixed(1)} pts from target
@@ -541,6 +554,8 @@ export default function RetirementVaultDashboardPage() {
             </p>
           </div>
         )}
+
+        <ReportCards />
 
         <p className="text-xs text-gray-400 text-center pb-6">
           Values are based on the most recent closing prices. Target returns shown elsewhere are
