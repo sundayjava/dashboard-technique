@@ -6,6 +6,7 @@ import { syncAssetPrices } from '@/lib/vault/price-sync';
 import { valueAllActiveVaults } from '@/lib/vault/valuation';
 import { serveElapsedNotices } from '@/lib/vault/withdrawal-engine';
 import { runScheduledRebalances } from '@/lib/vault/rebalance-engine';
+import { processAutoContributions } from '@/lib/vault/auto-contribution';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +67,30 @@ export async function GET(request: NextRequest) {
   const vaultValuations =
     vaultPriceSync.succeeded > 0 ? await runVaultValuations() : null;
 
+  // Monthly auto-contributions. Runs BEFORE rebalancing so new money is
+  // invested at today's prices and then included in the same allocation pass,
+  // rather than sitting until tomorrow.
+  let vaultAutoContributions = null;
+  if (vaultPriceSync.succeeded > 0) {
+    try {
+      const result = await processAutoContributions();
+      vaultAutoContributions = {
+        considered: result.considered,
+        charged: result.charged,
+        failed: result.failed,
+        totalCharged: result.totalCharged,
+      };
+      if (result.charged > 0 || result.failed > 0) {
+        console.log(
+          `💵 Auto-contributions: ${result.charged} charged ` +
+            `($${result.totalCharged.toLocaleString()}), ${result.failed} failed`,
+        );
+      }
+    } catch (error) {
+      console.error('❌ Auto-contributions threw:', error);
+    }
+  }
+
   // Expert Allocator. Runs after valuation so it works on today's prices, and
   // only when pricing succeeded: rebalancing against stale prices would trade
   // real holdings on figures we know to be wrong.
@@ -107,6 +132,7 @@ export async function GET(request: NextRequest) {
       ...investmentPayload,
       vaultPriceSync,
       vaultValuations,
+      vaultAutoContributions,
       vaultRebalances,
       withdrawalNoticesServed,
     },

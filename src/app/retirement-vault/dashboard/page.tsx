@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { SessionManager } from '@/lib/session';
 import VaultDepositModal from '@/components/retirement-vault/VaultDepositModal';
 import VaultWithdrawModal from '@/components/retirement-vault/VaultWithdrawModal';
+import AutoContributionCard from '@/components/retirement-vault/AutoContributionCard';
 
 interface Holding {
   symbol: string;
@@ -411,6 +412,8 @@ export default function RetirementVaultDashboardPage() {
             </div>
           )}
         </div>
+
+        <AutoContributionCard onChanged={load} />
 
         {(expertActive || rebalances.length > 0) && (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
