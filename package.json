@@ -26,6 +26,7 @@
     "vault:test-rebalance": "tsx scripts/test_vault_rebalance.ts",
     "vault:test-auto-contribution": "tsx scripts/test_vault_auto_contribution.ts",
     "vault:test-report-card": "tsx scripts/test_vault_report_card.ts",
+    "test:chain-account-auth": "tsx scripts/test_chain_account_auth.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },

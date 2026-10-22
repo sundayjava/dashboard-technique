@@ -171,7 +171,7 @@ export default function DashboardPage() {
         axios.get(`/api/investments?userId=${userId}&status=ACTIVE`).catch(() => ({ data: { investments: [] } })),
         axios.get(`/api/messages?userId=${userId}`).catch(() => ({ data: { messages: [] } })),
         axios.get(`/api/holdings?userId=${userId}`).catch(() => ({ data: { holdings: [] } })),
-        axios.get(`/api/chain-account/status?userId=${userId}`).catch(() => ({ data: { data: { state: 'none', totalCount: 0 } } }))
+        axios.get('/api/chain-account/status').catch(() => ({ data: { data: { state: 'none', totalCount: 0 } } }))
       ]);
 
       if (accountRes.data.accounts?.length > 0) {

@@ -7,6 +7,7 @@ import {
   generateMemorandumReference
 } from '@/lib/chain-account-utils';
 import { sendEmail } from '@/lib/email';
+import { authenticateRequest } from '@/lib/auth-middleware';
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,17 +28,13 @@ export async function POST(request: NextRequest) {
       thresholdCurrency,
     } = data;
 
-    // Get user from session - in production, verify JWT token
-    // TODO: Implement proper JWT verification
-    // For now, assume userId is passed in the request body
-    const { userId } = data;
+    // The primary holder is the authenticated caller, taken from a verified
+    // session token. A userId in the body is IGNORED: accepting it let a
+    // caller create a Chain Account naming someone else as primary holder.
+    const auth = await authenticateRequest(request);
+    if (!auth.success) return auth.response;
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const userId = auth.user.userId;
 
     // Validate required fields
     if (!customAccountName || !primaryPurpose || !numberOfParties ||

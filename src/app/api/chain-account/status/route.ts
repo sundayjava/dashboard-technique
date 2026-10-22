@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { authenticateRequest } from '@/lib/auth-middleware';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    // The acting user comes from the verified session, never from the query
+    // string. A caller-supplied userId let anyone read whether any given user
+    // held a Chain Account; the parameter is now ignored entirely.
+    const auth = await authenticateRequest(request);
+    if (!auth.success) return auth.response;
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
+    const userId = auth.user.userId;
 
     // Get user's chain account memberships
     const memberships = await prisma.chainAccountMember.findMany({
