@@ -11,6 +11,7 @@ import { SessionManager } from '@/lib/session';
 import VaultDepositModal from '@/components/retirement-vault/VaultDepositModal';
 import VaultWithdrawModal from '@/components/retirement-vault/VaultWithdrawModal';
 import AutoContributionCard from '@/components/retirement-vault/AutoContributionCard';
+import AllocationModeCard from '@/components/retirement-vault/AllocationModeCard';
 import AllocationDoughnut from '@/components/retirement-vault/AllocationDoughnut';
 import PerformanceChart from '@/components/retirement-vault/PerformanceChart';
 import ReportCards from '@/components/retirement-vault/ReportCards';
@@ -425,6 +426,8 @@ export default function RetirementVaultDashboardPage() {
             </div>
           )}
         </div>
+
+        <AllocationModeCard onChanged={load} />
 
         <AutoContributionCard onChanged={load} />
 

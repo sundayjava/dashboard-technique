@@ -28,6 +28,7 @@
     "vault:test-report-card": "tsx scripts/test_vault_report_card.ts",
     "test:chain-account-auth": "tsx scripts/test_chain_account_auth.ts",
     "vault:test-admin-questionnaire": "tsx scripts/test_vault_admin_questionnaire.ts",
+    "vault:test-mode-switch": "tsx scripts/test_vault_mode_switch.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },
