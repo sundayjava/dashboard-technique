@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import {
-  AlertCircle, ArrowLeft, Loader2, Minus, Plus, TrendingDown, TrendingUp, Wallet, X,
+  AlertCircle, ArrowLeft, Loader2, Minus, Plus, Sparkles, TrendingDown, TrendingUp, Wallet, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SessionManager } from '@/lib/session';
@@ -20,6 +20,15 @@ interface Holding {
   costBasis: number;
   gainLoss: number;
   gainLossPercent: number;
+}
+
+interface RebalanceEvent {
+  id: string;
+  trigger: string;
+  explanation: string;
+  executedAt: string | null;
+  valueAtExecution: number | null;
+  changes: Array<{ assetClass: string; fromPercent: number; toPercent: number }>;
 }
 
 interface WithdrawalRow {
@@ -87,6 +96,11 @@ export default function RetirementVaultDashboardPage() {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
   const [availableToWithdraw, setAvailableToWithdraw] = useState(0);
+  const [rebalances, setRebalances] = useState<RebalanceEvent[]>([]);
+  const [signalsAvailable, setSignalsAvailable] = useState(true);
+  const [historyDays, setHistoryDays] = useState(0);
+  const [historyRequired, setHistoryRequired] = useState(90);
+  const [expertActive, setExpertActive] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -104,6 +118,17 @@ export default function RetirementVaultDashboardPage() {
         setAvailableToWithdraw(w.data?.availableToWithdraw ?? 0);
       } catch {
         setWithdrawals([]);
+      }
+
+      try {
+        const r = await axios.get('/api/retirement-vault/rebalances');
+        setRebalances(r.data?.events ?? []);
+        setSignalsAvailable(r.data?.signalsAvailable ?? true);
+        setHistoryDays(r.data?.historyDays ?? 0);
+        setHistoryRequired(r.data?.historyRequired ?? 90);
+        setExpertActive(r.data?.expertAllocatorActive ?? false);
+      } catch {
+        setRebalances([]);
       }
     } catch {
       toast.error('Could not load your vault.');
@@ -386,6 +411,73 @@ export default function RetirementVaultDashboardPage() {
             </div>
           )}
         </div>
+
+        {(expertActive || rebalances.length > 0) && (
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-gray-500" />
+              <h2 className="text-sm font-semibold text-gray-900">Expert Allocator</h2>
+              {expertActive && (
+                <span className="text-xs bg-[#e0ff57] text-black px-2 py-0.5 rounded font-medium">
+                  active
+                </span>
+              )}
+            </div>
+
+            {expertActive && !signalsAvailable && (
+              <div className="px-5 py-3 bg-amber-50 border-b border-amber-100">
+                <p className="text-xs text-amber-900">
+                  Market signals need {historyRequired} days of price history and we currently
+                  hold {historyDays}. Until then your vault is kept at its plain profile target
+                  rather than tilted on data too thin to trust.
+                </p>
+              </div>
+            )}
+
+            {rebalances.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-gray-500">
+                  No rebalances yet. Your vault is reviewed quarterly, and sooner if your
+                  allocation drifts beyond tolerance.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {rebalances.map((e) => (
+                  <div key={e.id} className="px-5 py-4">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <span className="text-xs font-medium text-gray-900 capitalize">
+                        {e.trigger.replace(/_/g, ' ').toLowerCase()}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {e.executedAt ? new Date(e.executedAt).toLocaleDateString() : '—'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{e.explanation}</p>
+                    {e.changes.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {e.changes.map((c) => {
+                          const up = c.toPercent > c.fromPercent;
+                          return (
+                            <span
+                              key={c.assetClass}
+                              className={`text-xs px-2 py-1 rounded font-medium ${
+                                up ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                              }`}
+                            >
+                              {CLASS_LABELS[c.assetClass] ?? c.assetClass}{' '}
+                              {c.fromPercent.toFixed(1)}% → {c.toPercent.toFixed(1)}%
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {withdrawals.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">

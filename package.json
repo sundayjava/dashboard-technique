@@ -23,6 +23,7 @@
     "vault:test-deposit": "tsx scripts/test_vault_deposit.ts",
     "vault:test-policy": "tsx scripts/test_vault_policy.ts",
     "vault:test-withdrawal": "tsx scripts/test_vault_withdrawal.ts",
+    "vault:test-rebalance": "tsx scripts/test_vault_rebalance.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },

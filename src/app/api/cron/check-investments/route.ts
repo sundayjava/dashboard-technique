@@ -5,6 +5,7 @@ import { sendInvestmentMaturityNotification } from '@/lib/email';
 import { syncAssetPrices } from '@/lib/vault/price-sync';
 import { valueAllActiveVaults } from '@/lib/vault/valuation';
 import { serveElapsedNotices } from '@/lib/vault/withdrawal-engine';
+import { runScheduledRebalances } from '@/lib/vault/rebalance-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +66,29 @@ export async function GET(request: NextRequest) {
   const vaultValuations =
     vaultPriceSync.succeeded > 0 ? await runVaultValuations() : null;
 
+  // Expert Allocator. Runs after valuation so it works on today's prices, and
+  // only when pricing succeeded: rebalancing against stale prices would trade
+  // real holdings on figures we know to be wrong.
+  let vaultRebalances = null;
+  if (vaultPriceSync.succeeded > 0) {
+    try {
+      const result = await runScheduledRebalances();
+      vaultRebalances = {
+        considered: result.considered,
+        applied: result.applied,
+        skipped: result.skipped,
+      };
+      if (result.applied > 0) {
+        console.log(`⚖️  Vault rebalances applied: ${result.applied}/${result.considered}`);
+      }
+      for (const failure of result.failures) {
+        console.warn(`   vault ${failure.vaultId}: ${failure.reason}`);
+      }
+    } catch (error) {
+      console.error('❌ Vault rebalancing threw:', error);
+    }
+  }
+
   // Promote withdrawal requests whose notice period has elapsed, so the admin
   // queue reflects what is genuinely ready to pay. Independent of pricing: a
   // notice period passes whether or not a feed responded.
@@ -79,7 +103,13 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { ...investmentPayload, vaultPriceSync, vaultValuations, withdrawalNoticesServed },
+    {
+      ...investmentPayload,
+      vaultPriceSync,
+      vaultValuations,
+      vaultRebalances,
+      withdrawalNoticesServed,
+    },
     { status: httpStatus },
   );
 }
