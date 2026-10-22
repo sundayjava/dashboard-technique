@@ -87,6 +87,38 @@ export const TARGET_RETURN_RANGES: Record<
   [RiskProfile.GROWTH]: { minPercent: 15, maxPercent: 18 },
 };
 
+/**
+ * The tunable policy, as one object.
+ *
+ * Every function below takes this and defaults to DEFAULT_VAULT_POLICY, so the
+ * module stays pure and synchronous while an admin-configured policy can be
+ * threaded through from a caller that has loaded it. See policy-store.ts.
+ */
+export interface VaultPolicy {
+  cryptoCapPercent: number;
+  driftThresholdPercent: number;
+  modeSwitchCooldownDays: number;
+  withdrawalNoticeDays: number;
+  focusedConcentrationPercent: number;
+  targetAllocations: Record<RiskProfile, AllocationMap>;
+}
+
+/**
+ * The values the product ships with.
+ *
+ * These are the fallback whenever stored policy is missing or unreadable. A
+ * missing row must never be read as zero: a crypto cap of 0 would block every
+ * allocation, and an absent cap treated as unbounded would be far worse.
+ */
+export const DEFAULT_VAULT_POLICY: VaultPolicy = {
+  cryptoCapPercent: CRYPTO_CAP_PERCENT,
+  driftThresholdPercent: DRIFT_THRESHOLD_PERCENT,
+  modeSwitchCooldownDays: MODE_SWITCH_COOLDOWN_DAYS,
+  withdrawalNoticeDays: WITHDRAWAL_NOTICE_DAYS,
+  focusedConcentrationPercent: FOCUSED_CONCENTRATION_PERCENT,
+  targetAllocations: TARGET_ALLOCATIONS,
+};
+
 const ALL_ASSET_CLASSES: VaultAssetClass[] = [
   VaultAssetClass.GLOBAL_EQUITIES,
   VaultAssetClass.FIXED_INCOME,
@@ -154,14 +186,21 @@ export function normaliseTo100(allocation: AllocationMap): AllocationMap {
  * every allocation this module produces, including ones proposed by the Expert
  * Allocator, so the cap cannot be breached by optimisation.
  */
-export function enforceCryptoCap(allocation: AllocationMap): AllocationMap {
+export function enforceCryptoCap(
+  allocation: AllocationMap,
+  capPercent: number = CRYPTO_CAP_PERCENT,
+): AllocationMap {
   const result = { ...allocation };
   const crypto = result[VaultAssetClass.CRYPTO];
 
-  if (crypto <= CRYPTO_CAP_PERCENT) return result;
+  // A non-finite or negative cap is treated as misconfiguration and the
+  // shipped default is used instead of trusting it.
+  const cap = Number.isFinite(capPercent) && capPercent >= 0 ? capPercent : CRYPTO_CAP_PERCENT;
 
-  const excess = crypto - CRYPTO_CAP_PERCENT;
-  result[VaultAssetClass.CRYPTO] = CRYPTO_CAP_PERCENT;
+  if (crypto <= cap) return result;
+
+  const excess = crypto - cap;
+  result[VaultAssetClass.CRYPTO] = cap;
 
   const others = ALL_ASSET_CLASSES.filter((c) => c !== VaultAssetClass.CRYPTO);
   const othersTotal = others.reduce((total, c) => total + result[c], 0);
@@ -187,30 +226,34 @@ export function enforceCryptoCap(allocation: AllocationMap): AllocationMap {
  * DIVERSIFIED and EXPERT_ALLOCATOR both start from the profile table — Expert
  * mode diverges from it over time through rebalancing, but begins there.
  */
-export function getTargetAllocation(params: {
-  riskProfile: RiskProfile;
-  mode: AllocationMode;
-  focusedAssetClass?: VaultAssetClass | null;
-}): AllocationMap {
-  const base = { ...TARGET_ALLOCATIONS[params.riskProfile] };
+export function getTargetAllocation(
+  params: {
+    riskProfile: RiskProfile;
+    mode: AllocationMode;
+    focusedAssetClass?: VaultAssetClass | null;
+  },
+  policy: VaultPolicy = DEFAULT_VAULT_POLICY,
+): AllocationMap {
+  const base = { ...policy.targetAllocations[params.riskProfile] };
+  const cap = policy.cryptoCapPercent;
 
   if (params.mode !== AllocationMode.FOCUSED) {
-    return enforceCryptoCap(base);
+    return enforceCryptoCap(base, cap);
   }
 
   const focus = params.focusedAssetClass;
   if (focus === undefined || focus === null) {
     // A FOCUSED vault with no class chosen is a data error; falling back to the
     // diversified target is safer than refusing to value the vault.
-    return enforceCryptoCap(base);
+    return enforceCryptoCap(base, cap);
   }
 
   const result = emptyAllocation();
-  result[focus] = FOCUSED_CONCENTRATION_PERCENT;
+  result[focus] = policy.focusedConcentrationPercent;
 
   // Spread the remainder across the other classes in their profile proportions,
   // so a focused vault still reflects the member's risk profile underneath.
-  const remainder = 100 - FOCUSED_CONCENTRATION_PERCENT;
+  const remainder = 100 - policy.focusedConcentrationPercent;
   const others = ALL_ASSET_CLASSES.filter((c) => c !== focus);
   const othersBaseTotal = others.reduce((total, c) => total + base[c], 0);
 
@@ -222,9 +265,9 @@ export function getTargetAllocation(params: {
   }
 
   // Focusing on crypto cannot escape the cap: the concentration is clamped to
-  // CRYPTO_CAP_PERCENT and the excess redistributed. Callers should warn the
+  // the configured cap and the excess redistributed. Callers should warn the
   // member that a crypto-focused vault is still capped.
-  return enforceCryptoCap(result);
+  return enforceCryptoCap(result, cap);
 }
 
 export interface AllocationValidation {
@@ -233,7 +276,10 @@ export interface AllocationValidation {
 }
 
 /** Validate an allocation before it is stored against a vault. */
-export function validateAllocation(allocation: AllocationMap): AllocationValidation {
+export function validateAllocation(
+  allocation: AllocationMap,
+  capPercent: number = CRYPTO_CAP_PERCENT,
+): AllocationValidation {
   const errors: string[] = [];
 
   for (const c of ALL_ASSET_CLASSES) {
@@ -248,10 +294,8 @@ export function validateAllocation(allocation: AllocationMap): AllocationValidat
   }
 
   const crypto = allocation[VaultAssetClass.CRYPTO];
-  if (Number.isFinite(crypto) && crypto > CRYPTO_CAP_PERCENT + 1e-9) {
-    errors.push(
-      `Crypto allocation ${crypto}% exceeds the hard cap of ${CRYPTO_CAP_PERCENT}%.`,
-    );
+  if (Number.isFinite(crypto) && crypto > capPercent + 1e-9) {
+    errors.push(`Crypto allocation ${crypto}% exceeds the hard cap of ${capPercent}%.`);
   }
 
   const total = sumAllocation(allocation);
@@ -363,9 +407,10 @@ export function canSwitchMode(
 export function applyOverrides(
   proposed: AllocationMap,
   overrides: Partial<Record<VaultAssetClass, number>>,
+  capPercent: number = CRYPTO_CAP_PERCENT,
 ): AllocationMap {
   const pinned = ALL_ASSET_CLASSES.filter((c) => overrides[c] !== undefined);
-  if (pinned.length === 0) return enforceCryptoCap(proposed);
+  if (pinned.length === 0) return enforceCryptoCap(proposed, capPercent);
 
   const result = emptyAllocation();
   let pinnedTotal = 0;
@@ -374,7 +419,7 @@ export function applyOverrides(
     // A pinned crypto weight is still subject to the cap.
     const requested = overrides[c] as number;
     const value =
-      c === VaultAssetClass.CRYPTO ? Math.min(requested, CRYPTO_CAP_PERCENT) : requested;
+      c === VaultAssetClass.CRYPTO ? Math.min(requested, capPercent) : requested;
     result[c] = Math.max(0, Math.min(100, value));
     pinnedTotal += result[c];
   }
@@ -392,5 +437,5 @@ export function applyOverrides(
           : 0;
   }
 
-  return enforceCryptoCap(normaliseTo100(result));
+  return enforceCryptoCap(normaliseTo100(result), capPercent);
 }

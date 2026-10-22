@@ -181,6 +181,10 @@ export const adminSidebarItems: AdminSidebarItem[] = [
         label: "Trade Keys",
         href: "/admin/trade-keys",
       },
+      {
+        label: "Retirement Vault Policy",
+        href: "/admin/vault-policy",
+      },
     ],
   },
   {

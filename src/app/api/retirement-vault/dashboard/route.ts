@@ -5,6 +5,7 @@ import { authenticateRequest } from '@/lib/auth-middleware';
 import { getOpenVaultForUser } from '@/lib/vault/vault-utils';
 import { valueVault } from '@/lib/vault/valuation';
 import { computeDrift } from '@/lib/vault/allocation-model';
+import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import type { AllocationMap } from '@/lib/vault/allocation-model';
 
 export const dynamic = 'force-dynamic';
@@ -51,9 +52,10 @@ export async function GET(request: NextRequest) {
     }, {} as AllocationMap);
 
     // Drift only means something once there is something invested.
+    const policy = await loadVaultPolicy();
     const drift =
       valuation !== null && valuation.holdingsValue > 0
-        ? computeDrift(targetMap, valuation.currentAllocation)
+        ? computeDrift(targetMap, valuation.currentAllocation, policy.driftThresholdPercent)
         : null;
 
     return NextResponse.json({

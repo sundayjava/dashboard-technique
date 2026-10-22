@@ -2124,3 +2124,51 @@ enum VaultWithdrawalStatus {
   REJECTED
   CANCELLED      // Withdrawn by the member during notice
 }
+
+// ============================================================================
+// RETIREMENT VAULT — ADMIN-CONFIGURABLE POLICY
+// ----------------------------------------------------------------------------
+// The numbers that decide how vaults behave, moved out of code so an admin can
+// tune them without a deploy. Code constants remain the DEFAULTS and the
+// fallback: if a row is missing or unreadable, the policy falls back to the
+// value it shipped with rather than to zero, because a crypto cap that
+// silently became 0 -- or worse, unbounded -- would be a serious failure.
+//
+// Changing policy does NOT retroactively rewrite existing vaults. New targets
+// apply when a vault is created, rebalanced, or deliberately re-aligned, so a
+// member's allocation never shifts under them without an event recording why.
+// ============================================================================
+
+model VaultPolicySetting {
+  id           String   @id @default(cuid())
+  key          String   @unique // e.g. "cryptoCapPercent"
+  numericValue Float
+
+  // Shown in the admin UI so the meaning of a setting is not folded knowledge.
+  label        String
+  description  String?  @db.Text
+  minValue     Float?
+  maxValue     Float?
+
+  updatedBy    String?  // Admin user id
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("vault_policy_settings")
+}
+
+model VaultProfileAllocation {
+  id            String          @id @default(cuid())
+  riskProfile   RiskProfile
+  assetClass    VaultAssetClass
+  targetPercent Float
+
+  updatedBy     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // One target per class per profile.
+  @@unique([riskProfile, assetClass])
+  @@index([riskProfile])
+  @@map("vault_profile_allocations")
+}

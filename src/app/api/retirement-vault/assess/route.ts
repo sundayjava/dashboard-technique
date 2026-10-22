@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { RetirementHorizon } from '@prisma/client';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { getTargetAllocation } from '@/lib/vault/allocation-model';
+import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import { QuestionnaireAnswer, scoreQuestionnaire } from '@/lib/vault/risk-questionnaire';
 import { AllocationMode } from '@prisma/client';
 
@@ -54,10 +55,11 @@ export async function POST(request: NextRequest) {
 
     // Show the allocation the assigned profile implies, so the member sees the
     // consequence of their answers rather than just a label.
-    const previewAllocation = getTargetAllocation({
-      riskProfile: result.assignedProfile,
-      mode: AllocationMode.DIVERSIFIED,
-    });
+    const policy = await loadVaultPolicy();
+    const previewAllocation = getTargetAllocation(
+      { riskProfile: result.assignedProfile, mode: AllocationMode.DIVERSIFIED },
+      policy,
+    );
 
     return NextResponse.json({
       success: true,

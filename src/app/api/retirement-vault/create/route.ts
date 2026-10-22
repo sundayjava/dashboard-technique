@@ -12,6 +12,7 @@ import {
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { getAllAssetClasses, getTargetAllocation } from '@/lib/vault/allocation-model';
+import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import { QuestionnaireAnswer, scoreQuestionnaire } from '@/lib/vault/risk-questionnaire';
 import {
   CURRENT_TERMS_VERSION,
@@ -226,11 +227,14 @@ export async function POST(request: NextRequest) {
     }
 
     // --- derive the allocation from the SERVER-scored profile ---------------
-    const targetAllocation = getTargetAllocation({
-      riskProfile,
-      mode: allocationMode,
-      focusedAssetClass,
-    });
+    // Admin-configured policy, falling back to shipped defaults if unset or
+    // invalid. Loaded at creation time so a vault records the targets that
+    // were in force when the member signed, not whatever they become later.
+    const policy = await loadVaultPolicy();
+    const targetAllocation = getTargetAllocation(
+      { riskProfile, mode: allocationMode, focusedAssetClass },
+      policy,
+    );
 
     const vaultNumber = await generateVaultNumber();
     const now = new Date();
