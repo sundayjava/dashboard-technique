@@ -17,6 +17,7 @@
     "vault:inspect": "tsx scripts/test_vault_inspect.ts",
     "vault:test-allocation": "tsx scripts/test_vault_allocation.ts",
     "vault:test-questionnaire": "tsx scripts/test_vault_questionnaire.ts",
+    "vault:test-valuation": "tsx scripts/test_vault_valuation.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },

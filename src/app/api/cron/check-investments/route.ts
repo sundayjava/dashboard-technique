@@ -3,6 +3,7 @@ import { PriceSyncTrigger } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { sendInvestmentMaturityNotification } from '@/lib/email';
 import { syncAssetPrices } from '@/lib/vault/price-sync';
+import { valueAllActiveVaults } from '@/lib/vault/valuation';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +57,40 @@ export async function GET(request: NextRequest) {
   // logged and recorded in price_sync_runs, never thrown.
   const vaultPriceSync = await runVaultPriceSync();
 
-  return NextResponse.json({ ...investmentPayload, vaultPriceSync }, { status: httpStatus });
+  // Vaults are revalued immediately after the sync, while prices are freshest.
+  // Skipped when nothing could be priced: revaluing against stale prices would
+  // write a misleading NAV for the day, and a gap in the series is both more
+  // honest and easier to spot.
+  const vaultValuations =
+    vaultPriceSync.succeeded > 0 ? await runVaultValuations() : null;
+
+  return NextResponse.json(
+    { ...investmentPayload, vaultPriceSync, vaultValuations },
+    { status: httpStatus },
+  );
+}
+
+async function runVaultValuations() {
+  try {
+    const result = await valueAllActiveVaults();
+    console.log(
+      `📊 Vault valuations: ${result.recorded}/${result.attempted} recorded, ` +
+        `${result.skipped} skipped`,
+    );
+    for (const failure of result.failures) {
+      console.warn(`   vault ${failure.vaultId}: ${failure.reason}`);
+    }
+    return {
+      attempted: result.attempted,
+      recorded: result.recorded,
+      skipped: result.skipped,
+    };
+  } catch (error) {
+    // Isolated for the same reason as the price sync: it must not affect the
+    // investment work that already completed above.
+    console.error('❌ Vault valuation threw:', error);
+    return { attempted: 0, recorded: 0, skipped: 0 };
+  }
 }
 
 async function runVaultPriceSync() {
