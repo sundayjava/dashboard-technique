@@ -226,6 +226,44 @@ export const PROFILE_THRESHOLDS = {
 } as const;
 
 /**
+ * The same bands expressed as a FRACTION of the achievable range.
+ *
+ * Absolute cut-offs only work for exactly this question set. Once an admin can
+ * add or remove questions the range moves, and a hardcoded 14 would quietly
+ * reband everyone — adding one question would make the Conservative band
+ * narrower for every future member without anyone touching it.
+ *
+ * These fractions reproduce the shipped bands on the default seven questions
+ * (range 7-28): 0.3333 -> 14, 0.6667 -> 21.
+ */
+export const PROFILE_BAND_FRACTIONS = {
+  conservativeMax: (14 - 7) / (28 - 7),
+  balancedMax: (21 - 7) / (28 - 7),
+} as const;
+
+/**
+ * Resolve the absolute cut-offs for a given achievable range.
+ *
+ * Falls back to the shipped absolutes on a degenerate range, so a
+ * misconfigured questionnaire cannot produce bands that classify everyone the
+ * same way.
+ */
+export function resolveThresholds(
+  minScore: number,
+  maxScore: number,
+  fractions: { conservativeMax: number; balancedMax: number } = PROFILE_BAND_FRACTIONS,
+): { conservativeMax: number; balancedMax: number } {
+  const span = maxScore - minScore;
+  if (!Number.isFinite(span) || span <= 0) {
+    return { ...PROFILE_THRESHOLDS };
+  }
+  return {
+    conservativeMax: Math.round(minScore + span * fractions.conservativeMax),
+    balancedMax: Math.round(minScore + span * fractions.balancedMax),
+  };
+}
+
+/**
  * Horizon ceilings on the assigned profile.
  *
  * Risk capacity is bounded by time: a drawdown close to retirement cannot be
@@ -249,9 +287,12 @@ const PROFILE_RANK: Record<RiskProfile, number> = {
 };
 
 /** Map a raw score to a profile, before any horizon guardrail. */
-export function profileFromScore(score: number): RiskProfile {
-  if (score <= PROFILE_THRESHOLDS.conservativeMax) return RiskProfile.CONSERVATIVE;
-  if (score <= PROFILE_THRESHOLDS.balancedMax) return RiskProfile.BALANCED;
+export function profileFromScore(
+  score: number,
+  thresholds: { conservativeMax: number; balancedMax: number } = PROFILE_THRESHOLDS,
+): RiskProfile {
+  if (score <= thresholds.conservativeMax) return RiskProfile.CONSERVATIVE;
+  if (score <= thresholds.balancedMax) return RiskProfile.BALANCED;
   return RiskProfile.GROWTH;
 }
 
@@ -309,12 +350,29 @@ export interface QuestionnaireResult {
 export function scoreQuestionnaire(
   answers: QuestionnaireAnswer[],
   horizon: RetirementHorizon,
+  /**
+   * The live question set. Defaults to the shipped questions so every existing
+   * caller keeps working; an admin-managed set is passed in by the loader.
+   */
+  questions: RiskQuestion[] = RISK_QUESTIONS,
 ): QuestionnaireResult {
   const errors: string[] = [];
   const scored: ScoredAnswer[] = [];
   const byId = new Map(answers.map((a) => [a.questionId, a]));
 
-  for (const question of RISK_QUESTIONS) {
+  // Range and bands are derived from the questions actually in play, not from
+  // the shipped seven.
+  const minScore = questions.reduce(
+    (t, q) => t + Math.min(...q.options.map((o) => o.score)),
+    0,
+  );
+  const maxScore = questions.reduce(
+    (t, q) => t + Math.max(...q.options.map((o) => o.score)),
+    0,
+  );
+  const thresholds = resolveThresholds(minScore, maxScore);
+
+  for (const question of questions) {
     const answer = byId.get(question.id);
 
     if (answer === undefined) {
@@ -343,7 +401,7 @@ export function scoreQuestionnaire(
   // Answers for questions that do not exist are rejected rather than ignored:
   // silently dropping them would hide a client/server mismatch.
   for (const answer of answers) {
-    if (!RISK_QUESTIONS.some((q) => q.id === answer.questionId)) {
+    if (!questions.some((q) => q.id === answer.questionId)) {
       errors.push(`Unknown question id: ${answer.questionId}`);
     }
   }
@@ -358,8 +416,8 @@ export function scoreQuestionnaire(
       valid: false,
       errors,
       score,
-      minScore: MIN_SCORE,
-      maxScore: MAX_SCORE,
+      minScore,
+      maxScore,
       scoredProfile: RiskProfile.CONSERVATIVE,
       assignedProfile: RiskProfile.CONSERVATIVE,
       limitedByHorizon: false,
@@ -368,19 +426,19 @@ export function scoreQuestionnaire(
     };
   }
 
-  const scoredProfile = profileFromScore(score);
+  const scoredProfile = profileFromScore(score, thresholds);
   const guardrail = applyHorizonGuardrail(scoredProfile, horizon);
 
   return {
     valid: true,
     errors: [],
     score,
-    minScore: MIN_SCORE,
-    maxScore: MAX_SCORE,
+    minScore,
+    maxScore,
     scoredProfile,
     assignedProfile: guardrail.profile,
     limitedByHorizon: guardrail.wasLimited,
-    explanation: buildExplanation(score, scoredProfile, guardrail.wasLimited, horizon),
+    explanation: buildExplanation(score, scoredProfile, guardrail.wasLimited, horizon, maxScore),
     answers: scored,
   };
 }
@@ -406,15 +464,16 @@ function buildExplanation(
   scoredProfile: RiskProfile,
   wasLimited: boolean,
   horizon: RetirementHorizon,
+  maxScore: number = MAX_SCORE,
 ): string {
-  const base = `You scored ${score} out of ${MAX_SCORE}. ${PROFILE_SUMMARY[scoredProfile]}`;
+  const base = `You scored ${score} out of ${maxScore}. ${PROFILE_SUMMARY[scoredProfile]}`;
 
   if (!wasLimited) return base;
 
   // Being explicit about the override matters: a member told only their final
   // profile would reasonably wonder why their answers did not produce it.
   return (
-    `You scored ${score} out of ${MAX_SCORE}, which on answers alone would suggest a ` +
+    `You scored ${score} out of ${maxScore}, which on answers alone would suggest a ` +
     `higher-risk profile. Because your retirement horizon is ${HORIZON_YEARS[horizon]}, ` +
     `we have held your profile at a level that leaves time to recover from a downturn ` +
     `before you retire. ${PROFILE_SUMMARY[HORIZON_PROFILE_CEILING[horizon]]}`
@@ -422,11 +481,18 @@ function buildExplanation(
 }
 
 /** Sanity checks on the questionnaire definition itself. */
-export function validateQuestionnaire(): { valid: boolean; errors: string[] } {
+export function validateQuestionnaire(
+  questions: RiskQuestion[] = RISK_QUESTIONS,
+): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   const seenIds = new Set<string>();
 
-  for (const question of RISK_QUESTIONS) {
+  if (questions.length === 0) {
+    errors.push('The questionnaire has no active questions.');
+    return { valid: false, errors };
+  }
+
+  for (const question of questions) {
     if (seenIds.has(question.id)) errors.push(`Duplicate question id: ${question.id}`);
     seenIds.add(question.id);
 
@@ -447,17 +513,22 @@ export function validateQuestionnaire(): { valid: boolean; errors: string[] } {
     }
   }
 
-  // Every profile must be reachable, or the bands are misconfigured.
-  if (profileFromScore(MIN_SCORE) !== RiskProfile.CONSERVATIVE) {
+  // Every profile must be reachable against THIS set's range, or the bands are
+  // misconfigured for the questions actually in use.
+  const min = questions.reduce((t, q) => t + Math.min(...q.options.map((o) => o.score)), 0);
+  const max = questions.reduce((t, q) => t + Math.max(...q.options.map((o) => o.score)), 0);
+  const thresholds = resolveThresholds(min, max);
+
+  if (profileFromScore(min, thresholds) !== RiskProfile.CONSERVATIVE) {
     errors.push('The minimum score does not map to CONSERVATIVE.');
   }
-  if (profileFromScore(MAX_SCORE) !== RiskProfile.GROWTH) {
+  if (profileFromScore(max, thresholds) !== RiskProfile.GROWTH) {
     errors.push('The maximum score does not map to GROWTH.');
   }
-  if (PROFILE_THRESHOLDS.conservativeMax >= PROFILE_THRESHOLDS.balancedMax) {
+  if (thresholds.conservativeMax >= thresholds.balancedMax) {
     errors.push('Profile thresholds overlap or are inverted.');
   }
-  if (PROFILE_THRESHOLDS.balancedMax >= MAX_SCORE) {
+  if (thresholds.balancedMax >= max) {
     errors.push('The Balanced band swallows the Growth band — GROWTH is unreachable.');
   }
 

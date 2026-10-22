@@ -189,6 +189,10 @@ export const adminSidebarItems: AdminSidebarItem[] = [
         label: "Vault Withdrawals",
         href: "/admin/vault-withdrawals",
       },
+      {
+        label: "Vault Questionnaire",
+        href: "/admin/vault-questionnaire",
+      },
     ],
   },
   {

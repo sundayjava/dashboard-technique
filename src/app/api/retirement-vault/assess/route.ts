@@ -4,6 +4,7 @@ import { authenticateRequest } from '@/lib/auth-middleware';
 import { getTargetAllocation } from '@/lib/vault/allocation-model';
 import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import { QuestionnaireAnswer, scoreQuestionnaire } from '@/lib/vault/risk-questionnaire';
+import { loadQuestionnaire } from '@/lib/vault/questionnaire-store';
 import { AllocationMode } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = scoreQuestionnaire(answers, horizon as RetirementHorizon);
+    const questions = await loadQuestionnaire();
+    const result = scoreQuestionnaire(answers, horizon as RetirementHorizon, questions);
 
     if (!result.valid) {
       return NextResponse.json(

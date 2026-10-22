@@ -2172,3 +2172,57 @@ model VaultProfileAllocation {
   @@index([riskProfile])
   @@map("vault_profile_allocations")
 }
+
+// ============================================================================
+// RETIREMENT VAULT — ADMIN-MANAGED RISK QUESTIONNAIRE
+// ----------------------------------------------------------------------------
+// The questionnaire an admin can add to, edit and reorder. Code constants
+// remain the seed and the fallback: if no active questions are stored, scoring
+// falls back to the shipped set rather than assigning everyone the lowest
+// profile, which is what an empty questionnaire would otherwise do.
+//
+// Questions are DEACTIVATED, never deleted, once used. A stored assessment
+// records the question text it was answered against, but the question row is
+// what a later suitability review would be read alongside.
+// ============================================================================
+
+model VaultRiskQuestion {
+  id          String                    @id @default(cuid())
+  /** Stable key stored on assessments; must not change once live. */
+  key         String                    @unique
+  question    String                    @db.Text
+  helpText    String?                   @db.Text
+  /** What the question measures: willingness, capacity or experience. */
+  measures    String                    @default("willingness")
+  displayOrder Int                      @default(0)
+  isActive    Boolean                   @default(true)
+
+  updatedBy   String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  options     VaultRiskQuestionOption[]
+
+  @@index([isActive, displayOrder])
+  @@map("vault_risk_questions")
+}
+
+model VaultRiskQuestionOption {
+  id          String            @id @default(cuid())
+  questionId  String
+  /** Stable value stored on assessments. */
+  value       String
+  label       String            @db.Text
+  /** 1 (most cautious) to 4 (most risk-tolerant). */
+  score       Int
+  displayOrder Int              @default(0)
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  question    VaultRiskQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, value])
+  @@index([questionId, displayOrder])
+  @@map("vault_risk_question_options")
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-middleware';
-import { RISK_QUESTIONS } from '@/lib/vault/risk-questionnaire';
+import { loadQuestionnaire } from '@/lib/vault/questionnaire-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,9 +19,12 @@ export async function GET(request: NextRequest) {
   const auth = await authenticateRequest(request);
   if (!auth.success) return auth.response;
 
+  // Admin-managed set, falling back to the shipped questions if none stored.
+  const questions = await loadQuestionnaire();
+
   return NextResponse.json({
     success: true,
-    questions: RISK_QUESTIONS.map((question) => ({
+    questions: questions.map((question) => ({
       id: question.id,
       question: question.question,
       helpText: question.helpText ?? null,

@@ -27,6 +27,7 @@
     "vault:test-auto-contribution": "tsx scripts/test_vault_auto_contribution.ts",
     "vault:test-report-card": "tsx scripts/test_vault_report_card.ts",
     "test:chain-account-auth": "tsx scripts/test_chain_account_auth.ts",
+    "vault:test-admin-questionnaire": "tsx scripts/test_vault_admin_questionnaire.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },

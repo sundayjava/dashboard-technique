@@ -14,6 +14,7 @@ import { authenticateRequest } from '@/lib/auth-middleware';
 import { getAllAssetClasses, getTargetAllocation } from '@/lib/vault/allocation-model';
 import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import { QuestionnaireAnswer, scoreQuestionnaire } from '@/lib/vault/risk-questionnaire';
+import { loadQuestionnaire } from '@/lib/vault/questionnaire-store';
 import {
   CURRENT_TERMS_VERSION,
   MAX_AGE,
@@ -129,7 +130,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const assessment = scoreQuestionnaire(body.answers, horizon);
+    // Scored against the SAME live question set the member was shown.
+    const liveQuestions = await loadQuestionnaire();
+    const assessment = scoreQuestionnaire(body.answers, horizon, liveQuestions);
     if (!assessment.valid) {
       return NextResponse.json(
         {
