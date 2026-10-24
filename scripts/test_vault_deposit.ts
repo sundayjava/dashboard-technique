@@ -5,6 +5,7 @@ import { prisma } from '../src/lib/prisma';
 import { createSessionToken } from '../src/lib/session';
 import { POST as createPOST } from '../src/app/api/retirement-vault/create/route';
 import { POST as depositPOST } from '../src/app/api/retirement-vault/deposit/route';
+import { POST as investPOST } from '../src/app/api/retirement-vault/invest/route';
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import { valueVault } from '../src/lib/vault/valuation';
 
@@ -93,15 +94,24 @@ async function main() {
   check('status now ACTIVE', dep.vault?.status === 'ACTIVE', dep.vault?.status);
   check('account debited to $10,000', dep.accountBalanceAfter === 10000, `got ${dep.accountBalanceAfter}`);
 
-  console.log('  purchased:');
-  for (const line of dep.allocation ?? []) {
-    console.log(`    ${line.symbol.padEnd(5)} $${String(line.amount).padStart(8)}  ${line.units.toFixed(6)} units @ $${line.price}`);
-  }
-  console.log(`  residual cash: $${dep.residualCash}`);
+  check('deposit is held as uninvested cash', Math.abs(dep.awaitingInvestment - 10000) < 0.01,
+    `got ${dep.awaitingInvestment}`);
+  const depositedVault = await prisma.retirementVault.findFirstOrThrow({ where: { userId: user.id } });
+  const boughtOnDeposit = await prisma.vaultHolding.count({ where: { vaultId: depositedVault.id } });
+  check('a deposit buys nothing by itself', boughtOnDeposit === 0, `got ${boughtOnDeposit}`);
+
+  console.log('\n=== 3b. The member invests it ===');
+  // The deposit is now cash; investing is a separate, member-triggered step.
+  const inv = await investPOST(req('/api/retirement-vault/invest', { amount: 10000 }));
+  const invBody = await inv.json();
+  check('investment succeeds', inv.status === 200, JSON.stringify(invBody).slice(0, 160));
+  console.log('  purchased:', (invBody.lines ?? []).map((l: {symbol:string;amount:number}) =>
+    `${l.symbol} $${l.amount}`).join(', '));
 
   console.log('\n=== 4. Money is conserved ===');
-  const allocSum = (dep.allocation ?? []).reduce((s: number, l: { amount: number }) => s + l.amount, 0);
-  check('allocated + residual = deposit', Math.abs(allocSum + dep.residualCash - 10000) < 0.05, `got ${allocSum + dep.residualCash}`);
+  const allocSum = (invBody.lines ?? []).reduce((s: number, l: { amount: number }) => s + l.amount, 0);
+  check('invested total matches the cash placed', Math.abs(allocSum - 10000) < 0.05,
+    `got ${allocSum}`);
 
   const acct = await prisma.account.findUnique({ where: { id: account.id } });
   const vault = await prisma.retirementVault.findFirst({ where: { userId: user.id }, include: { holdings: true, contributions: true } });
@@ -133,6 +143,9 @@ async function main() {
   const dep2 = await dep2Res.json();
   check('second deposit succeeds', dep2Res.status === 200, JSON.stringify(dep2).slice(0, 150));
   check('not re-activated', dep2.activated === false);
+
+  const inv2 = await investPOST(req('/api/retirement-vault/invest', { amount: 5000 }));
+  check('second investment succeeds', inv2.status === 200, `got ${inv2.status}`);
 
   const vault2 = await prisma.retirementVault.findFirst({ where: { userId: user.id }, include: { holdings: true, contributions: true } });
   check('still 9 holdings, not 18', vault2?.holdings.length === 9, `got ${vault2?.holdings.length}`);

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Loader2, Minus, X } from 'lucide-react';
+import { Banknote, Loader2, Minus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { money, useVault } from '@/components/retirement-vault/VaultContext';
+import { StatCard } from '@/components/retirement-vault/VaultUI';
 import VaultWithdrawModal from '@/components/retirement-vault/VaultWithdrawModal';
 
 interface WithdrawalRow {
@@ -66,36 +67,42 @@ export default function VaultWithdrawalsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs text-gray-500">Available to withdraw</p>
-          <p className="text-2xl font-bold text-gray-900 tabular-nums">{money(available)}</p>
-          {committed > 0 && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              {money(committed)} committed to open requests
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <StatCard
+          tone="blue"
+          icon={Banknote}
+          label="Available to withdraw"
+          value={money(available)}
+          sub={
+            committed > 0 ? (
+              <span className="text-xs text-white/70">
+                {money(committed)} committed to open requests
+              </span>
+            ) : undefined
+          }
+        />
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Take money out</p>
+            <p className="text-sm text-gray-600 mt-1">
+              Requests serve a {noticeDays}-day notice period before funds are released, and
+              withdrawing before your horizon carries a penalty. You can cancel any time
+              before release.
             </p>
-          )}
+          </div>
+          <button
+            onClick={() => setOpen(true)}
+            disabled={!active || available <= 0}
+            title={active ? undefined : 'Your vault must be active to withdraw'}
+            className="mt-4 self-start flex items-center gap-2 border border-gray-200 text-gray-700 px-5 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Minus className="w-4 h-4" />
+            Request withdrawal
+          </button>
         </div>
-        <button
-          onClick={() => setOpen(true)}
-          disabled={!active || available <= 0}
-          title={active ? undefined : 'Your vault must be active to withdraw'}
-          className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <Minus className="w-4 h-4" />
-          Request withdrawal
-        </button>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-        <p className="text-xs text-amber-900">
-          Withdrawals serve a {noticeDays}-day notice period before funds are released, and
-          withdrawing before your retirement horizon carries a penalty. You can cancel at any
-          point before release.
-        </p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900">Your requests</h2>
         </div>

@@ -69,8 +69,8 @@ export default function VaultDepositModal({
       });
       toast.success(
         res.data?.activated
-          ? 'Your vault is now active and invested.'
-          : 'Deposit invested into your vault.',
+          ? 'Your vault is active. Head to Allocation to invest it.'
+          : 'Deposit added. Head to Allocation to invest it.',
       );
       reset();
       onSuccess();
@@ -109,8 +109,8 @@ export default function VaultDepositModal({
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
               <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-900">
-                This first deposit activates your vault. Your money is invested into your target
-                allocation straight away at current market prices.
+                This first deposit activates your vault. The money is held as cash until you
+                choose how to invest it.
               </p>
             </div>
           )}

@@ -8,11 +8,6 @@ import {
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
-import {
-  applyAllocationPlan,
-  buildAllocationPlan,
-  summarisePlan,
-} from '@/lib/vault/allocation-engine';
 import { MIN_INITIAL_DEPOSIT, getOpenVaultForUser } from '@/lib/vault/vault-utils';
 
 export const dynamic = 'force-dynamic';
@@ -128,30 +123,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // --- plan the purchase BEFORE touching any money ------------------------
-    // If the universe cannot be priced, the member keeps their money rather
-    // than having it sit as idle cash in a vault they expected to be invested.
-    const plan = await buildAllocationPlan(vault.id, amount);
-
-    if (!plan.complete) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Live prices are unavailable for part of your allocation, so this deposit ' +
-            'was not taken. Please try again shortly.',
-          missingPrices: plan.missingPrices,
-        },
-        { status: 503 },
-      );
-    }
-
-    if (plan.lines.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'This vault has no allocation targets to invest into.' },
-        { status: 400 },
-      );
-    }
+    // A deposit no longer buys anything. It moves money into the vault as
+    // UNINVESTED CASH, and the member then decides where it goes -- either by
+    // setting each asset class themselves, or by handing a total to the Expert
+    // Allocator. Because nothing is priced here, a feed outage can no longer
+    // block a member from funding their vault.
 
     const reference = `RVD-${Date.now()}-${vault.vaultNumber.slice(-5)}`;
     const wasActivating = vault.status === VaultStatus.PENDING_ACTIVATION;
@@ -228,14 +204,12 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      await applyAllocationPlan(tx, plan);
-
       const updatedVault = await tx.retirementVault.update({
         where: { id: vault.id },
         data: {
           totalContributed: { increment: amount },
-          // Only the rounding residue stays as cash; the rest became units.
-          cashBalance: { increment: plan.residualCash },
+          // The whole deposit is held as cash until the member invests it.
+          cashBalance: { increment: amount },
           ...(wasActivating
             ? { status: VaultStatus.ACTIVE, activatedAt: new Date() }
             : {}),
@@ -258,11 +232,11 @@ export async function POST(request: NextRequest) {
         data: {
           userId,
           type: 'INVESTMENT',
-          title: wasActivating ? 'Retirement Vault activated' : 'Deposit added to your vault',
+          title: wasActivating ? 'Retirement Vault activated' : 'Deposit received',
           message:
-            `$${amount.toLocaleString()} has been invested into ${vault.vaultNumber}. ` +
-            `Holdings purchased: ${summarisePlan(plan)}.`,
-          link: '/retirement-vault/dashboard',
+            `$${amount.toLocaleString()} is now available in ${vault.vaultNumber}. ` +
+            `It is held as cash until you choose how to invest it.`,
+          link: '/retirement-vault/allocation',
         },
       })
       .catch((error) => {
@@ -280,14 +254,8 @@ export async function POST(request: NextRequest) {
         cashBalance: result.updatedVault.cashBalance,
       },
       accountBalanceAfter: result.balanceAfter,
-      allocation: plan.lines.map((line) => ({
-        symbol: line.symbol,
-        assetClass: line.assetClass,
-        amount: Number(line.amount.toFixed(2)),
-        price: line.price,
-        units: line.units,
-      })),
-      residualCash: Number(plan.residualCash.toFixed(2)),
+      // Held as cash; the member invests it from the Allocation page.
+      awaitingInvestment: Number(result.updatedVault.cashBalance.toFixed(2)),
     });
   } catch (error) {
     console.error('[Vault Deposit] error:', error);

@@ -73,7 +73,7 @@ export default function PerformanceChart() {
   const ahead = (summary?.outperformanceValue ?? 0) >= 0;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-5">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       {/* Filters in one row above the chart. */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="text-sm font-semibold text-gray-900">

@@ -6,6 +6,7 @@ import { prisma } from '../src/lib/prisma';
 import { createSessionToken } from '../src/lib/session';
 import { POST as createPOST } from '../src/app/api/retirement-vault/create/route';
 import { POST as depositPOST } from '../src/app/api/retirement-vault/deposit/route';
+import { POST as investPOST } from '../src/app/api/retirement-vault/invest/route';
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import { computeSignals, SignalSet } from '../src/lib/vault/signals';
 import {
@@ -81,6 +82,9 @@ async function main() {
     lockInPreference: 'SOFT_LOCK', signatureName: 'Rebalance Test', consentConfirmed: true,
   }));
   await depositPOST(req('/api/retirement-vault/deposit', { amount: 10000, transactionPin: PIN }));
+  // A deposit is held as cash now, so invest it before there is anything to
+  // rebalance.
+  await investPOST(req('/api/retirement-vault/invest', { amount: 10000 }));
   const vault = await prisma.retirementVault.findFirstOrThrow({ where: { userId: user.id } });
   check('vault is in Expert mode', vault.expertAllocatorActive);
 

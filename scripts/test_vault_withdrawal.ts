@@ -6,6 +6,7 @@ import { prisma } from '../src/lib/prisma';
 import { createSessionToken } from '../src/lib/session';
 import { POST as createPOST } from '../src/app/api/retirement-vault/create/route';
 import { POST as depositPOST } from '../src/app/api/retirement-vault/deposit/route';
+import { POST as investPOST } from '../src/app/api/retirement-vault/invest/route';
 import {
   GET as wGET, POST as wPOST, DELETE as wDELETE,
 } from '../src/app/api/retirement-vault/withdraw/route';
@@ -76,6 +77,9 @@ async function main() {
     lockInPreference: 'SOFT_LOCK', signatureName: 'Vault WD Test', consentConfirmed: true,
   }));
   await depositPOST(req('/api/retirement-vault/deposit', 'POST', { amount: 10000, transactionPin: PIN }));
+  // A deposit is cash now, so invest it before testing that a withdrawal
+  // sells holdings proportionally.
+  await investPOST(req('/api/retirement-vault/invest', 'POST', { amount: 10000 }));
   const vault = await prisma.retirementVault.findFirstOrThrow({ where: { userId: user.id } });
   console.log(`  vault ${vault.vaultNumber} funded $10,000 (SOFT_LOCK, 25+yr horizon)`);
 

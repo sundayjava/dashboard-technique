@@ -87,7 +87,7 @@ export default function VaultAllocatorPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-5">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-4 h-4 text-gray-500" />
           <h2 className="text-sm font-semibold text-gray-900">Expert Allocator</h2>
@@ -106,7 +106,7 @@ export default function VaultAllocatorPage() {
         </p>
 
         {expertActive && !signalsAvailable && (
-          <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
             <p className="text-xs text-amber-900">
               Market signals need {historyRequired} days of price history and we hold{' '}
               {historyDays}. Until then your vault is kept at its plain profile target rather
@@ -117,7 +117,7 @@ export default function VaultAllocatorPage() {
       </div>
 
       {/* Per-class pinning — overriding one allocation without leaving Expert mode. */}
-      <div className="bg-white rounded-lg shadow-sm p-5">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <h2 className="text-sm font-semibold text-gray-900 mb-1">Pin an allocation</h2>
         <p className="text-xs text-gray-500 mb-4">
           A pinned class is held exactly where you put it and the allocator works around it.
@@ -140,7 +140,7 @@ export default function VaultAllocatorPage() {
                     onChange={(e) => setDraft((d) => ({ ...d, [cls]: e.target.value }))}
                     min={0}
                     max={100}
-                    className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm text-right tabular-nums"
+                    className="w-20 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-right tabular-nums"
                   />
                   <span className="text-xs text-gray-400 w-3">%</span>
                   <button
@@ -169,7 +169,7 @@ export default function VaultAllocatorPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900">Rebalance history</h2>
         </div>

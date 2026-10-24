@@ -5,7 +5,11 @@ import {
   VaultStatus,
 } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { applyAllocationPlan, buildAllocationPlan, summarisePlan } from './allocation-engine';
+import {
+  applyAllocationPlan,
+  buildTargetingAllocationPlan,
+  summarisePlan,
+} from './allocation-engine';
 
 /**
  * Monthly auto-contributions.
@@ -74,6 +78,7 @@ export async function processAutoContributions(
       currency: true,
       monthlyContribution: true,
       monthlyContributionDay: true,
+      expertAllocatorActive: true,
     },
   });
 
@@ -188,18 +193,27 @@ export async function processAutoContributions(
         continue;
       }
 
-      // Price the purchase before touching money, exactly as a manual deposit
-      // does. A pricing outage must not take the money and leave it idle.
-      const plan = await buildAllocationPlan(vault.id, amount);
-      if (!plan.complete || plan.lines.length === 0) {
-        await fail(
-          plan.lines.length === 0
-            ? 'No allocation targets to invest into.'
-            : `Live prices unavailable for ${plan.missingPrices.join(', ')}.`,
-          // Not the member's problem to fix, so no notification.
-          false,
-        );
-        continue;
+      // Only an Expert Allocator vault invests the contribution automatically.
+      // With Expert off the member places their own trades, so the money is
+      // added as cash and they decide where it goes -- taking it and investing
+      // it for them would be the opposite of what they chose.
+      const autoInvest = vault.expertAllocatorActive;
+
+      let plan = null as Awaited<ReturnType<typeof buildTargetingAllocationPlan>> | null;
+      if (autoInvest) {
+        // Price before touching money. A pricing outage must not take the
+        // contribution and leave it unallocated.
+        plan = await buildTargetingAllocationPlan(vault.id, amount);
+        if (!plan.complete || plan.lines.length === 0) {
+          await fail(
+            plan.lines.length === 0
+              ? 'No allocation targets to invest into.'
+              : `Live prices unavailable for ${plan.missingPrices.join(', ')}.`,
+            // Not the member's problem to fix, so no notification.
+            false,
+          );
+          continue;
+        }
       }
 
       const reference = `RVA-${Date.now()}-${vault.vaultNumber.slice(-5)}`;
@@ -265,13 +279,15 @@ export async function processAutoContributions(
             });
           }
 
-          await applyAllocationPlan(tx, plan);
+          if (plan !== null) await applyAllocationPlan(tx, plan);
 
           await tx.retirementVault.update({
             where: { id: vault.id },
             data: {
               totalContributed: { increment: amount },
-              cashBalance: { increment: plan.residualCash },
+              // Invested vaults keep only the rounding residue as cash;
+              // member-directed vaults hold the whole contribution.
+              cashBalance: { increment: plan === null ? amount : plan.residualCash },
             },
           });
         },
@@ -283,11 +299,20 @@ export async function processAutoContributions(
           data: {
             userId: vault.userId,
             type: 'INVESTMENT',
-            title: 'Monthly contribution invested',
+            title:
+              plan === null
+                ? 'Monthly contribution received'
+                : 'Monthly contribution invested',
             message:
-              `$${amount.toLocaleString()} was added to ${vault.vaultNumber} and invested. ` +
-              `${summarisePlan(plan)}.`,
-            link: '/retirement-vault/dashboard',
+              plan === null
+                ? `$${amount.toLocaleString()} was added to ${vault.vaultNumber} and is ` +
+                  `waiting for you to invest it.`
+                : `$${amount.toLocaleString()} was added to ${vault.vaultNumber} and ` +
+                  `invested. ${summarisePlan(plan)}.`,
+            link:
+              plan === null
+                ? '/retirement-vault/allocation'
+                : '/retirement-vault/holdings',
           },
         })
         .catch(() => undefined);

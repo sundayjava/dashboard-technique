@@ -1,158 +1,231 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowRight, Banknote, PiggyBank, Target } from 'lucide-react';
 import {
   CLASS_LABELS, MODE_LABELS, PROFILE_LABELS, money, moneyShort, useVault,
 } from '@/components/retirement-vault/VaultContext';
+import {
+  AssetIcon, Panel, PillButton, StatCard, Trend,
+} from '@/components/retirement-vault/VaultUI';
+import ExpertToggle from '@/components/retirement-vault/ExpertToggle';
 
 /** Overview: the headline numbers, then routes into the detail pages. */
 export default function VaultOverviewPage() {
-  const { data } = useVault();
+  const { data, refresh } = useVault();
+  const router = useRouter();
   const vault = data?.vault;
   const valuation = data?.valuation;
   if (!vault) return null;
 
   const gain = valuation?.unrealisedGainLoss ?? 0;
-  const up = gain >= 0;
   const benchmark = valuation?.benchmarkValue ?? null;
   const vsBenchmark = benchmark === null ? null : (valuation?.totalValue ?? 0) - benchmark;
 
-  const topClasses = Object.entries(valuation?.currentAllocation ?? {})
+  const classes = Object.entries(valuation?.currentAllocation ?? {})
     .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
+    .sort((a, b) => b[1] - a[1]);
+
+  const target = data?.targetAllocation ?? {};
 
   return (
-    <div className="space-y-6">
-      {/* Hero figure — the one number the page leads with. */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <p className="text-sm text-gray-500">Vault value</p>
-        <p className="text-4xl font-bold text-gray-900 mt-1 tabular-nums">
-          {money(valuation?.totalValue ?? 0)}
-        </p>
-        <div className="flex items-center gap-2 mt-2">
-          {up ? (
-            <TrendingUp className="w-4 h-4 text-green-600" />
-          ) : (
-            <TrendingDown className="w-4 h-4 text-red-600" />
-          )}
-          <span className={`text-sm font-medium ${up ? 'text-green-600' : 'text-red-600'}`}>
-            {up ? '+' : ''}
-            {money(gain)} ({valuation?.unrealisedGainLossPercent.toFixed(2) ?? '0.00'}%)
-          </span>
-          <span className="text-sm text-gray-400">since inception</span>
-        </div>
-      </div>
-
-      {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          ['Contributed', moneyShort(vault.totalContributed)],
-          ['Invested', moneyShort(valuation?.holdingsValue ?? 0)],
-          ['Uninvested cash', moneyShort(vault.cashBalance)],
-          [
-            'vs 401k',
+    <div className="space-y-5">
+      {/* Three headline cards: one accent, one plain, one brand. */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard
+          tone="blue"
+          icon={PiggyBank}
+          label="Vault value"
+          value={money(valuation?.totalValue ?? 0)}
+          sub={
+            <span className="text-xs text-white/80">
+              {gain >= 0 ? '+' : ''}
+              {money(gain)} ({valuation?.unrealisedGainLossPercent.toFixed(2) ?? '0.00'}%)
+            </span>
+          }
+          onAction={() => router.push('/retirement-vault/performance')}
+          actionLabel="View performance"
+        />
+        <StatCard
+          tone="plain"
+          icon={Banknote}
+          label="Total contributed"
+          value={money(vault.totalContributed)}
+          sub={
+            <span className="text-xs text-gray-500">
+              {vault.monthlyContribution
+                ? `${moneyShort(vault.monthlyContribution)}/month`
+                : 'No monthly contribution'}
+            </span>
+          }
+          onAction={() => router.push('/retirement-vault/contributions')}
+          actionLabel="Manage contributions"
+        />
+        <StatCard
+          tone="lime"
+          icon={Target}
+          label="vs traditional 401k"
+          value={
             vsBenchmark === null
               ? '—'
-              : `${vsBenchmark >= 0 ? '+' : '−'}${moneyShort(Math.abs(vsBenchmark))}`,
-          ],
-        ].map(([label, value], i) => (
-          <div key={label} className="bg-white rounded-lg shadow-sm p-4">
-            <p className="text-xs text-gray-500">{label}</p>
-            <p
-              className={`text-xl font-bold mt-1 tabular-nums ${
-                i === 3 && vsBenchmark !== null
-                  ? vsBenchmark >= 0
-                    ? 'text-green-600'
-                    : 'text-red-600'
-                  : 'text-gray-900'
-              }`}
-            >
-              {value}
+              : `${vsBenchmark >= 0 ? '+' : '−'}${money(Math.abs(vsBenchmark))}`
+          }
+          sub={
+            <span className="text-xs text-black/60">
+              {benchmark === null ? 'Available once funded' : `401k: ${moneyShort(benchmark)}`}
+            </span>
+          }
+          onAction={() => router.push('/retirement-vault/reports')}
+          actionLabel="View reports"
+        />
+      </div>
+
+      {/* Uninvested cash is the thing most likely to need action, so it sits
+          above the allocation list with the toggle beside it. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Panel>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500">Uninvested cash</p>
+              <p className="text-2xl font-bold text-gray-900 tabular-nums mt-1">
+                {money(vault.cashBalance)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {vault.cashBalance > 0.01
+                  ? 'Waiting for you to invest it.'
+                  : 'Everything is invested.'}
+              </p>
+            </div>
+            {vault.cashBalance > 0.01 && (
+              <PillButton
+                tone="dark"
+                onClick={() => router.push('/retirement-vault/allocation')}
+              >
+                Invest now
+              </PillButton>
+            )}
+          </div>
+        </Panel>
+
+        <Panel>
+          <ExpertToggle onChanged={refresh} compact />
+        </Panel>
+      </div>
+
+      {/* Allocation, as a pool-style list with per-asset colour. */}
+      <Panel
+        title="Allocation"
+        padded={false}
+        action={
+          <PillButton onClick={() => router.push('/retirement-vault/allocation')}>
+            View details
+          </PillButton>
+        }
+      >
+        {classes.length === 0 ? (
+          <div className="px-5 pb-8 pt-2 text-center">
+            <p className="text-sm text-gray-500">
+              Nothing invested yet.{' '}
+              <Link href="/retirement-vault/contributions" className="underline">
+                Fund your vault
+              </Link>{' '}
+              to buy your allocation.
             </p>
           </div>
-        ))}
-      </div>
-
-      {/* Plan at a glance */}
-      <div className="bg-white rounded-lg shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-900 mb-3">Your plan</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            ['Risk profile', PROFILE_LABELS[vault.riskProfile] ?? vault.riskProfile],
-            ['Allocation mode', MODE_LABELS[vault.allocationMode] ?? vault.allocationMode],
-            ['Horizon', vault.horizon.replace('YEARS_', '').replace('_PLUS', '+') + ' years'],
-            [
-              'Monthly',
-              vault.monthlyContribution ? moneyShort(vault.monthlyContribution) : 'Not set',
-            ],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className="text-sm font-semibold text-gray-900 mt-0.5">{value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Allocation snapshot, with the detail one click away */}
-      <div className="bg-white rounded-lg shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-900">Allocation</h2>
-          <Link
-            href="/retirement-vault/allocation"
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900"
-          >
-            View detail <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-
-        {topClasses.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Nothing invested yet.{' '}
-            <Link href="/retirement-vault/contributions" className="underline">
-              Fund your vault
-            </Link>{' '}
-            to buy your allocation.
-          </p>
         ) : (
-          <div className="space-y-2">
-            {topClasses.map(([cls, pct]) => (
-              <div key={cls}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-700">{CLASS_LABELS[cls] ?? cls}</span>
-                  <span className="text-gray-900 font-medium tabular-nums">
-                    {pct.toFixed(1)}%
-                  </span>
-                </div>
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#c1ff72] rounded-full"
-                    style={{ width: `${Math.min(100, pct)}%` }}
-                  />
-                </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wide text-gray-400">
+                  <th className="text-left font-medium px-5 py-3">Asset class</th>
+                  <th className="text-right font-medium px-5 py-3">Share</th>
+                  <th className="text-right font-medium px-5 py-3">Target</th>
+                  <th className="text-right font-medium px-5 py-3">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classes.map(([cls, pct]) => {
+                  const t = target[cls] ?? 0;
+                  const value = ((valuation?.holdingsValue ?? 0) * pct) / 100;
+                  return (
+                    <tr key={cls} className="border-t border-gray-50">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <AssetIcon symbol={cls.slice(0, 3)} assetClass={cls} />
+                          <span className="font-medium text-gray-900">
+                            {CLASS_LABELS[cls] ?? cls}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-right font-semibold text-gray-900 tabular-nums">
+                        {pct.toFixed(2)}%
+                      </td>
+                      <td className="px-5 py-4 text-right text-gray-400 tabular-nums">
+                        {t.toFixed(0)}%
+                      </td>
+                      <td className="px-5 py-4 text-right text-gray-900 tabular-nums">
+                        {money(value)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Panel title="Your plan">
+          <div className="grid grid-cols-2 gap-5">
+            {[
+              ['Risk profile', PROFILE_LABELS[vault.riskProfile] ?? vault.riskProfile],
+              ['Allocation mode', MODE_LABELS[vault.allocationMode] ?? vault.allocationMode],
+              ['Horizon', vault.horizon.replace('YEARS_', '').replace('_PLUS', '+') + ' years'],
+              ['Invested', money(valuation?.holdingsValue ?? 0)],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <p className="text-xs text-gray-400">{label}</p>
+                <p className="text-sm font-semibold text-gray-900 mt-1">{value}</p>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </Panel>
 
-      {data?.drift?.rebalanceRequired && (
-        <div className="bg-white rounded-lg shadow-sm p-5 border-l-4 border-amber-400">
-          <p className="text-sm font-semibold text-gray-900">Your allocation has drifted</p>
-          <p className="text-sm text-gray-600 mt-1">
-            The largest class is {data.drift.maxAbsoluteDrift.toFixed(1)} points from its target.
-            It will be brought back in line at the next review.
-          </p>
-          <Link
-            href="/retirement-vault/allocator"
-            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 mt-2"
-          >
-            See the allocator <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-      )}
+        <Panel title="Position">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Return since inception</span>
+              <Trend value={valuation?.unrealisedGainLossPercent ?? 0} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Invested</span>
+              <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                {money(valuation?.holdingsValue ?? 0)}
+              </span>
+            </div>
+            {data?.drift && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Drift from target</span>
+                <span
+                  className={`text-sm font-semibold tabular-nums ${
+                    data.drift.rebalanceRequired ? 'text-amber-600' : 'text-gray-900'
+                  }`}
+                >
+                  {data.drift.maxAbsoluteDrift.toFixed(2)} pts
+                </span>
+              </div>
+            )}
+            <Link
+              href="/retirement-vault/allocator"
+              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 pt-1"
+            >
+              Expert Allocator <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }

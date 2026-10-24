@@ -110,7 +110,7 @@ export default function AllocationModeCard({ onChanged }: { onChanged: () => voi
     (pick === 'FOCUSED' && focus !== (state.focusedAssetClass ?? ''));
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-5">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <CurrentIcon className="w-4 h-4 text-gray-500" />
@@ -150,7 +150,7 @@ export default function AllocationModeCard({ onChanged }: { onChanged: () => voi
           )}
 
           {!state.canSwitch && (
-            <div className="flex items-start gap-2 mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <div className="flex items-start gap-2 mt-3 bg-gray-50 border border-gray-100 rounded-xl p-3">
               <Clock className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
               <p className="text-xs text-gray-600">
                 You can change mode again in{' '}
@@ -197,7 +197,7 @@ export default function AllocationModeCard({ onChanged }: { onChanged: () => voi
               <select
                 value={focus}
                 onChange={(e) => setFocus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
               >
                 <option value="">Choose an asset class</option>
                 {ASSET_CLASSES.map((c) => (
@@ -209,7 +209,7 @@ export default function AllocationModeCard({ onChanged }: { onChanged: () => voi
             </div>
           )}
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
             <p className="text-xs text-amber-900">
               Changing mode re-targets your vault and rebalances your holdings straight away.
               Any allocation you have pinned is released. You will not be able to change again
@@ -221,7 +221,7 @@ export default function AllocationModeCard({ onChanged }: { onChanged: () => voi
             <button
               onClick={save}
               disabled={saving || !changed || (pick === 'FOCUSED' && !focus)}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-black text-white text-xs font-medium hover:bg-gray-800 cursor-pointer disabled:opacity-40"
+              className="flex items-center gap-1 px-4 py-2 rounded-full bg-black text-white text-xs font-medium hover:bg-gray-800 cursor-pointer disabled:opacity-40"
             >
               {saving ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -237,7 +237,7 @@ export default function AllocationModeCard({ onChanged }: { onChanged: () => voi
                 setFocus(state.focusedAssetClass ?? '');
               }}
               disabled={saving}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer"
+              className="px-4 py-2 rounded-full border border-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer"
             >
               Cancel
             </button>

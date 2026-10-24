@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Wallet } from 'lucide-react';
 import { money, useVault } from '@/components/retirement-vault/VaultContext';
+import { StatCard } from '@/components/retirement-vault/VaultUI';
 import AutoContributionCard from '@/components/retirement-vault/AutoContributionCard';
 import VaultDepositModal from '@/components/retirement-vault/VaultDepositModal';
 
@@ -17,30 +18,42 @@ export default function VaultContributionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs text-gray-500">Available in your account</p>
-          <p className="text-2xl font-bold text-gray-900 tabular-nums">
-            {money(data?.fundingAccount?.balance ?? 0)}
-          </p>
-          {data?.fundingAccount?.accountNumber && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              {data.fundingAccount.accountNumber}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <StatCard
+          tone="blue"
+          icon={Wallet}
+          label="Available in your account"
+          value={money(data?.fundingAccount?.balance ?? 0)}
+          sub={
+            data?.fundingAccount?.accountNumber ? (
+              <span className="text-xs text-white/70">
+                {data.fundingAccount.accountNumber}
+              </span>
+            ) : undefined
+          }
+        />
+        <div className="bg-[#c1ff72] rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <p className="text-xs text-black/60">Add to your vault</p>
+            <p className="text-sm text-black/80 mt-1">
+              {pendingActivation
+                ? 'Your first deposit activates the vault and buys your allocation.'
+                : 'Deposits are invested into your target allocation immediately.'}
             </p>
-          )}
+          </div>
+          <button
+            onClick={() => setDepositOpen(true)}
+            className="mt-4 self-start flex items-center gap-2 bg-black text-[#c1ff72] px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-85 transition-opacity cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            {pendingActivation ? 'Fund vault' : 'Deposit'}
+          </button>
         </div>
-        <button
-          onClick={() => setDepositOpen(true)}
-          className="flex items-center gap-2 bg-black text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          {pendingActivation ? 'Fund vault' : 'Deposit'}
-        </button>
       </div>
 
       <AutoContributionCard onChanged={refresh} />
 
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900">Contribution history</h2>
         </div>

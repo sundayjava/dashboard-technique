@@ -89,7 +89,7 @@ export default function AutoContributionCard({ onChanged }: Props) {
   const lastFailure = history.find((h) => h.status === 'FAILED');
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-5">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <CalendarClock className="w-4 h-4 text-gray-500" />
@@ -107,7 +107,7 @@ export default function AutoContributionCard({ onChanged }: Props) {
       </div>
 
       {lastFailure && (
-        <div className="flex items-start gap-2 mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+        <div className="flex items-start gap-2 mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
           <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-900">
             {lastFailure.failureReason ?? 'A contribution could not be taken.'} We retry
@@ -142,7 +142,7 @@ export default function AutoContributionCard({ onChanged }: Props) {
                 onChange={(e) => setAmount(e.target.value)}
                 min={1}
                 step={50}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
                 placeholder="500"
               />
             </div>
@@ -151,7 +151,7 @@ export default function AutoContributionCard({ onChanged }: Props) {
               <select
                 value={day}
                 onChange={(e) => setDay(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm"
               >
                 {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
                   <option key={d} value={String(d)}>
@@ -169,7 +169,7 @@ export default function AutoContributionCard({ onChanged }: Props) {
             <button
               onClick={() => save(true)}
               disabled={saving || !amount || Number(amount) <= 0}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-black text-white text-xs font-medium hover:bg-gray-800 cursor-pointer disabled:opacity-40"
+              className="flex items-center gap-1 px-4 py-2 rounded-full bg-black text-white text-xs font-medium hover:bg-gray-800 cursor-pointer disabled:opacity-40"
             >
               {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
               Save
@@ -180,7 +180,7 @@ export default function AutoContributionCard({ onChanged }: Props) {
                 load();
               }}
               disabled={saving}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer"
+              className="px-4 py-2 rounded-full border border-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-50 cursor-pointer"
             >
               Cancel
             </button>

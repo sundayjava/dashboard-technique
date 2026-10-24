@@ -46,7 +46,7 @@ export default function ReportCards() {
   if (!loaded) return null;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
         <FileText className="w-4 h-4 text-gray-500" />
         <h2 className="text-sm font-semibold text-gray-900">Quarterly report cards</h2>

@@ -3,6 +3,8 @@
 import { CLASS_LABELS, useVault } from '@/components/retirement-vault/VaultContext';
 import AllocationDoughnut from '@/components/retirement-vault/AllocationDoughnut';
 import AllocationModeCard from '@/components/retirement-vault/AllocationModeCard';
+import InvestPanel from '@/components/retirement-vault/InvestPanel';
+import ExpertToggle from '@/components/retirement-vault/ExpertToggle';
 
 /** Composition, target comparison and the mode toggle. */
 export default function VaultAllocationPage() {
@@ -12,7 +14,11 @@ export default function VaultAllocationPage() {
   const drift = data?.drift;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <ExpertToggle onChanged={refresh} />
+
+      <InvestPanel onInvested={refresh} />
+
       <AllocationDoughnut
         allocation={valuation?.currentAllocation ?? {}}
         totalValue={valuation?.holdingsValue ?? 0}
@@ -20,7 +26,7 @@ export default function VaultAllocationPage() {
       />
 
       {/* Actual against target — the comparison a doughnut cannot make. */}
-      <div className="bg-white rounded-lg shadow-sm p-5">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-900">Against your target</h2>
           {drift?.rebalanceRequired && (

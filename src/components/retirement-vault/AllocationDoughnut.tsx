@@ -78,7 +78,7 @@ export default function AllocationDoughnut({
 
   if (slices.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
         <p className="text-sm text-gray-500">
           Nothing invested yet. Fund your vault to see your allocation.
         </p>
@@ -87,7 +87,7 @@ export default function AllocationDoughnut({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-5">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-gray-900">Allocation</h2>
         <button
