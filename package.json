@@ -30,6 +30,7 @@
     "vault:test-admin-questionnaire": "tsx scripts/test_vault_admin_questionnaire.ts",
     "vault:test-mode-switch": "tsx scripts/test_vault_mode_switch.ts",
     "vault:test-invest": "tsx scripts/test_vault_invest.ts",
+    "vault:test-price-cache": "tsx scripts/test_vault_price_cache.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },

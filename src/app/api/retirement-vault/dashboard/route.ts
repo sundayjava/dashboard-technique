@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, ContributionStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
-import { getOpenVaultForUser } from '@/lib/vault/vault-utils';
+import { OPEN_VAULT_STATUSES } from '@/lib/vault/vault-utils';
 import { valueVault } from '@/lib/vault/valuation';
 import { computeDrift } from '@/lib/vault/allocation-model';
 import { loadVaultPolicy } from '@/lib/vault/policy-store';
@@ -25,25 +25,55 @@ export async function GET(request: NextRequest) {
     if (!auth.success) return auth.response;
 
     const userId = auth.user.userId;
-    const vault = await getOpenVaultForUser(userId);
+    // ONE query for everything about the vault. This database multiplexes
+    // through a proxy and does NOT run queries concurrently -- five trivial
+    // queries in parallel measured SLOWER than five in series -- so the page
+    // is fast only if it asks for less. The vault and the contributions were
+    // each being fetched twice.
+    const endOfDay = new Date(
+      new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z').getTime() +
+        24 * 60 * 60 * 1000,
+    );
+
+    const vault = await prisma.retirementVault.findFirst({
+      where: { userId, status: { in: OPEN_VAULT_STATUSES } },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        holdings: { include: { asset: true } },
+        allocations: true,
+        contributions: { orderBy: { createdAt: 'desc' }, take: 20 },
+        withdrawals: {
+          where: { status: 'PAID', processedAt: { not: null, lt: endOfDay } },
+          select: { netAmount: true, processedAt: true },
+        },
+      },
+    });
 
     if (vault === null) {
       return NextResponse.json({ success: true, hasVault: false, vault: null });
     }
 
-    const [allocations, contributions, account, valuation] = await Promise.all([
-      prisma.vaultAllocation.findMany({ where: { vaultId: vault.id } }),
-      prisma.vaultContribution.findMany({
-        where: { vaultId: vault.id },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      }),
+    const allocations = vault.allocations;
+    const contributions = vault.contributions;
+
+    // Settled contributions drive the benchmark; the list above is history.
+    const settledContributions = contributions
+      .filter((c) => c.status === ContributionStatus.COMPLETED && c.processedAt !== null)
+      .map((c) => ({ amount: c.amount, processedAt: c.processedAt }))
+      .sort((a, b) => (a.processedAt?.getTime() ?? 0) - (b.processedAt?.getTime() ?? 0));
+
+    const [account, valuation, policy] = await Promise.all([
       prisma.account.findFirst({
         where: { userId, status: AccountStatus.ACTIVE },
         orderBy: { createdAt: 'asc' },
         select: { accountNumber: true, balance: true, currency: true },
       }),
-      valueVault(vault.id),
+      valueVault(vault.id, new Date(), {
+        vault,
+        contributions: settledContributions,
+        withdrawals: vault.withdrawals,
+      }),
+      loadVaultPolicy(),
     ]);
 
     const targetMap = allocations.reduce((map, row) => {
@@ -52,7 +82,6 @@ export async function GET(request: NextRequest) {
     }, {} as AllocationMap);
 
     // Drift only means something once there is something invested.
-    const policy = await loadVaultPolicy();
     const drift =
       valuation !== null && valuation.holdingsValue > 0
         ? computeDrift(targetMap, valuation.currentAllocation, policy.driftThresholdPercent)

@@ -1,5 +1,6 @@
 import { RiskProfile, VaultAssetClass } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { invalidatePriceCaches } from './valuation';
 import {
   AllocationMap,
   DEFAULT_VAULT_POLICY,
@@ -116,6 +117,9 @@ let cache: { policy: VaultPolicy; expiresAt: number } | null = null;
 /** Drop the cached policy. Called after any admin write. */
 export function invalidatePolicyCache(): void {
   cache = null;
+  // Sleeve weights and allocation targets feed valuation and benchmark maths,
+  // so a policy change must not leave a stale price view behind it.
+  invalidatePriceCaches();
 }
 
 export interface PolicyLoadResult {

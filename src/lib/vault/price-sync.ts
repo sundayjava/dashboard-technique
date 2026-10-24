@@ -2,6 +2,7 @@ import { PriceProvider, PriceSyncStatus, PriceSyncTrigger } from '@prisma/client
 import { prisma } from '@/lib/prisma';
 import { TWELVE_DATA_CREDIT_CEILING } from './asset-registry';
 import { AssetFeedRequest, fetchPricesForAssets } from './price-providers';
+import { invalidatePriceCaches } from './valuation';
 
 /**
  * Price synchronisation engine.
@@ -352,6 +353,10 @@ export async function syncAssetPrices(
       },
     });
 
+    // Prices just changed, so anything cached against them is now wrong.
+    // Cleared even on a PARTIAL run, which still wrote some of them.
+    invalidatePriceCaches();
+
     return {
       runId: run.id,
       status,
@@ -379,6 +384,9 @@ export async function syncAssetPrices(
         },
       })
       .catch(() => undefined);
+
+    // A run that threw partway may still have written prices.
+    invalidatePriceCaches();
 
     return {
       runId: run.id,

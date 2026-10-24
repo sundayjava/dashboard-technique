@@ -39,6 +39,65 @@ interface PriceRow {
   price_date: Date;
 }
 
+
+/* ---------------------------------------------------------------- caching */
+
+/**
+ * Price lookups are cached per date, because one vault valuation asks for the
+ * same prices five or more times: once for the holdings, twice to build the
+ * benchmark index, and twice more for every distinct contribution date. Each
+ * is a ~230ms round-trip to a remote database, which is most of the 1.5s a
+ * valuation used to take.
+ *
+ * WHAT IS CACHED IS DELIBERATELY NARROW. Only market prices and the benchmark
+ * index, which are the same for every member and change only when the sync
+ * writes. Holdings, cash and contributions are never cached — those move when
+ * a member acts, and serving a stale balance would be worse than being slow.
+ *
+ * Two things keep it from becoming a constraint:
+ *  - the price sync clears it the moment it writes, so new prices are visible
+ *    immediately rather than after a timer;
+ *  - entries expire anyway, so a cache that somehow missed an invalidation
+ *    corrects itself within the TTL instead of being wrong until redeploy.
+ */
+const PRICE_CACHE_TTL_MS = 60_000;
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+const priceCache = new Map<string, CacheEntry<Map<string, PriceAsOf>>>();
+const benchmarkIndexCache = new Map<string, CacheEntry<number | null>>();
+
+/** Drop every cached price and index. Called by the sync after it writes. */
+export function invalidatePriceCaches(): void {
+  priceCache.clear();
+  benchmarkIndexCache.clear();
+  benchmarkBaseCache = null;
+}
+
+function cacheKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function readCache<T>(store: Map<string, CacheEntry<T>>, key: string): T | undefined {
+  const hit = store.get(key);
+  if (hit === undefined) return undefined;
+  if (hit.expiresAt <= Date.now()) {
+    store.delete(key);
+    return undefined;
+  }
+  return hit.value;
+}
+
+function writeCache<T>(store: Map<string, CacheEntry<T>>, key: string, value: T): void {
+  // Bound the map so a long-lived process valuing many historical dates
+  // cannot grow it without limit.
+  if (store.size > 400) store.clear();
+  store.set(key, { value, expiresAt: Date.now() + PRICE_CACHE_TTL_MS });
+}
+
 /**
  * Latest close per asset on or before `asOf`.
  *
@@ -47,6 +106,10 @@ interface PriceRow {
  */
 export async function getPricesAsOf(asOf: Date = new Date()): Promise<Map<string, PriceAsOf>> {
   const date = toUtcDateOnly(asOf);
+
+  const key = cacheKey(date);
+  const cached = readCache(priceCache, key);
+  if (cached !== undefined) return cached;
 
   // Columns are quoted: Prisma's @@map renames tables only, so the columns are
   // camelCase and Postgres would otherwise fold them to lower case.
@@ -71,6 +134,8 @@ export async function getPricesAsOf(asOf: Date = new Date()): Promise<Map<string
       priceDate: row.price_date,
     });
   }
+
+  writeCache(priceCache, key, result);
   return result;
 }
 
@@ -148,6 +213,10 @@ export function resetBenchmarkBaseCache(): void {
  * rebalanced vault against.
  */
 export async function getBenchmarkIndex(asOf: Date = new Date()): Promise<number | null> {
+  const key = cacheKey(toUtcDateOnly(asOf));
+  const cached = readCache(benchmarkIndexCache, key);
+  if (cached !== undefined) return cached;
+
   const base = await getBenchmarkBase();
   if (base === null) return null;
 
@@ -161,7 +230,9 @@ export async function getBenchmarkIndex(asOf: Date = new Date()): Promise<number
     index += leg.weight * (current.close / basePrice);
   }
 
-  return index * BENCHMARK_BASE_VALUE;
+  const value = index * BENCHMARK_BASE_VALUE;
+  writeCache(benchmarkIndexCache, key, value);
+  return value;
 }
 
 export interface HoldingValuation {
@@ -216,22 +287,77 @@ function emptyAllocationMap(): AllocationMap {
  *
  * Read-only; `recordVaultValuation` persists the result.
  */
+export interface PreloadedVaultRows {
+  vault: {
+    cashBalance: number;
+    totalContributed: number;
+    totalWithdrawn: number;
+    holdings: Array<{
+      assetId: string;
+      units: number;
+      costBasis: number;
+      asset: { symbol: string; assetClass: VaultAssetClass };
+    }>;
+  };
+  contributions: Array<{ amount: number; processedAt: Date | null }>;
+  withdrawals: Array<{ netAmount: number; processedAt: Date | null }>;
+}
+
 export async function valueVault(
   vaultId: string,
   asOf: Date = new Date(),
+  /**
+   * Rows the caller has already fetched.
+   *
+   * This database multiplexes through a proxy and does NOT execute queries
+   * concurrently — five trivial queries in parallel measured slower than five
+   * in series. So the only way to make a page faster is to ask for less, and
+   * a caller holding the vault already should not make us fetch it again.
+   */
+  preloaded?: PreloadedVaultRows,
 ): Promise<VaultValuationResult | null> {
   const valuationDate = toUtcDateOnly(asOf);
 
-  const vault = await prisma.retirementVault.findUnique({
-    where: { id: vaultId },
-    include: {
-      holdings: { include: { asset: true } },
-    },
-  });
-
-  if (vault === null) return null;
+  // These three do not depend on one another, and each is a round-trip to a
+  // remote database. Running them in series was the bulk of what remained
+  // after caching: the member data cannot be cached, but it can be fetched
+  // alongside everything else instead of after it.
+  const endOfDay = new Date(valuationDate.getTime() + 24 * 60 * 60 * 1000);
 
   const prices = await getPricesAsOf(valuationDate);
+
+  let vault: PreloadedVaultRows['vault'] | null;
+  let contributions: PreloadedVaultRows['contributions'];
+  let withdrawals: PreloadedVaultRows['withdrawals'];
+
+  if (preloaded !== undefined) {
+    ({ vault, contributions, withdrawals } = preloaded);
+  } else {
+    const [v, c, w] = await Promise.all([
+      prisma.retirementVault.findUnique({
+        where: { id: vaultId },
+        include: { holdings: { include: { asset: true } } },
+      }),
+      prisma.vaultContribution.findMany({
+        where: {
+          vaultId,
+          status: ContributionStatus.COMPLETED,
+          processedAt: { not: null, lt: endOfDay },
+        },
+        select: { amount: true, processedAt: true },
+        orderBy: { processedAt: 'asc' },
+      }),
+      prisma.vaultWithdrawalRequest.findMany({
+        where: { vaultId, status: 'PAID', processedAt: { not: null, lt: endOfDay } },
+        select: { netAmount: true, processedAt: true },
+      }),
+    ]);
+    vault = v;
+    contributions = c;
+    withdrawals = w;
+  }
+
+  if (vault === null) return null;
 
   const holdings: HoldingValuation[] = [];
   const missingPrices: string[] = [];
@@ -282,7 +408,12 @@ export async function valueVault(
   const unrealisedGainLoss = totalValue - vault.totalContributed + vault.totalWithdrawn;
 
   const benchmarkIndex = await getBenchmarkIndex(valuationDate);
-  const benchmarkValue = await computeBenchmarkValue(vaultId, valuationDate, benchmarkIndex);
+  const benchmarkValue = await computeBenchmarkValue(
+    valuationDate,
+    benchmarkIndex,
+    contributions,
+    withdrawals,
+  );
 
   return {
     vaultId,
@@ -315,28 +446,16 @@ export async function valueVault(
  * reason.
  */
 async function computeBenchmarkValue(
-  vaultId: string,
   asOf: Date,
   currentIndex: number | null,
+  // Prefetched alongside the holdings, since neither depends on the other.
+  // Both are bounded by the END of the valuation day: `asOf` is truncated to
+  // UTC midnight, so a `<=` comparison would exclude everything that happened
+  // during that day, including the contribution that opened the vault.
+  contributions: Array<{ amount: number; processedAt: Date | null }>,
+  withdrawals: Array<{ netAmount: number; processedAt: Date | null }>,
 ): Promise<number | null> {
   if (currentIndex === null) return null;
-
-  // `asOf` is a date truncated to UTC midnight, so comparing timestamps with
-  // `<=` would exclude everything that happened DURING the valuation day --
-  // including the very contribution that opened the vault. Bound by the end of
-  // the day instead, exclusive of the next.
-  const endOfDay = new Date(toUtcDateOnly(asOf).getTime() + 24 * 60 * 60 * 1000);
-
-  const contributions = await prisma.vaultContribution.findMany({
-    where: {
-      vaultId,
-      status: ContributionStatus.COMPLETED,
-      processedAt: { not: null, lt: endOfDay },
-    },
-    select: { amount: true, processedAt: true },
-    orderBy: { processedAt: 'asc' },
-  });
-
   if (contributions.length === 0) return null;
 
   // Index levels are looked up once per distinct date rather than per
@@ -362,11 +481,6 @@ async function computeBenchmarkValue(
     if (level === null || level <= 0) return null;
     units += contribution.amount / level;
   }
-
-  const withdrawals = await prisma.vaultWithdrawalRequest.findMany({
-    where: { vaultId, status: 'PAID', processedAt: { not: null, lt: endOfDay } },
-    select: { netAmount: true, processedAt: true },
-  });
 
   for (const withdrawal of withdrawals) {
     if (withdrawal.processedAt === null) continue;
