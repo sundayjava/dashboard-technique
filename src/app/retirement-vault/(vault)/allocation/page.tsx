@@ -1,10 +1,9 @@
 'use client';
 
-import { CLASS_LABELS, useVault } from '@/components/retirement-vault/VaultContext';
+import { CLASS_LABELS, money, sharesOfVault, useVault } from '@/components/retirement-vault/VaultContext';
 import AllocationDoughnut from '@/components/retirement-vault/AllocationDoughnut';
 import AllocationModeCard from '@/components/retirement-vault/AllocationModeCard';
 import InvestPanel from '@/components/retirement-vault/InvestPanel';
-import ExpertToggle from '@/components/retirement-vault/ExpertToggle';
 
 /** Composition, target comparison and the mode toggle. */
 export default function VaultAllocationPage() {
@@ -13,9 +12,16 @@ export default function VaultAllocationPage() {
   const target = data?.targetAllocation ?? {};
   const drift = data?.drift;
 
+  // Same denominator as the target: a share of the whole vault.
+  const { shares, cashPercent } = sharesOfVault(
+    valuation?.currentAllocation ?? {},
+    valuation?.holdingsValue ?? 0,
+    data?.vault?.cashBalance ?? 0,
+  );
+
   return (
     <div className="space-y-5">
-      <ExpertToggle onChanged={refresh} />
+      <AllocationModeCard onChanged={refresh} />
 
       <InvestPanel onInvested={refresh} />
 
@@ -23,6 +29,7 @@ export default function VaultAllocationPage() {
         allocation={valuation?.currentAllocation ?? {}}
         totalValue={valuation?.holdingsValue ?? 0}
         targetAllocation={target}
+        cashBalance={data?.vault?.cashBalance ?? 0}
       />
 
       {/* Actual against target — the comparison a doughnut cannot make. */}
@@ -40,7 +47,7 @@ export default function VaultAllocationPage() {
           {Object.entries(target)
             .filter(([, t]) => t > 0)
             .map(([cls, t]) => {
-              const current = valuation?.currentAllocation?.[cls] ?? 0;
+              const current = shares[cls] ?? 0;
               return (
                 <div key={cls}>
                   <div className="flex justify-between text-xs mb-1">
@@ -66,11 +73,18 @@ export default function VaultAllocationPage() {
             })}
         </div>
         <p className="text-xs text-gray-400 mt-4">
-          The dark marker is your target. Crypto is capped at 5% in every mode.
+          The dark marker is your target. Percentages are of your whole vault, so they are
+          directly comparable.
+          {cashPercent > 0.004 && (
+            <>
+              {' '}
+              {cashPercent.toFixed(1)}% ({money(data?.vault?.cashBalance ?? 0)}) is still
+              uninvested, which is why the bars fall short of their targets.
+            </>
+          )}
         </p>
       </div>
 
-      <AllocationModeCard onChanged={refresh} />
     </div>
   );
 }

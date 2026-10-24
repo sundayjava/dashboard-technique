@@ -2,6 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
+// Imported for its side effect: it installs the auth interceptor on load, so
+// the fetch below cannot run before the Authorization header exists.
+import '@/lib/axios-config';
 
 /**
  * Shared vault state for the dashboard section.
@@ -157,3 +160,31 @@ export const MODE_LABELS: Record<string, string> = {
   FOCUSED: 'Focused',
   EXPERT_ALLOCATOR: 'Expert Allocator',
 };
+
+/**
+ * Share of the WHOLE vault, cash included.
+ *
+ * `valuation.currentAllocation` is deliberately a share of INVESTED value —
+ * that is the right basis for drift, because pending cash should not make
+ * every class look underweight and trigger a rebalance.
+ *
+ * It is the wrong basis to show beside a target. A member with uninvested
+ * cash saw crypto at 7.3% against a 5% target and could only conclude the cap
+ * had been breached, when in fact $750 of a $15,000 vault is exactly 5%. This
+ * puts both numbers on the same denominator.
+ */
+export function sharesOfVault(
+  currentAllocation: Record<string, number>,
+  holdingsValue: number,
+  cashBalance: number,
+): { shares: Record<string, number>; cashPercent: number; vaultTotal: number } {
+  const vaultTotal = holdingsValue + cashBalance;
+  if (vaultTotal <= 0) return { shares: {}, cashPercent: 0, vaultTotal: 0 };
+
+  const shares: Record<string, number> = {};
+  for (const [cls, pct] of Object.entries(currentAllocation)) {
+    const value = (holdingsValue * pct) / 100;
+    shares[cls] = (value / vaultTotal) * 100;
+  }
+  return { shares, cashPercent: (cashBalance / vaultTotal) * 100, vaultTotal };
+}

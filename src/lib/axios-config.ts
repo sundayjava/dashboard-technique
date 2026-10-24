@@ -3,10 +3,24 @@ import { SessionManager } from './session';
 import toast from 'react-hot-toast';
 
 /**
+ * Guard so this can be called from anywhere without stacking interceptors.
+ *
+ * It used to be installed only from a useEffect in the root layout. React
+ * runs effects bottom-up, so a page that fetched on mount sent its FIRST
+ * request before the interceptor existed -- with no Authorization header.
+ * That request 401'd and bounced the user to the login page on every hard
+ * refresh. Installing it at module load, and letting any caller ask for it,
+ * removes the ordering dependency entirely.
+ */
+let interceptorsInstalled = false;
+
+/**
  * Configure axios to automatically include auth token in requests
  * and handle session expiration and network errors
  */
 export function setupAxiosInterceptors() {
+  if (interceptorsInstalled) return;
+  interceptorsInstalled = true;
   // Request interceptor - add auth token to all requests
   axios.interceptors.request.use(
     (config) => {
@@ -83,3 +97,8 @@ export function setupAxiosInterceptors() {
     }
   );
 }
+
+// Install on import. Anything that imports this module -- directly or through
+// a component that needs authenticated requests -- is covered before its first
+// render, rather than depending on an effect having run.
+setupAxiosInterceptors();

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Banknote, PiggyBank, Target } from 'lucide-react';
 import {
-  CLASS_LABELS, MODE_LABELS, PROFILE_LABELS, money, moneyShort, useVault,
+  CLASS_LABELS, MODE_LABELS, PROFILE_LABELS, money, moneyShort, sharesOfVault, useVault,
 } from '@/components/retirement-vault/VaultContext';
 import {
   AssetIcon, Panel, PillButton, StatCard, Trend,
@@ -23,8 +23,15 @@ export default function VaultOverviewPage() {
   const benchmark = valuation?.benchmarkValue ?? null;
   const vsBenchmark = benchmark === null ? null : (valuation?.totalValue ?? 0) - benchmark;
 
-  const classes = Object.entries(valuation?.currentAllocation ?? {})
-    .filter(([, v]) => v > 0)
+  // Shown as a share of the WHOLE vault so it is comparable to the target,
+  // which is also a share of the vault.
+  const { shares, cashPercent, vaultTotal } = sharesOfVault(
+    valuation?.currentAllocation ?? {},
+    valuation?.holdingsValue ?? 0,
+    vault.cashBalance,
+  );
+  const classes = Object.entries(shares)
+    .filter(([, v]) => v > 0.004)
     .sort((a, b) => b[1] - a[1]);
 
   const target = data?.targetAllocation ?? {};
@@ -147,7 +154,7 @@ export default function VaultOverviewPage() {
               <tbody>
                 {classes.map(([cls, pct]) => {
                   const t = target[cls] ?? 0;
-                  const value = ((valuation?.holdingsValue ?? 0) * pct) / 100;
+                  const value = (vaultTotal * pct) / 100;
                   return (
                     <tr key={cls} className="border-t border-gray-50">
                       <td className="px-5 py-4">
@@ -170,6 +177,28 @@ export default function VaultOverviewPage() {
                     </tr>
                   );
                 })}
+                {cashPercent > 0.004 && (
+                  <tr className="border-t border-gray-50 bg-gray-50/50">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-[10px] shrink-0 bg-gray-400"
+                          aria-hidden
+                        >
+                          CASH
+                        </span>
+                        <span className="font-medium text-gray-900">Uninvested cash</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-right font-semibold text-gray-900 tabular-nums">
+                      {cashPercent.toFixed(2)}%
+                    </td>
+                    <td className="px-5 py-4 text-right text-gray-400 tabular-nums">—</td>
+                    <td className="px-5 py-4 text-right text-gray-900 tabular-nums">
+                      {money(vault.cashBalance)}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

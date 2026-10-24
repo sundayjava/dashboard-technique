@@ -166,7 +166,7 @@ export default function InvestPanel({ onInvested }: { onInvested: () => void }) 
                     size="sm"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 truncate">
+                    <p className="text-sm text-gray-900 leading-tight">
                       {CLASS_LABELS[c.assetClass] ?? c.assetClass}
                     </p>
                     <p className="text-[11px] text-gray-400 tabular-nums">

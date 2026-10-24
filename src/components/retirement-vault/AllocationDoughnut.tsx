@@ -41,6 +41,14 @@ interface Props {
   allocation: Record<string, number>;
   totalValue: number;
   targetAllocation?: Record<string, number>;
+  /**
+   * Uninvested cash, shown as its own segment.
+   *
+   * Without it the ring is a share of INVESTED value while the target bars
+   * beside it are a share of the vault, so the same asset appeared twice on
+   * one page with two different percentages.
+   */
+  cashBalance?: number;
 }
 
 const money = (n: number) =>
@@ -61,20 +69,37 @@ export default function AllocationDoughnut({
   allocation,
   totalValue,
   targetAllocation,
+  cashBalance = 0,
 }: Props) {
   const [showTable, setShowTable] = useState(false);
 
+  const vaultTotal = totalValue + cashBalance;
+
   const slices: Slice[] = Object.entries(allocation)
     .filter(([, percent]) => percent > 0)
-    .map(([assetClass, percent]) => ({
-      assetClass,
-      label: CLASS_LABELS[assetClass] ?? assetClass,
-      percent,
-      value: (totalValue * percent) / 100,
-      color: CLASS_COLORS[assetClass] ?? '#6b7280',
-      target: targetAllocation?.[assetClass] ?? null,
-    }))
+    .map(([assetClass, percent]) => {
+      const value = (totalValue * percent) / 100;
+      return {
+        assetClass,
+        label: CLASS_LABELS[assetClass] ?? assetClass,
+        percent: vaultTotal > 0 ? (value / vaultTotal) * 100 : 0,
+        value,
+        color: CLASS_COLORS[assetClass] ?? '#6b7280',
+        target: targetAllocation?.[assetClass] ?? null,
+      };
+    })
     .sort((a, b) => b.percent - a.percent);
+
+  if (cashBalance > 0.004 && vaultTotal > 0) {
+    slices.push({
+      assetClass: 'CASH',
+      label: 'Uninvested cash',
+      percent: (cashBalance / vaultTotal) * 100,
+      value: cashBalance,
+      color: '#9ca3af',
+      target: null,
+    });
+  }
 
   if (slices.length === 0) {
     return (
@@ -173,9 +198,9 @@ export default function AllocationDoughnut({
 
             {/* Hero figure in the hole: the number the view leads with. */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-xs text-gray-500">Invested</span>
+              <span className="text-xs text-gray-500">Vault</span>
               <span className="text-lg font-bold text-gray-900">
-                ${Math.round(totalValue).toLocaleString()}
+                ${Math.round(vaultTotal).toLocaleString()}
               </span>
             </div>
           </div>
