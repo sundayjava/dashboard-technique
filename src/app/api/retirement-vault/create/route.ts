@@ -1,14 +1,6 @@
+import { VaultAssetClass } from '@/lib/vault/asset-classes';
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  AllocationMode,
-  ContributionStatus,
-  ContributionType,
-  LockInPreference,
-  RetirementHorizon,
-  VaultAssetClass,
-  VaultStatus,
-  VehicleType,
-} from '@prisma/client';
+import { AllocationMode, ContributionStatus, ContributionType, LockInPreference, RetirementHorizon, VaultStatus, VehicleType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { getAllAssetClasses, getTargetAllocation } from '@/lib/vault/allocation-model';

@@ -1,4 +1,5 @@
-import { AllocationMode, RiskProfile, VaultAssetClass } from '@prisma/client';
+import { VaultAssetClass } from '../src/lib/vault/asset-classes';
+import { AllocationMode, RiskProfile } from '@prisma/client';
 import {
   AllocationMap,
   CRYPTO_CAP_PERCENT,

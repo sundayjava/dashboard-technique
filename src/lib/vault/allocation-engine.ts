@@ -1,4 +1,5 @@
-import { Prisma, VaultAssetClass, VaultAssetRole } from '@prisma/client';
+import { VaultAssetClass } from './asset-classes';
+import { Prisma, VaultAssetRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { AllocationMap, getAllAssetClasses } from './allocation-model';
 import { getPricesAsOf, valueVault } from './valuation';

@@ -1,11 +1,5 @@
-import {
-  AllocationMode,
-  Prisma,
-  RebalanceStatus,
-  RebalanceTrigger,
-  VaultAssetClass,
-  VaultStatus,
-} from '@prisma/client';
+import { VaultAssetClass } from './asset-classes';
+import { AllocationMode, Prisma, RebalanceStatus, RebalanceTrigger, VaultStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   AllocationMap,

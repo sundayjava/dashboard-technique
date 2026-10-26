@@ -1596,7 +1596,8 @@ model VaultAsset {
   id                String               @id @default(cuid())
   symbol            String               @unique // Ticker as we display it, e.g. "VT", "BTC"
   name              String               // e.g. "Vanguard Total World Stock ETF"
-  assetClass        VaultAssetClass
+  assetClass        String
+  assetClassRef     VaultAssetClassDef   @relation(fields: [assetClass], references: [key], onDelete: Restrict)
   role              VaultAssetRole       @default(PORTFOLIO)
 
   // Provider wiring
@@ -1680,13 +1681,30 @@ model PriceSyncRun {
   @@map("price_sync_runs")
 }
 
-enum VaultAssetClass {
-  GLOBAL_EQUITIES
-  FIXED_INCOME
-  COMMODITIES
-  REAL_ESTATE
-  FUTURES_MACRO
-  CRYPTO
+/// Asset classes are DATA, not an enum, so an admin can add and remove them.
+/// `key` is the stable identifier stored on every row that references a class;
+/// it never changes once created, because allocations and historical
+/// rebalance records are written against it.
+model VaultAssetClassDef {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  name         String
+  description  String?  @db.Text
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  /// Seeded with the product; kept distinct so the UI can warn before
+  /// removing one the rest of the system was designed around.
+  isSystem     Boolean  @default(false)
+
+  updatedBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assets             VaultAsset[]
+  profileAllocations VaultProfileAllocation[]
+
+  @@index([isActive, displayOrder])
+  @@map("vault_asset_classes")
 }
 
 enum VaultAssetRole {
@@ -1747,7 +1765,7 @@ model RetirementVault {
   // --- Step 3: allocation mode -------------------------------------------
   allocationMode        AllocationMode
   // Set only when allocationMode is FOCUSED: the single class concentrated in.
-  focusedAssetClass     VaultAssetClass?
+  focusedAssetClass     String?
   // Expert Allocator may be active alongside a user's own overrides, so this
   // is independent of allocationMode rather than implied by it.
   expertAllocatorActive Boolean                 @default(false)
@@ -1825,7 +1843,7 @@ model VaultRiskAssessment {
 model VaultAllocation {
   id             String          @id @default(cuid())
   vaultId        String
-  assetClass     VaultAssetClass
+  assetClass     String
 
   // Target share of the vault for this class, 0-100. Enforced in code to total
   // 100 across classes, with CRYPTO never above its hard cap.
@@ -1981,7 +1999,7 @@ model VaultRebalanceEvent {
 model VaultRebalanceChange {
   id           String              @id @default(cuid())
   eventId      String
-  assetClass   VaultAssetClass
+  assetClass   String
 
   fromPercent  Float
   toPercent    Float
@@ -2160,7 +2178,8 @@ model VaultPolicySetting {
 model VaultProfileAllocation {
   id            String          @id @default(cuid())
   riskProfile   RiskProfile
-  assetClass    VaultAssetClass
+  assetClass    String
+  assetClassRef VaultAssetClassDef @relation(fields: [assetClass], references: [key], onDelete: Cascade)
   targetPercent Float
 
   updatedBy     String?

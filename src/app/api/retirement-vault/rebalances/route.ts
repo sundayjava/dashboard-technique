@@ -1,5 +1,7 @@
+import { VaultAssetClass } from '@/lib/vault/asset-classes';
+import { isValidAssetClass } from '@/lib/vault/asset-class-store';
 import { NextRequest, NextResponse } from 'next/server';
-import { VaultAssetClass } from '@prisma/client';
+
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { getOpenVaultForUser } from '@/lib/vault/vault-utils';
@@ -90,7 +92,7 @@ export async function PUT(request: NextRequest) {
       pinned?: boolean;
     };
 
-    if (!Object.values(VaultAssetClass).includes(body.assetClass as VaultAssetClass)) {
+    if (!(await isValidAssetClass(body.assetClass))) {
       return NextResponse.json(
         { success: false, error: 'Unknown asset class.' },
         { status: 400 },

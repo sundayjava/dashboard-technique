@@ -1,7 +1,8 @@
+import { VaultAssetClass } from '../src/lib/vault/asset-classes';
 import 'dotenv/config';
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { RebalanceTrigger, VaultAssetClass } from '@prisma/client';
+import { RebalanceTrigger } from '@prisma/client';
 import { prisma } from '../src/lib/prisma';
 import { createSessionToken } from '../src/lib/session';
 import { POST as createPOST } from '../src/app/api/retirement-vault/create/route';

@@ -1,4 +1,5 @@
-import { PriceProvider, VaultAssetClass, VaultAssetRole } from '@prisma/client';
+import { VaultAssetClass } from './asset-classes';
+import { PriceProvider, VaultAssetRole } from '@prisma/client';
 
 /**
  * The canonical Retirement Vault instrument universe.

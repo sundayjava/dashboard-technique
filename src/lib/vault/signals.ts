@@ -1,4 +1,5 @@
-import { VaultAssetClass } from '@prisma/client';
+
+import { VaultAssetClass } from './asset-classes';
 import { prisma } from '@/lib/prisma';
 import { toUtcDateOnly } from './price-providers';
 

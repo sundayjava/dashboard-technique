@@ -1,10 +1,7 @@
+import { VaultAssetClass } from '@/lib/vault/asset-classes';
+import { isValidAssetClass } from '@/lib/vault/asset-class-store';
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  AllocationMode,
-  RebalanceTrigger,
-  VaultAssetClass,
-  VaultStatus,
-} from '@prisma/client';
+import { AllocationMode, RebalanceTrigger, VaultStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { canSwitchMode, getTargetAllocation } from '@/lib/vault/allocation-model';
@@ -98,7 +95,9 @@ export async function PUT(request: NextRequest) {
 
     let focusedAssetClass: VaultAssetClass | null = null;
     if (nextMode === AllocationMode.FOCUSED) {
-      if (!Object.values(VaultAssetClass).includes(body.focusedAssetClass as VaultAssetClass)) {
+      // Checked against the live classes, not a fixed list, so a class an
+      // admin added is accepted and one they removed is not.
+      if (!(await isValidAssetClass(body.focusedAssetClass))) {
         return NextResponse.json(
           { success: false, error: 'Choose an asset class to focus on.' },
           { status: 400 },

@@ -1,5 +1,6 @@
+import { VaultAssetClass } from '../src/lib/vault/asset-classes';
 import 'dotenv/config';
-import { RiskProfile, VaultAssetClass } from '@prisma/client';
+import { RiskProfile } from '@prisma/client';
 import { prisma } from '../src/lib/prisma';
 import {
   POLICY_SETTINGS,

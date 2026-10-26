@@ -1,5 +1,7 @@
+import { VaultAssetClass } from '@/lib/vault/asset-classes';
+import { getAssetClassKeys } from '@/lib/vault/asset-class-store';
 import { NextRequest, NextResponse } from 'next/server';
-import { VaultAssetClass, VaultStatus } from '@prisma/client';
+import { VaultStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import {
@@ -167,10 +169,10 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Member-directed: each class held to its ceiling -------------------
+    // Validated against the live classes so admin-created ones work.
+    const liveClasses = await getAssetClassKeys();
     const inputs = (body.allocations ?? [])
-      .filter((a) =>
-        Object.values(VaultAssetClass).includes(a.assetClass as VaultAssetClass),
-      )
+      .filter((a) => typeof a.assetClass === 'string' && liveClasses.includes(a.assetClass))
       .map((a) => ({
         assetClass: a.assetClass as VaultAssetClass,
         amount: Number(a.amount ?? 0),

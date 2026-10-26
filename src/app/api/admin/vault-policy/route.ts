@@ -1,5 +1,6 @@
+import { VaultAssetClass } from '@/lib/vault/asset-classes';
 import { NextRequest, NextResponse } from 'next/server';
-import { RiskProfile, VaultAssetClass } from '@prisma/client';
+import { RiskProfile } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth-middleware';
 import { AllocationMap, getAllAssetClasses } from '@/lib/vault/allocation-model';

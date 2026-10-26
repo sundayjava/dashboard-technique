@@ -1,4 +1,5 @@
-import { ContributionStatus, Prisma, VaultAssetClass, VaultStatus } from '@prisma/client';
+import { VaultAssetClass } from './asset-classes';
+import { ContributionStatus, Prisma, VaultStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { BENCHMARK_BLEND } from './asset-registry';
 import { AllocationMap, getAllAssetClasses } from './allocation-model';

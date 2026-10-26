@@ -1,4 +1,5 @@
-import { RiskProfile, VaultAssetClass } from '@prisma/client';
+import { VaultAssetClass } from './asset-classes';
+import { RiskProfile } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { invalidatePriceCaches } from './valuation';
 import {

@@ -1,4 +1,5 @@
-import { AllocationMode, RiskProfile, VaultAssetClass } from '@prisma/client';
+import { VaultAssetClass } from './asset-classes';
+import { AllocationMode, RiskProfile } from '@prisma/client';
 
 /**
  * Retirement Vault allocation policy.
