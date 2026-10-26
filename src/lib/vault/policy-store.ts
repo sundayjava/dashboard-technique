@@ -98,17 +98,6 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     defaultValue: DEFAULT_VAULT_POLICY.flexiblePenaltyPercent,
     unit: 'percent',
   },
-  {
-    key: 'focusedConcentrationPercent',
-    label: 'Focused concentration',
-    description:
-      'Share placed in the chosen class under Focused mode. The remainder stays ' +
-      'diversified across the other classes.',
-    min: 20,
-    max: 90,
-    defaultValue: DEFAULT_VAULT_POLICY.focusedConcentrationPercent,
-    unit: 'percent',
-  },
 ];
 
 /** Short cache: policy changes rarely but must take effect promptly. */

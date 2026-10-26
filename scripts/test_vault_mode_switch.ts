@@ -144,8 +144,13 @@ async function main() {
   }));
   const focusedBody = await focused.json();
   check('FOCUSED with a class accepted', focused.status === 200, JSON.stringify(focusedBody).slice(0, 150));
-  check('commodities is now the largest target',
-    focusedBody.targetAllocation?.COMMODITIES > 50, `got ${focusedBody.targetAllocation?.COMMODITIES}`);
+  // FOCUSED no longer concentrates the target. It restricts which class can be
+  // funded, and every ceiling stays exactly as the profile sets it.
+  check('ceilings are unchanged by focusing',
+    focusedBody.targetAllocation?.COMMODITIES === 15,
+    `got ${focusedBody.targetAllocation?.COMMODITIES}`);
+  check('the focused class is recorded on the vault',
+    focusedBody.focusedAssetClass === 'COMMODITIES', focusedBody.focusedAssetClass);
   check('crypto still capped after the switch',
     focusedBody.targetAllocation?.CRYPTO <= 5.001, `got ${focusedBody.targetAllocation?.CRYPTO}`);
 

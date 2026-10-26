@@ -5,7 +5,7 @@ import axios from 'axios';
 import { Check, Loader2, Sparkles, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CLASS_LABELS, money } from './VaultContext';
-import { AssetIcon, Panel, PillButton } from './VaultUI';
+import { AssetIcon, Panel } from './VaultUI';
 
 interface ClassCapacity {
   assetClass: string;
@@ -14,6 +14,8 @@ interface ClassCapacity {
   currentValue: number;
   headroom: number;
   atCap: boolean;
+  /** False when the vault's mode forbids funding this class. */
+  investable: boolean;
 }
 
 /**
@@ -29,19 +31,19 @@ export default function InvestPanel({ onInvested }: { onInvested: () => void }) 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [expert, setExpert] = useState(false);
+  const [mode, setMode] = useState<string>('DIVERSIFIED');
   const [cash, setCash] = useState(0);
   const [classes, setClasses] = useState<ClassCapacity[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const [total, setTotal] = useState('');
 
   const load = useCallback(async () => {
     try {
       const res = await axios.get('/api/retirement-vault/invest');
       setExpert(res.data?.expertAllocatorActive ?? false);
+      setMode(res.data?.allocationMode ?? 'DIVERSIFIED');
       setCash(res.data?.investableCash ?? 0);
       setClasses(res.data?.classes ?? []);
       setAmounts({});
-      setTotal('');
     } catch {
       setClasses([]);
     } finally {
@@ -64,7 +66,7 @@ export default function InvestPanel({ onInvested }: { onInvested: () => void }) 
     setSubmitting(true);
     try {
       const payload = expert
-        ? { amount: Number(total) }
+        ? { amount: cash }
         : {
             allocations: Object.entries(amounts)
               .filter(([, v]) => Number(v) > 0)
@@ -122,39 +124,27 @@ export default function InvestPanel({ onInvested }: { onInvested: () => void }) 
           <div className="flex items-start gap-2 bg-[#c1ff72]/25 border border-[#c1ff72] rounded-xl p-3">
             <Sparkles className="w-4 h-4 text-black/70 mt-0.5 shrink-0" />
             <p className="text-xs text-black/70">
-              The Expert Allocator is on. Enter a total and it will be placed across your asset
-              classes, filling whichever are furthest below target first.
+              The Expert Allocator places your whole balance across your asset classes,
+              filling whichever are furthest below target first. New deposits are invested
+              automatically as they arrive.
             </p>
           </div>
 
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Amount to invest (USD)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
-                min={1}
-                max={cash}
-                step={50}
-                className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm tabular-nums"
-                placeholder={cash.toFixed(2)}
-              />
-              <PillButton onClick={() => setTotal(String(Math.floor(cash * 100) / 100))}>
-                Max
-              </PillButton>
-            </div>
+          <div className="bg-gray-50 rounded-xl px-4 py-3">
+            <p className="text-xs text-gray-500">To be invested</p>
+            <p className="text-2xl font-bold text-gray-900 tabular-nums">{money(cash)}</p>
           </div>
         </div>
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-gray-500">
-            Set how much goes into each asset class. Each is capped at its share of your vault,
-            which is why crypto cannot exceed 5%.
+            {mode === 'FOCUSED'
+              ? 'Your vault is focused on a single asset class, so only that one can be funded. It is capped at its share of your vault.'
+              : 'Set how much goes into each asset class. Each is capped at its share of your vault, which is why crypto cannot exceed 5%.'}
           </p>
 
           {classes
-            .filter((c) => c.targetPercent > 0)
+            .filter((c) => c.investable && c.targetPercent > 0)
             .map((c) => {
               const entered = Number(amounts[c.assetClass]) || 0;
               const over = entered > c.headroom + 0.01;
@@ -229,10 +219,7 @@ export default function InvestPanel({ onInvested }: { onInvested: () => void }) 
       <button
         onClick={submit}
         disabled={
-          submitting ||
-          (expert
-            ? !(Number(total) > 0) || Number(total) > cash + 0.01
-            : manualTotal <= 0 || overCash || anyOverCap)
+          submitting || (expert ? cash <= 0.01 : manualTotal <= 0 || overCash || anyOverCap)
         }
         className="w-full mt-5 flex items-center justify-center gap-2 bg-black text-white py-3 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
       >
@@ -242,7 +229,7 @@ export default function InvestPanel({ onInvested }: { onInvested: () => void }) 
           <Check className="w-4 h-4" />
         )}
         {expert
-          ? `Invest ${Number(total) > 0 ? money(Number(total)) : ''}`.trim()
+          ? `Invest all ${money(cash)}`
           : `Invest ${manualTotal > 0 ? money(manualTotal) : ''}`.trim()}
       </button>
     </Panel>

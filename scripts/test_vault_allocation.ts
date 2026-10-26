@@ -6,6 +6,7 @@ import {
   TARGET_ALLOCATIONS,
   applyOverrides,
   canSwitchMode,
+  getInvestableClasses,
   computeDrift,
   enforceCryptoCap,
   getAllAssetClasses,
@@ -72,27 +73,46 @@ for (const profile of [RiskProfile.CONSERVATIVE, RiskProfile.BALANCED, RiskProfi
   }
 }
 
-console.log('\n=== 3. FOCUSED mode on each class (incl. the crypto edge case) ===');
+console.log('\n=== 3. FOCUSED restricts WHICH class, it does not concentrate ===');
 for (const focus of getAllAssetClasses()) {
   const a = getTargetAllocation({
     riskProfile: RiskProfile.BALANCED,
     mode: AllocationMode.FOCUSED,
     focusedAssetClass: focus,
   });
-  console.log(`  focus=${focus.padEnd(16)} ${fmt(a)}`);
   assertInvariants(`FOCUSED/${focus}`, a);
+  check(
+    `FOCUSED/${focus}: ceilings are unchanged from the profile`,
+    JSON.stringify(a) === JSON.stringify(TARGET_ALLOCATIONS[RiskProfile.BALANCED]),
+    fmt(a),
+  );
 }
 
-const cryptoFocused = getTargetAllocation({
-  riskProfile: RiskProfile.BALANCED,
-  mode: AllocationMode.FOCUSED,
-  focusedAssetClass: VaultAssetClass.CRYPTO,
-});
-check(
-  'crypto-focused vault is still clamped to the cap',
-  cryptoFocused[VaultAssetClass.CRYPTO] === CRYPTO_CAP_PERCENT,
-  `got ${cryptoFocused[VaultAssetClass.CRYPTO]}`,
+const balancedTarget = TARGET_ALLOCATIONS[RiskProfile.BALANCED];
+for (const focus of getAllAssetClasses()) {
+  const investable = getInvestableClasses(balancedTarget, AllocationMode.FOCUSED, focus);
+  check(`FOCUSED/${focus}: exactly one class is investable`, investable.length === 1,
+    investable.join(', '));
+  check(`FOCUSED/${focus}: it is the chosen one`, investable[0] === focus, investable[0] ?? 'none');
+}
+
+const noFocus = getInvestableClasses(balancedTarget, AllocationMode.FOCUSED, null);
+check('FOCUSED with no class chosen can fund nothing', noFocus.length === 0, noFocus.join(', '));
+
+const diversified = getInvestableClasses(balancedTarget, AllocationMode.DIVERSIFIED);
+check('DIVERSIFIED can fund every class with a target', diversified.length === 6,
+  String(diversified.length));
+
+const expert = getInvestableClasses(balancedTarget, AllocationMode.EXPERT_ALLOCATOR);
+check('EXPERT can fund every class with a target', expert.length === 6, String(expert.length));
+
+// A class the profile excludes cannot be funded even in Diversified.
+const conservative = getInvestableClasses(
+  TARGET_ALLOCATIONS[RiskProfile.CONSERVATIVE],
+  AllocationMode.DIVERSIFIED,
 );
+check('a class targeted at 0% is not investable',
+  !conservative.includes(VaultAssetClass.FUTURES_MACRO), conservative.join(', '));
 
 console.log('\n=== 4. Hostile inputs cannot breach the cap ===');
 const hostile: AllocationMap = {

@@ -9,6 +9,11 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { MIN_INITIAL_DEPOSIT, getOpenVaultForUser } from '@/lib/vault/vault-utils';
+import {
+  applyAllocationPlan,
+  buildTargetingAllocationPlan,
+  summarisePlan,
+} from '@/lib/vault/allocation-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -227,16 +232,49 @@ export async function POST(request: NextRequest) {
       maxWait: 15_000,
     });
 
+    // An Expert Allocator vault invests its own deposits: the member chose to
+    // have it managed, so leaving the money as cash would be the opposite of
+    // what they asked for. Run AFTER the deposit has committed, so a pricing
+    // failure cannot cost them the deposit itself.
+    let autoInvested: { amount: number; summary: string } | null = null;
+    if (vault.expertAllocatorActive) {
+      try {
+        const plan = await buildTargetingAllocationPlan(
+          vault.id,
+          result.updatedVault.cashBalance,
+        );
+        if (plan.complete && plan.lines.length > 0) {
+          await prisma.$transaction(
+            async (tx) => {
+              await applyAllocationPlan(tx, plan);
+              await tx.retirementVault.update({
+                where: { id: vault.id },
+                data: { cashBalance: { decrement: plan.totalAllocated } },
+              });
+            },
+            { timeout: 25_000, maxWait: 15_000 },
+          );
+          autoInvested = { amount: plan.totalAllocated, summary: summarisePlan(plan) };
+        }
+      } catch (error) {
+        // The money is safely in the vault as cash; the member can invest it
+        // themselves and the nightly rebalance catches it regardless.
+        console.error('[Vault Deposit] auto-invest failed, left as cash:', error);
+      }
+    }
+
     await prisma.notification
       .create({
         data: {
           userId,
           type: 'INVESTMENT',
           title: wasActivating ? 'Retirement Vault activated' : 'Deposit received',
-          message:
-            `$${amount.toLocaleString()} is now available in ${vault.vaultNumber}. ` +
-            `It is held as cash until you choose how to invest it.`,
-          link: '/retirement-vault/allocation',
+          message: autoInvested
+            ? `$${amount.toLocaleString()} was added to ${vault.vaultNumber} and invested ` +
+              `automatically. ${autoInvested.summary}.`
+            : `$${amount.toLocaleString()} is now available in ${vault.vaultNumber}. ` +
+              `It is held as cash until you choose how to invest it.`,
+          link: autoInvested ? '/retirement-vault/holdings' : '/retirement-vault/allocation',
         },
       })
       .catch((error) => {
@@ -254,8 +292,11 @@ export async function POST(request: NextRequest) {
         cashBalance: result.updatedVault.cashBalance,
       },
       accountBalanceAfter: result.balanceAfter,
-      // Held as cash; the member invests it from the Allocation page.
-      awaitingInvestment: Number(result.updatedVault.cashBalance.toFixed(2)),
+      // Held as cash unless the Expert Allocator invested it on arrival.
+      awaitingInvestment: Number(
+        Math.max(0, result.updatedVault.cashBalance - (autoInvested?.amount ?? 0)).toFixed(2),
+      ),
+      autoInvested: autoInvested === null ? null : Number(autoInvested.amount.toFixed(2)),
     });
   } catch (error) {
     console.error('[Vault Deposit] error:', error);

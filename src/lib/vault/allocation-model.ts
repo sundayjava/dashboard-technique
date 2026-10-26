@@ -40,16 +40,6 @@ export const WITHDRAWAL_NOTICE_DAYS = 14;
 export const SOFT_LOCK_PENALTY_PERCENT = 5;
 export const FLEXIBLE_PENALTY_PERCENT = 2;
 
-/**
- * Share placed in the chosen class under FOCUSED mode.
- *
- * NOTE — product decision, confirm before launch. The spec says only
- * "concentrated in one asset class". 100% would be indefensible in a
- * retirement vehicle, so this concentrates meaningfully while keeping a
- * diversified remainder. Change this one number to retune it.
- */
-export const FOCUSED_CONCENTRATION_PERCENT = 60;
-
 export type AllocationMap = Record<VaultAssetClass, number>;
 
 /**
@@ -113,7 +103,6 @@ export interface VaultPolicy {
   withdrawalNoticeDays: number;
   softLockPenaltyPercent: number;
   flexiblePenaltyPercent: number;
-  focusedConcentrationPercent: number;
   targetAllocations: Record<RiskProfile, AllocationMap>;
 }
 
@@ -131,7 +120,6 @@ export const DEFAULT_VAULT_POLICY: VaultPolicy = {
   withdrawalNoticeDays: WITHDRAWAL_NOTICE_DAYS,
   softLockPenaltyPercent: SOFT_LOCK_PENALTY_PERCENT,
   flexiblePenaltyPercent: FLEXIBLE_PENALTY_PERCENT,
-  focusedConcentrationPercent: FOCUSED_CONCENTRATION_PERCENT,
   targetAllocations: TARGET_ALLOCATIONS,
 };
 
@@ -250,40 +238,39 @@ export function getTargetAllocation(
   },
   policy: VaultPolicy = DEFAULT_VAULT_POLICY,
 ): AllocationMap {
-  const base = { ...policy.targetAllocations[params.riskProfile] };
-  const cap = policy.cryptoCapPercent;
+  // Every mode now shares the same ceilings. FOCUSED does NOT concentrate the
+  // target: it restricts which class the member may fund, and each class is
+  // still capped at the percentage the profile (and the admin) set for it.
+  //
+  // The practical consequence, stated plainly because it surprises people: a
+  // member focused on a class targeted at 15% can only ever invest 15% of
+  // their vault, and the remaining 85% stays as cash. An admin who wants
+  // concentrated vaults raises that class's percentage.
+  return enforceCryptoCap(
+    { ...policy.targetAllocations[params.riskProfile] },
+    policy.cryptoCapPercent,
+  );
+}
 
-  if (params.mode !== AllocationMode.FOCUSED) {
-    return enforceCryptoCap(base, cap);
+/**
+ * The classes a member may actually put money into.
+ *
+ * DIVERSIFIED and EXPERT_ALLOCATOR can fund anything with a target above
+ * zero. FOCUSED can fund exactly one class — the one chosen at onboarding.
+ */
+export function getInvestableClasses(
+  target: AllocationMap,
+  mode: AllocationMode,
+  focusedAssetClass?: VaultAssetClass | null,
+  classKeys: VaultAssetClass[] = getAllAssetClasses(),
+): VaultAssetClass[] {
+  if (mode === AllocationMode.FOCUSED) {
+    // A focused vault with no class recorded can fund nothing, rather than
+    // silently behaving like a diversified one.
+    if (focusedAssetClass === undefined || focusedAssetClass === null) return [];
+    return classKeys.includes(focusedAssetClass) ? [focusedAssetClass] : [];
   }
-
-  const focus = params.focusedAssetClass;
-  if (focus === undefined || focus === null) {
-    // A FOCUSED vault with no class chosen is a data error; falling back to the
-    // diversified target is safer than refusing to value the vault.
-    return enforceCryptoCap(base, cap);
-  }
-
-  const result = emptyAllocation();
-  result[focus] = policy.focusedConcentrationPercent;
-
-  // Spread the remainder across the other classes in their profile proportions,
-  // so a focused vault still reflects the member's risk profile underneath.
-  const remainder = 100 - policy.focusedConcentrationPercent;
-  const others = ALL_ASSET_CLASSES.filter((c) => c !== focus);
-  const othersBaseTotal = others.reduce((total, c) => total + base[c], 0);
-
-  for (const c of others) {
-    result[c] =
-      othersBaseTotal > 0
-        ? remainder * (base[c] / othersBaseTotal)
-        : remainder / others.length;
-  }
-
-  // Focusing on crypto cannot escape the cap: the concentration is clamped to
-  // the configured cap and the excess redistributed. Callers should warn the
-  // member that a crypto-focused vault is still capped.
-  return enforceCryptoCap(result, cap);
+  return classKeys.filter((c) => (target[c] ?? 0) > 0);
 }
 
 export interface AllocationValidation {

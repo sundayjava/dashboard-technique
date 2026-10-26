@@ -1,7 +1,7 @@
 import { VaultAssetClass } from './asset-classes';
 import { Prisma, VaultAssetRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { AllocationMap, getAllAssetClasses } from './allocation-model';
+import { AllocationMap, getAllAssetClasses, getInvestableClasses } from './allocation-model';
 import { getPricesAsOf, valueVault } from './valuation';
 
 /**
@@ -236,6 +236,8 @@ export function summarisePlan(plan: AllocationPlan): string {
 export interface ClassCapacity {
   assetClass: VaultAssetClass;
   targetPercent: number;
+  /** False when the mode forbids funding this class at all. */
+  investable: boolean;
   /** Most this class may ever be worth, given the vault's total value. */
   capValue: number;
   currentValue: number;
@@ -288,16 +290,35 @@ export async function getInvestmentCapacity(
     );
   }
 
-  const classes: ClassCapacity[] = getAllAssetClasses().map((assetClass) => {
-    const targetPercent =
-      vault.allocations.find((a) => a.assetClass === assetClass)?.targetPercent ?? 0;
+  const classKeys = [
+    ...new Set([
+      ...getAllAssetClasses(),
+      ...vault.allocations.map((a) => a.assetClass),
+    ]),
+  ];
+
+  const targetMap = classKeys.reduce((map, key) => {
+    map[key] = vault.allocations.find((a) => a.assetClass === key)?.targetPercent ?? 0;
+    return map;
+  }, {} as AllocationMap);
+
+  // A FOCUSED vault may fund only its chosen class; the others report zero
+  // headroom so the limit is enforced here, not only hidden in the UI.
+  const investable = new Set(
+    getInvestableClasses(targetMap, vault.allocationMode, vault.focusedAssetClass, classKeys),
+  );
+
+  const classes: ClassCapacity[] = classKeys.map((assetClass) => {
+    const targetPercent = targetMap[assetClass] ?? 0;
     const capValue = (vaultTotalValue * targetPercent) / 100;
     const currentValue = valueByClass.get(assetClass) ?? 0;
-    const headroom = Math.max(0, capValue - currentValue);
+    const canFund = investable.has(assetClass);
+    const headroom = canFund ? Math.max(0, capValue - currentValue) : 0;
 
     return {
       assetClass,
       targetPercent,
+      investable: canFund,
       capValue,
       currentValue,
       currentPercent:
@@ -378,6 +399,14 @@ export async function buildManualAllocationPlan(
     const capacityForClass = capacity.classes.find((c) => c.assetClass === input.assetClass);
     if (capacityForClass === undefined) {
       errors.push(`Unknown asset class: ${input.assetClass}`);
+      continue;
+    }
+
+    if (!capacityForClass.investable) {
+      errors.push(
+        `Your vault is focused on a single asset class, so nothing can be invested in ` +
+          `${input.assetClass.replace(/_/g, ' ').toLowerCase()}.`,
+      );
       continue;
     }
 
