@@ -2,6 +2,7 @@ import { VaultAssetClass } from './asset-classes';
 import { RiskProfile } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { invalidatePriceCaches } from './valuation';
+import { getAssetClassKeys } from './asset-class-store';
 import {
   AllocationMap,
   DEFAULT_VAULT_POLICY,
@@ -180,7 +181,7 @@ export async function loadVaultPolicyDetailed(): Promise<PolicyLoadResult> {
     const rows = storedAllocations.filter((a) => a.riskProfile === profile);
     if (rows.length === 0) continue;
 
-    const classes = getAllAssetClasses();
+    const classes = await getAssetClassKeys();
     if (rows.length !== classes.length) {
       warnings.push(
         `${profile} has ${rows.length} of ${classes.length} allocation rows; using defaults.`,
@@ -251,6 +252,8 @@ export async function seedVaultPolicy(): Promise<SeedPolicyResult> {
   }
 
   for (const profile of Object.values(RiskProfile)) {
+    // Seeded from the shipped defaults, which only describe the original six.
+    // Classes an admin adds start at 0% and are weighted by them.
     for (const assetClass of getAllAssetClasses()) {
       const existing = await prisma.vaultProfileAllocation.findUnique({
         where: { riskProfile_assetClass: { riskProfile: profile, assetClass } },
@@ -275,6 +278,8 @@ export async function seedVaultPolicy(): Promise<SeedPolicyResult> {
 export interface AllocationUpdateResult {
   ok: boolean;
   errors: string[];
+  /** How many member vaults picked up the change. */
+  vaultsUpdated?: number;
 }
 
 /**
@@ -300,23 +305,76 @@ export async function updateProfileAllocation(
     return { ok: false, errors: [`Allocation totals ${total}%, expected 100%.`] };
   }
 
+  const keys = await getAssetClassKeys();
+
   await prisma.$transaction(
-    getAllAssetClasses().map((assetClass) =>
+    keys.map((assetClass) =>
       prisma.vaultProfileAllocation.upsert({
         where: { riskProfile_assetClass: { riskProfile, assetClass } },
         create: {
           riskProfile,
           assetClass,
-          targetPercent: allocation[assetClass],
+          targetPercent: allocation[assetClass] ?? 0,
           updatedBy,
         },
-        update: { targetPercent: allocation[assetClass], updatedBy },
+        update: { targetPercent: allocation[assetClass] ?? 0, updatedBy },
       }),
     ),
   );
 
   invalidatePolicyCache();
-  return { ok: true, errors: [] };
+
+  // Existing vaults on this profile pick up the new percentages. Without
+  // this an admin would change the policy and nothing would move until each
+  // member's next rebalance, which is not what "set the percentage" means.
+  const propagated = await propagateProfileAllocation(riskProfile, allocation, keys);
+
+  return { ok: true, errors: [], vaultsUpdated: propagated };
+}
+
+/**
+ * Push a profile's new targets onto the vaults already using it.
+ *
+ * Classes a member has PINNED are left alone: an override is an explicit
+ * instruction from them, and silently overwriting it would undo a choice they
+ * made. Everything else is re-targeted, and the holdings follow at the next
+ * rebalance rather than being traded immediately — a policy edit should not
+ * fire a market order for every member at once.
+ */
+export async function propagateProfileAllocation(
+  riskProfile: RiskProfile,
+  allocation: AllocationMap,
+  classKeys: string[],
+): Promise<number> {
+  const vaults = await prisma.retirementVault.findMany({
+    where: { riskProfile, status: { in: ['ACTIVE', 'PENDING_ACTIVATION'] } },
+    select: { id: true },
+  });
+  if (vaults.length === 0) return 0;
+
+  for (const vault of vaults) {
+    const existing = await prisma.vaultAllocation.findMany({ where: { vaultId: vault.id } });
+    const pinned = new Set(existing.filter((a) => a.isUserOverride).map((a) => a.assetClass));
+
+    await prisma.$transaction([
+      // Rows for classes that no longer exist are removed, or a retired class
+      // would keep a target forever.
+      prisma.vaultAllocation.deleteMany({
+        where: { vaultId: vault.id, assetClass: { notIn: classKeys } },
+      }),
+      ...classKeys
+        .filter((key) => !pinned.has(key))
+        .map((assetClass) =>
+          prisma.vaultAllocation.upsert({
+            where: { vaultId_assetClass: { vaultId: vault.id, assetClass } },
+            create: { vaultId: vault.id, assetClass, targetPercent: allocation[assetClass] ?? 0 },
+            update: { targetPercent: allocation[assetClass] ?? 0 },
+          }),
+        ),
+    ]);
+  }
+
+  return vaults.length;
 }
 
 /** Update one scalar setting, bounded by its definition. */

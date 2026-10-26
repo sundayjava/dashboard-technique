@@ -147,8 +147,20 @@ function emptyAllocation(): AllocationMap {
   };
 }
 
+/**
+ * Classes present in an allocation.
+ *
+ * Driven by the map's own keys rather than a fixed list, because an admin can
+ * now add classes. Summing a fixed six silently ignored a seventh, which made
+ * a perfectly valid 100% allocation report as 95% and refuse to save.
+ */
+function classesIn(allocation: AllocationMap): VaultAssetClass[] {
+  const keys = Object.keys(allocation);
+  return keys.length > 0 ? keys : ALL_ASSET_CLASSES;
+}
+
 export function sumAllocation(allocation: AllocationMap): number {
-  return ALL_ASSET_CLASSES.reduce((total, c) => total + allocation[c], 0);
+  return classesIn(allocation).reduce((total, c) => total + (allocation[c] ?? 0), 0);
 }
 
 /**
@@ -163,18 +175,20 @@ export function normaliseTo100(allocation: AllocationMap): AllocationMap {
   const total = sumAllocation(allocation);
   if (total <= 0) return { ...TARGET_ALLOCATIONS[RiskProfile.BALANCED] };
 
-  const scaled = emptyAllocation();
-  for (const c of ALL_ASSET_CLASSES) {
-    scaled[c] = Math.round((allocation[c] / total) * 100 * 10000) / 10000;
+  const keys = classesIn(allocation);
+  const scaled: AllocationMap = {} as AllocationMap;
+  for (const c of keys) {
+    scaled[c] = Math.round(((allocation[c] ?? 0) / total) * 100 * 10000) / 10000;
   }
 
   // Push any rounding residue into the largest non-crypto class, so the cap is
   // never breached by a correction.
   const residue = 100 - sumAllocation(scaled);
   if (residue !== 0) {
-    const absorber = ALL_ASSET_CLASSES.filter((c) => c !== VaultAssetClass.CRYPTO).reduce(
-      (largest, c) => (scaled[c] > scaled[largest] ? c : largest),
-      VaultAssetClass.GLOBAL_EQUITIES,
+    const nonCrypto = keys.filter((c) => c !== VaultAssetClass.CRYPTO);
+    const absorber = nonCrypto.reduce(
+      (largest, c) => ((scaled[c] ?? 0) > (scaled[largest] ?? 0) ? c : largest),
+      nonCrypto[0] ?? keys[0]!,
     );
     scaled[absorber] = Math.round((scaled[absorber] + residue) * 10000) / 10000;
   }
@@ -206,8 +220,8 @@ export function enforceCryptoCap(
   const excess = crypto - cap;
   result[VaultAssetClass.CRYPTO] = cap;
 
-  const others = ALL_ASSET_CLASSES.filter((c) => c !== VaultAssetClass.CRYPTO);
-  const othersTotal = others.reduce((total, c) => total + result[c], 0);
+  const others = classesIn(allocation).filter((c) => c !== VaultAssetClass.CRYPTO);
+  const othersTotal = others.reduce((total, c) => total + (result[c] ?? 0), 0);
 
   if (othersTotal > 0) {
     for (const c of others) {
@@ -285,8 +299,8 @@ export function validateAllocation(
 ): AllocationValidation {
   const errors: string[] = [];
 
-  for (const c of ALL_ASSET_CLASSES) {
-    const value = allocation[c];
+  for (const c of classesIn(allocation)) {
+    const value = allocation[c] ?? 0;
     if (!Number.isFinite(value)) {
       errors.push(`${c} is not a finite number.`);
     } else if (value < 0) {
@@ -337,9 +351,14 @@ export function computeDrift(
   current: AllocationMap,
   thresholdPercent: number = DRIFT_THRESHOLD_PERCENT,
 ): DriftReport {
-  const drifts: ClassDrift[] = ALL_ASSET_CLASSES.map((assetClass) => {
-    const targetPercent = target[assetClass];
-    const currentPercent = current[assetClass];
+  // Union of both sides: a class present in one but not the other still has
+  // a drift, and omitting it would hide exactly the case worth catching.
+  const keys = [...new Set([...Object.keys(target), ...Object.keys(current)])];
+  const allKeys = keys.length > 0 ? keys : ALL_ASSET_CLASSES;
+
+  const drifts: ClassDrift[] = allKeys.map((assetClass) => {
+    const targetPercent = target[assetClass] ?? 0;
+    const currentPercent = current[assetClass] ?? 0;
     const driftPercent = currentPercent - targetPercent;
     return {
       assetClass,
@@ -412,10 +431,11 @@ export function applyOverrides(
   overrides: Partial<Record<VaultAssetClass, number>>,
   capPercent: number = CRYPTO_CAP_PERCENT,
 ): AllocationMap {
-  const pinned = ALL_ASSET_CLASSES.filter((c) => overrides[c] !== undefined);
+  const pinned = classesIn(proposed).filter((c) => overrides[c] !== undefined);
   if (pinned.length === 0) return enforceCryptoCap(proposed, capPercent);
 
-  const result = emptyAllocation();
+  const result: AllocationMap = {} as AllocationMap;
+  for (const c of classesIn(proposed)) result[c] = 0;
   let pinnedTotal = 0;
 
   for (const c of pinned) {
@@ -427,7 +447,7 @@ export function applyOverrides(
     pinnedTotal += result[c];
   }
 
-  const free = ALL_ASSET_CLASSES.filter((c) => overrides[c] === undefined);
+  const free = classesIn(proposed).filter((c) => overrides[c] === undefined);
   const remainder = Math.max(0, 100 - pinnedTotal);
   const freeProposedTotal = free.reduce((total, c) => total + proposed[c], 0);
 

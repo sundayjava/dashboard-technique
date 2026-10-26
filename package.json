@@ -32,6 +32,7 @@
     "vault:test-invest": "tsx scripts/test_vault_invest.ts",
     "vault:test-price-cache": "tsx scripts/test_vault_price_cache.ts",
     "vault:test-modes": "tsx scripts/test_vault_modes.ts",
+    "vault:test-asset-classes": "tsx scripts/test_vault_asset_classes.ts",
     "type-check": "tsc --noEmit",
     "test:investments": "tsx scripts/test-investment-notifications.ts"
   },
