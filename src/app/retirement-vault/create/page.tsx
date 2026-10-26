@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SessionManager } from '@/lib/session';
+import { DEFAULT_COPY_MAP } from '@/lib/vault/onboarding-copy';
 
 interface User {
   id: string;
@@ -46,49 +47,28 @@ interface CreatedVault {
   initialDeposit: number;
 }
 
-const HORIZONS = [
-  { value: 'YEARS_10', label: '10 years' },
-  { value: 'YEARS_15', label: '15 years' },
-  { value: 'YEARS_20', label: '20 years' },
-  { value: 'YEARS_25_PLUS', label: '25+ years' },
+/** Option labels come from the copy map so an admin can reword them. */
+const HORIZON_KEYS: Array<{ value: string; copyKey: string }> = [
+  { value: 'YEARS_10', copyKey: 'step1.horizon.years10' },
+  { value: 'YEARS_15', copyKey: 'step1.horizon.years15' },
+  { value: 'YEARS_20', copyKey: 'step1.horizon.years20' },
+  { value: 'YEARS_25_PLUS', copyKey: 'step1.horizon.years25plus' },
 ];
 
-const ALLOCATION_MODES = [
-  {
-    value: 'DIVERSIFIED',
-    title: 'Diversified',
-    icon: PieChart,
-    description: 'Spread across every asset class according to your risk profile.',
-    detail: 'The default for most members. Nothing to manage.',
-  },
-  {
-    value: 'FOCUSED',
-    title: 'Focused',
-    icon: Wallet,
-    description: 'Concentrated in one asset class you choose, with the rest diversified.',
-    detail: 'Higher conviction, higher concentration risk.',
-  },
-  {
-    value: 'EXPERT_ALLOCATOR',
-    title: 'Expert Allocator',
-    icon: Sparkles,
-    description: 'Acredis-managed and rebalanced as market conditions change.',
-    detail: 'You can still override any single allocation.',
-  },
+const ALLOCATION_MODE_KEYS = [
+  { value: 'DIVERSIFIED', icon: PieChart, prefix: 'step3.diversified' },
+  { value: 'FOCUSED', icon: Wallet, prefix: 'step3.focused' },
+  { value: 'EXPERT_ALLOCATOR', icon: Sparkles, prefix: 'step3.expert' },
 ];
 
-const ASSET_CLASSES = [
-  { value: 'GLOBAL_EQUITIES', label: 'Global Equities' },
-  { value: 'FIXED_INCOME', label: 'Bonds / Fixed Income' },
-  { value: 'COMMODITIES', label: 'Commodities (Gold, Silver)' },
-  { value: 'REAL_ESTATE', label: 'Real Estate / REITs' },
-  { value: 'FUTURES_MACRO', label: 'Futures / Macro' },
-  { value: 'CRYPTO', label: 'Crypto (capped at 5%)' },
+const ASSET_CLASS_VALUES = [
+  'GLOBAL_EQUITIES',
+  'FIXED_INCOME',
+  'COMMODITIES',
+  'REAL_ESTATE',
+  'FUTURES_MACRO',
+  'CRYPTO',
 ];
-
-const CLASS_LABELS: Record<string, string> = Object.fromEntries(
-  ASSET_CLASSES.map((c) => [c.value, c.label]),
-);
 
 const PROFILE_LABELS: Record<string, string> = {
   CONSERVATIVE: 'Conservative',
@@ -96,18 +76,25 @@ const PROFILE_LABELS: Record<string, string> = {
   GROWTH: 'Growth',
 };
 
-const steps = [
-  { number: 1, title: 'Eligibility', icon: Shield },
-  { number: 2, title: 'Risk Profile', icon: ClipboardList },
-  { number: 3, title: 'Allocation', icon: PieChart },
-  { number: 4, title: 'Contributions', icon: Wallet },
-  { number: 5, title: 'Review', icon: Check },
+const STEP_KEYS = [
+  { number: 1, copyKey: 'chrome.step1', icon: Shield },
+  { number: 2, copyKey: 'chrome.step2', icon: ClipboardList },
+  { number: 3, copyKey: 'chrome.step3', icon: PieChart },
+  { number: 4, copyKey: 'chrome.step4', icon: Wallet },
+  { number: 5, copyKey: 'chrome.step5', icon: Check },
 ];
 
 export default function CreateRetirementVaultPage() {
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
+  // Admin-editable copy. Starts as the shipped strings so the page renders
+  // fully on first paint, then takes any overrides once they arrive.
+  const [copy, setCopy] = useState<Record<string, string>>(DEFAULT_COPY_MAP);
+  const t = useCallback(
+    (key: string) => copy[key] ?? DEFAULT_COPY_MAP[key] ?? key,
+    [copy],
+  );
   const [checkingVault, setCheckingVault] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -153,11 +140,17 @@ export default function CreateRetirementVaultPage() {
 
     (async () => {
       try {
-        const [statusRes, questionsRes] = await Promise.all([
+        const [statusRes, questionsRes, copyRes] = await Promise.all([
           axios.get('/api/retirement-vault/status'),
           axios.get('/api/retirement-vault/questionnaire'),
+          // Copy failing must not block onboarding, so it is tolerated.
+          axios.get('/api/retirement-vault/content').catch(() => null),
         ]);
         if (cancelled) return;
+
+        if (copyRes?.data?.copy) {
+          setCopy({ ...DEFAULT_COPY_MAP, ...copyRes.data.copy });
+        }
 
         if (statusRes.data?.hasVault) {
           toast('You already have a Retirement Vault.');
@@ -353,7 +346,7 @@ export default function CreateRetirementVaultPage() {
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Vault created</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('success.heading')}</h1>
           <p className="text-gray-600 mt-2">
             Your Retirement Vault <span className="font-semibold">{created.vaultNumber}</span> has
             been set up with a {PROFILE_LABELS[created.riskProfile] ?? created.riskProfile} profile.
@@ -369,7 +362,7 @@ export default function CreateRetirementVaultPage() {
             onClick={() => router.push('/retirement-vault/dashboard')}
             className="w-full mt-6 bg-black text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors cursor-pointer"
           >
-            Go to my vault
+            {t('success.cta')}
           </button>
         </div>
       </div>
@@ -394,7 +387,7 @@ export default function CreateRetirementVaultPage() {
                 <span className="text-xl font-bold text-white whitespace-nowrap">
                   <span className="text-[#c1ff72]">A</span>credis Finance
                 </span>
-                <p className="text-xs text-gray-500">Retirement Vault Setup</p>
+                <p className="text-xs text-gray-500">{t('chrome.headerSubtitle')}</p>
               </div>
             </div>
             <button
@@ -402,7 +395,7 @@ export default function CreateRetirementVaultPage() {
               className="flex items-center text-gray-300 cursor-pointer hover:text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Exit
+              {t('chrome.exit')}
             </button>
           </div>
         </div>
@@ -411,18 +404,17 @@ export default function CreateRetirementVaultPage() {
       <div className="max-w-5xl mx-auto py-8 px-4">
         <div className="mb-8">
           <h1 className="md:text-3xl text-xl font-bold text-gray-900">
-            Open your Retirement Vault
+            {t('chrome.pageTitle')}
           </h1>
           <p className="text-gray-600 md:text-base text-sm md:mt-2">
-            A long-term retirement vehicle, allocated across equities, bonds, commodities, real
-            estate and a capped crypto sleeve.
+            {t('chrome.pageSubtitle')}
           </p>
         </div>
 
         {/* Progress Stepper */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
-            {steps.map((step, index) => {
+            {STEP_KEYS.map((step, index) => {
               const Icon = step.icon;
               const isActive = currentStep === step.number;
               const isCompleted = currentStep > step.number;
@@ -446,10 +438,10 @@ export default function CreateRetirementVaultPage() {
                         isActive ? 'text-black' : isCompleted ? 'text-green-600' : 'text-gray-500'
                       }`}
                     >
-                      {step.title}
+                      {t(step.copyKey)}
                     </span>
                   </div>
-                  {index < steps.length - 1 && (
+                  {index < STEP_KEYS.length - 1 && (
                     <div
                       className={`h-1 flex-1 mx-2 rounded ${
                         isCompleted ? 'bg-green-600' : 'bg-gray-200'
@@ -466,11 +458,11 @@ export default function CreateRetirementVaultPage() {
           {/* ---------------------------------------------- Step 1 */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Eligibility & intent</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('step1.heading')}</h2>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Your age *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('step1.age.label')}</label>
                   <input
                     type="number"
                     value={age}
@@ -478,29 +470,29 @@ export default function CreateRetirementVaultPage() {
                     min={18}
                     max={100}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                    placeholder="35"
+                    placeholder={t('step1.age.placeholder')}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Country of residence *
+                    {t('step1.country.label')}
                   </label>
                   <input
                     type="text"
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                    placeholder="Nigeria"
+                    placeholder={t('step1.country.placeholder')}
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  How long until you retire? *
+                  {t('step1.horizon.label')}
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {HORIZONS.map((option) => (
+                  {HORIZON_KEYS.map((option) => (
                     <button
                       key={option.value}
                       type="button"
@@ -514,27 +506,30 @@ export default function CreateRetirementVaultPage() {
                           : 'border-gray-300 text-gray-700 hover:border-gray-400'
                       }`}
                     >
-                      {option.label}
+                      {t(option.copyKey)}
                     </button>
                   ))}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  This affects how much investment risk is appropriate for you, not just how much
-                  you are comfortable with.
+                  {t('step1.horizon.help')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Is this your primary retirement vehicle? *
+                  {t('step1.vehicle.label')}
                 </label>
                 <div className="grid md:grid-cols-2 gap-3">
                   {[
-                    { value: 'PRIMARY', label: 'Primary', hint: 'My main retirement provision' },
+                    {
+                      value: 'PRIMARY',
+                      label: t('step1.vehicle.primary.label'),
+                      hint: t('step1.vehicle.primary.hint'),
+                    },
                     {
                       value: 'SUPPLEMENTARY',
-                      label: 'Supplementary',
-                      hint: 'I have other retirement savings',
+                      label: t('step1.vehicle.supplementary.label'),
+                      hint: t('step1.vehicle.supplementary.hint'),
                     },
                   ].map((option) => (
                     <button
@@ -560,10 +555,9 @@ export default function CreateRetirementVaultPage() {
           {currentStep === 2 && (
             <div className="space-y-8">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Risk profile</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{t('step2.heading')}</h2>
                 <p className="text-gray-600 text-sm mt-1">
-                  Seven questions. There are no right answers — answer honestly so we allocate your
-                  vault appropriately.
+                  {t('step2.intro')}
                 </p>
               </div>
 
@@ -599,7 +593,7 @@ export default function CreateRetirementVaultPage() {
           {/* ---------------------------------------------- Step 3 */}
           {currentStep === 3 && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">How should we allocate it?</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('step3.heading')}</h2>
 
               {assessment && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
@@ -607,7 +601,8 @@ export default function CreateRetirementVaultPage() {
                     <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
-                        Your profile: {PROFILE_LABELS[assessment.assignedProfile]}
+                        {t('step3.profilePrefix')}{' '}
+                        {PROFILE_LABELS[assessment.assignedProfile]}
                       </p>
                       <p className="text-sm text-gray-600 mt-1">{assessment.explanation}</p>
                     </div>
@@ -617,8 +612,7 @@ export default function CreateRetirementVaultPage() {
                     <div className="flex items-start gap-2 mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
                       <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                       <p className="text-xs text-amber-900">
-                        Your answers alone suggested a higher-risk profile. We held it back because
-                        of your retirement horizon.
+                        {t('step3.horizonLimited')}
                       </p>
                     </div>
                   )}
@@ -628,7 +622,7 @@ export default function CreateRetirementVaultPage() {
                       .filter(([, pct]) => pct > 0)
                       .map(([cls, pct]) => (
                         <div key={cls} className="bg-white border border-gray-200 rounded px-3 py-2">
-                          <p className="text-xs text-gray-500">{CLASS_LABELS[cls] ?? cls}</p>
+                          <p className="text-xs text-gray-500">{t(`assetClass.${cls}`)}</p>
                           <p className="text-sm font-semibold text-gray-900">{pct.toFixed(0)}%</p>
                         </div>
                       ))}
@@ -637,7 +631,7 @@ export default function CreateRetirementVaultPage() {
               )}
 
               <div className="space-y-3">
-                {ALLOCATION_MODES.map((mode) => {
+                {ALLOCATION_MODE_KEYS.map((mode) => {
                   const Icon = mode.icon;
                   const selected = allocationMode === mode.value;
                   return (
@@ -658,9 +652,15 @@ export default function CreateRetirementVaultPage() {
                           <Icon className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">{mode.title}</p>
-                          <p className="text-sm text-gray-600 mt-0.5">{mode.description}</p>
-                          <p className="text-xs text-gray-500 mt-1">{mode.detail}</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {t(`${mode.prefix}.title`)}
+                          </p>
+                          <p className="text-sm text-gray-600 mt-0.5">
+                            {t(`${mode.prefix}.description`)}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {t(`${mode.prefix}.detail`)}
+                          </p>
                         </div>
                       </div>
                     </button>
@@ -671,21 +671,21 @@ export default function CreateRetirementVaultPage() {
               {allocationMode === 'FOCUSED' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Which asset class? *
+                    {t('step3.focusClass.label')}
                   </label>
                   <div className="grid md:grid-cols-2 gap-3">
-                    {ASSET_CLASSES.map((cls) => (
+                    {ASSET_CLASS_VALUES.map((value) => (
                       <button
-                        key={cls.value}
+                        key={value}
                         type="button"
-                        onClick={() => setFocusedAssetClass(cls.value)}
+                        onClick={() => setFocusedAssetClass(value)}
                         className={`px-4 py-3 rounded-lg border text-sm text-left transition-colors cursor-pointer ${
-                          focusedAssetClass === cls.value
+                          focusedAssetClass === value
                             ? 'border-black bg-[#e0ff57] text-black font-medium'
                             : 'border-gray-300 text-gray-700 hover:border-gray-400'
                         }`}
                       >
-                        {cls.label}
+                        {t(`assetClass.${value}`)}
                       </button>
                     ))}
                   </div>
@@ -693,8 +693,7 @@ export default function CreateRetirementVaultPage() {
                     <div className="flex items-start gap-2 mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
                       <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                       <p className="text-xs text-amber-900">
-                        Crypto is capped at 5% of any vault, so a crypto-focused vault will still
-                        hold no more than 5% in crypto. The rest stays diversified.
+                        {t('step3.cryptoWarning')}
                       </p>
                     </div>
                   )}
@@ -706,11 +705,11 @@ export default function CreateRetirementVaultPage() {
           {/* ---------------------------------------------- Step 4 */}
           {currentStep === 4 && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Contributions</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('step4.heading')}</h2>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Initial deposit (USD) *
+                  {t('step4.deposit.label')}
                 </label>
                 <input
                   type="number"
@@ -719,9 +718,9 @@ export default function CreateRetirementVaultPage() {
                   min={100}
                   step={50}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                  placeholder="10000"
+                  placeholder={t('step4.deposit.placeholder')}
                 />
-                <p className="text-xs text-gray-500 mt-1">Minimum $100.</p>
+                <p className="text-xs text-gray-500 mt-1">{t('step4.deposit.help')}</p>
               </div>
 
               <div className="border border-gray-200 rounded-lg p-4">
@@ -733,7 +732,7 @@ export default function CreateRetirementVaultPage() {
                     className="w-4 h-4 accent-black"
                   />
                   <span className="text-sm font-medium text-gray-900">
-                    Set up a monthly auto-contribution
+                    {t('step4.auto.label')}
                   </span>
                 </label>
 
@@ -741,7 +740,7 @@ export default function CreateRetirementVaultPage() {
                   <div className="grid md:grid-cols-2 gap-4 mt-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Monthly amount (USD)
+                        {t('step4.auto.amountLabel')}
                       </label>
                       <input
                         type="number"
@@ -749,12 +748,12 @@ export default function CreateRetirementVaultPage() {
                         onChange={(e) => setMonthlyContribution(e.target.value)}
                         min={1}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500"
-                        placeholder="500"
+                        placeholder={t('step4.auto.amountPlaceholder')}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Day of month
+                        {t('step4.auto.dayLabel')}
                       </label>
                       <select
                         value={contributionDay}
@@ -768,7 +767,7 @@ export default function CreateRetirementVaultPage() {
                         ))}
                       </select>
                       <p className="text-xs text-gray-500 mt-1">
-                        Capped at the 28th so it never skips February.
+                        {t('step4.auto.dayHelp')}
                       </p>
                     </div>
                   </div>
@@ -777,19 +776,19 @@ export default function CreateRetirementVaultPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lock-in preference *
+                  {t('step4.lockIn.label')}
                 </label>
                 <div className="grid md:grid-cols-2 gap-3">
                   {[
                     {
                       value: 'SOFT_LOCK',
-                      label: 'Soft lock',
-                      hint: 'Committed to the long term. Early withdrawals carry a 14-day notice and may incur a penalty.',
+                      label: t('step4.lockIn.soft.label'),
+                      hint: t('step4.lockIn.soft.hint'),
                     },
                     {
                       value: 'FLEXIBLE',
-                      label: 'Flexible',
-                      hint: 'Easier access, with the 14-day notice period still applying.',
+                      label: t('step4.lockIn.flexible.label'),
+                      hint: t('step4.lockIn.flexible.hint'),
                     },
                   ].map((option) => (
                     <button
@@ -814,13 +813,16 @@ export default function CreateRetirementVaultPage() {
           {/* ---------------------------------------------- Step 5 */}
           {currentStep === 5 && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Review & activate</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('step5.heading')}</h2>
 
               <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                 {[
                   ['Age', age],
                   ['Country', country],
-                  ['Retirement horizon', HORIZONS.find((h) => h.value === horizon)?.label ?? '—'],
+                  [
+                    'Retirement horizon',
+                    t(HORIZON_KEYS.find((h) => h.value === horizon)?.copyKey ?? '') || '—',
+                  ],
                   ['Vehicle', vehicleType === 'PRIMARY' ? 'Primary' : 'Supplementary'],
                   [
                     'Risk profile',
@@ -828,10 +830,12 @@ export default function CreateRetirementVaultPage() {
                   ],
                   [
                     'Allocation mode',
-                    ALLOCATION_MODES.find((m) => m.value === allocationMode)?.title ?? '—',
+                    t(
+                      `${ALLOCATION_MODE_KEYS.find((m) => m.value === allocationMode)?.prefix ?? ''}.title`,
+                    ) || '—',
                   ],
                   ...(allocationMode === 'FOCUSED'
-                    ? [['Focused on', CLASS_LABELS[focusedAssetClass] ?? '—'] as [string, string]]
+                    ? [['Focused on', t(`assetClass.${focusedAssetClass}`)] as [string, string]]
                     : []),
                   ['Initial deposit', `$${Number(initialDeposit || 0).toLocaleString()}`],
                   [
@@ -850,36 +854,31 @@ export default function CreateRetirementVaultPage() {
               </div>
 
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2 text-xs text-gray-600">
-                <p className="font-semibold text-gray-900 text-sm">Before you sign</p>
+                <p className="font-semibold text-gray-900 text-sm">{t('step5.disclaimerTitle')}</p>
                 <p>
-                  Target returns shown anywhere in this product are targets, not guarantees. The
-                  value of your vault can fall as well as rise, and past performance does not
-                  predict future returns.
+                  {t('step5.disclaimer.returns')}
                 </p>
                 <p>
-                  Crypto is capped at 5% of your vault at all times and cannot be exceeded in any
-                  allocation mode.
+                  {t('step5.disclaimer.crypto')}
                 </p>
                 <p>
-                  Withdrawing before your retirement horizon requires 14 days&apos; notice and may
-                  incur a penalty.
+                  {t('step5.disclaimer.withdrawal')}
                 </p>
                 <p>
-                  Your vault activates only once your initial deposit has cleared. Nothing is
-                  invested before then.
+                  {t('step5.disclaimer.activation')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Type your full name to sign *
+                  {t('step5.signature.label')}
                 </label>
                 <input
                   type="text"
                   value={signatureName}
                   onChange={(e) => setSignatureName(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500"
-                  placeholder={user.name ?? 'Your full name'}
+                  placeholder={user.name ?? t('step5.signature.placeholder')}
                 />
               </div>
 
@@ -891,8 +890,7 @@ export default function CreateRetirementVaultPage() {
                   className="w-4 h-4 mt-0.5 accent-black"
                 />
                 <span className="text-sm text-gray-700">
-                  I confirm the information above is accurate and I accept the Retirement Vault
-                  terms, including the withdrawal notice period and the capped crypto allocation.
+                  {t('step5.consent')}
                 </span>
               </label>
             </div>
@@ -906,7 +904,7 @@ export default function CreateRetirementVaultPage() {
               className="flex items-center px-6 py-3 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              {t('chrome.back')}
             </button>
 
             {currentStep < 5 ? (
@@ -918,11 +916,11 @@ export default function CreateRetirementVaultPage() {
                 {assessing ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Scoring
+                    {t('chrome.scoring')}
                   </>
                 ) : (
                   <>
-                    Continue
+                    {t('chrome.continue')}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </>
                 )}
@@ -936,11 +934,11 @@ export default function CreateRetirementVaultPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating
+                    {t('chrome.creating')}
                   </>
                 ) : (
                   <>
-                    Activate vault
+                    {t('chrome.activate')}
                     <Check className="w-4 h-4 ml-2" />
                   </>
                 )}

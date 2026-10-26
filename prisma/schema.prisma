@@ -2226,3 +2226,25 @@ model VaultRiskQuestionOption {
   @@index([questionId, displayOrder])
   @@map("vault_risk_question_options")
 }
+
+// ============================================================================
+// RETIREMENT VAULT — ADMIN-EDITABLE ONBOARDING COPY
+// ----------------------------------------------------------------------------
+// Member-facing text an admin can reword without a deploy. Only OVERRIDES are
+// stored: anything absent falls back to the shipped string in
+// onboarding-copy.ts, so a missing row can never leave a blank screen, and
+// clearing a field restores the default rather than emptying the page.
+// ============================================================================
+
+model VaultContentString {
+  id        String   @id @default(cuid())
+  /** Stable key from the copy registry, e.g. "step1.age.label". */
+  key       String   @unique
+  value     String   @db.Text
+
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vault_content_strings")
+}

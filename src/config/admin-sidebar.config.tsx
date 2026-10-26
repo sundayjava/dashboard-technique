@@ -193,6 +193,10 @@ export const adminSidebarItems: AdminSidebarItem[] = [
         label: "Vault Questionnaire",
         href: "/admin/vault-questionnaire",
       },
+      {
+        label: "Vault Onboarding Copy",
+        href: "/admin/vault-content",
+      },
     ],
   },
   {
