@@ -159,7 +159,7 @@ export default function VaultOverviewPage() {
                     <tr key={cls} className="border-t border-gray-50">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <AssetIcon symbol={cls.slice(0, 3)} assetClass={cls} />
+                          <AssetIcon assetClass={cls} />
                           <span className="font-medium text-gray-900">
                             {CLASS_LABELS[cls] ?? cls}
                           </span>

@@ -150,11 +150,7 @@ export default function InvestPanel({ onInvested }: { onInvested: () => void }) 
               const over = entered > c.headroom + 0.01;
               return (
                 <div key={c.assetClass} className="flex items-center gap-3">
-                  <AssetIcon
-                    symbol={c.assetClass.slice(0, 3)}
-                    assetClass={c.assetClass}
-                    size="sm"
-                  />
+                  <AssetIcon assetClass={c.assetClass} size="sm" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-900 leading-tight">
                       {CLASS_LABELS[c.assetClass] ?? c.assetClass}

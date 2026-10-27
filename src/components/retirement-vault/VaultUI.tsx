@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowUpRight, TrendingDown, TrendingUp } from 'lucide-react';
+import { resolveAssetMark } from './AssetMarks';
 
 /**
  * Shared visual language for the vault.
@@ -127,19 +128,24 @@ export function AssetIcon({
   assetClass,
   size = 'md',
 }: {
-  symbol: string;
+  /** Ticker, where the row is one asset. Omitted on a class-level row. */
+  symbol?: string;
   assetClass: string;
   size?: 'sm' | 'md';
 }) {
-  const color = CLASS_COLORS[assetClass] ?? '#6b7280';
-  const dim = size === 'sm' ? 'w-7 h-7 text-[9px]' : 'w-9 h-9 text-[10px]';
+  // A coin carries its own brand colour; everything else keeps the class
+  // colour so the icon, the row and the doughnut slice agree.
+  const { Mark, brandColor } = resolveAssetMark(symbol, assetClass);
+  const color = brandColor ?? CLASS_COLORS[assetClass] ?? '#6b7280';
+  const dim = size === 'sm' ? 'w-7 h-7' : 'w-9 h-9';
+  const glyph = size === 'sm' ? 'w-3.5 h-3.5' : 'w-[18px] h-[18px]';
   return (
     <span
-      className={`${dim} rounded-full flex items-center justify-center font-bold text-white shrink-0`}
+      className={`${dim} rounded-full flex items-center justify-center text-white shrink-0`}
       style={{ backgroundColor: color }}
       aria-hidden
     >
-      {symbol.slice(0, 4)}
+      <Mark className={glyph} />
     </span>
   );
 }
