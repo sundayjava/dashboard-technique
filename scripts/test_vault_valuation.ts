@@ -18,6 +18,7 @@ import {
   valueVault,
 } from '../src/lib/vault/valuation';
 import { sumAllocation } from '../src/lib/vault/allocation-model';
+import { BENCHMARK_BLEND } from '../src/lib/vault/asset-registry';
 
 /**
  * Valuation harness.
@@ -183,7 +184,60 @@ async function main() {
   const index = await getBenchmarkIndex();
   console.log(`  benchmark index today: ${index === null ? 'null' : index.toFixed(4)}`);
   check('benchmark index computes', index !== null);
-  check('index is rebased near 100 on day one', index !== null && Math.abs(index - 100) < 0.01, `got ${index}`);
+  // Was: "rebased near 100 on day one". That only held while the database
+  // contained a single day of prices, so it went permanently red the moment a
+  // second day synced -- it was asserting the fixture, not the behaviour.
+  //
+  // The real invariant is the one the engine exists to get right: the index
+  // weights each leg's RETURN since the base date, not its share price. A
+  // 60/40 split of raw share counts would put a $765 ETF and a $71 one at
+  // 94/6 by value, and this recomputes the blend from the snapshots to catch
+  // exactly that.
+  const benchRows = await prisma.$queryRaw<Array<{ symbol: string; d: Date; close: number }>>`
+    SELECT a."symbol" AS symbol, s."priceDate" AS d, s."close" AS close
+    FROM asset_price_snapshots s
+    JOIN vault_assets a ON a."id" = s."assetId"
+    ORDER BY s."priceDate" ASC
+  `;
+
+  const bySymbol = new Map<string, Array<{ d: Date; close: number }>>();
+  for (const row of benchRows) {
+    const list = bySymbol.get(row.symbol) ?? [];
+    list.push({ d: row.d, close: Number(row.close) });
+    bySymbol.set(row.symbol, list);
+  }
+
+  // The base is the first date on which EVERY leg has a close.
+  const legDates = BENCHMARK_BLEND.map(
+    (leg) => new Set((bySymbol.get(leg.symbol) ?? []).map((r) => r.d.toISOString().slice(0, 10))),
+  );
+  const baseDay = [...(legDates[0] ?? [])]
+    .sort()
+    .find((day) => legDates.every((set) => set.has(day)));
+
+  if (baseDay === undefined) {
+    check('benchmark base exists', false, 'no date has a close for every leg');
+  } else {
+    let expected = 0;
+    let usable = true;
+    for (const leg of BENCHMARK_BLEND) {
+      const series = bySymbol.get(leg.symbol) ?? [];
+      const base = series.find((r) => r.d.toISOString().slice(0, 10) === baseDay);
+      const latest = series[series.length - 1];
+      if (base === undefined || latest === undefined || base.close <= 0) {
+        usable = false;
+        break;
+      }
+      expected += leg.weight * (latest.close / base.close);
+    }
+    expected *= 100;
+
+    check(
+      'index is the weighted blend of each leg\'s return since the base date',
+      usable && index !== null && Math.abs(index - expected) < 0.01,
+      `got ${index}, expected ${expected.toFixed(4)} (base ${baseDay})`,
+    );
+  }
   check('benchmark value computed for the vault', valuation.benchmarkValue !== null);
   if (valuation.benchmarkValue !== null) {
     console.log(`  401k comparator: $${valuation.benchmarkValue.toFixed(2)} vs vault $${valuation.totalValue.toFixed(2)}`);
