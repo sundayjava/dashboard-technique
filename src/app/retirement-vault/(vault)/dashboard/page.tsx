@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Banknote, PiggyBank, Target } from 'lucide-react';
+import { ArrowRight, Banknote, PiggyBank, Target, Wallet } from 'lucide-react';
 import {
   CLASS_LABELS, MODE_LABELS, PROFILE_LABELS, money, moneyShort, sharesOfVault, useVault,
 } from '@/components/retirement-vault/VaultContext';
@@ -10,6 +10,7 @@ import {
   AssetIcon, Panel, PillButton, StatCard, Trend,
 } from '@/components/retirement-vault/VaultUI';
 import ExpertToggle from '@/components/retirement-vault/ExpertToggle';
+import MarketTable from '@/components/retirement-vault/MarketTable';
 
 /** Overview: the headline numbers, then routes into the detail pages. */
 export default function VaultOverviewPage() {
@@ -37,9 +38,9 @@ export default function VaultOverviewPage() {
   const target = data?.targetAllocation ?? {};
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Three headline cards: one accent, one plain, one brand. */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <StatCard
           tone="blue"
           icon={PiggyBank}
@@ -90,12 +91,12 @@ export default function VaultOverviewPage() {
 
       {/* Uninvested cash is the thing most likely to need action, so it sits
           above the allocation list with the toggle beside it. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Panel>
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs text-gray-500">Uninvested cash</p>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums mt-1">
+              <p className="text-xl font-bold text-gray-900 tabular-nums mt-0.5">
                 {money(vault.cashBalance)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
@@ -132,7 +133,7 @@ export default function VaultOverviewPage() {
       >
         {classes.length === 0 ? (
           <div className="px-5 pb-8 pt-2 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-xs text-gray-500">
               Nothing invested yet.{' '}
               <Link href="/retirement-vault/contributions" className="underline">
                 Fund your vault
@@ -142,13 +143,13 @@ export default function VaultOverviewPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
-                <tr className="text-[11px] uppercase tracking-wide text-gray-400">
-                  <th className="text-left font-medium px-5 py-3">Asset class</th>
-                  <th className="text-right font-medium px-5 py-3">Share</th>
-                  <th className="text-right font-medium px-5 py-3">Target</th>
-                  <th className="text-right font-medium px-5 py-3">Value</th>
+                <tr className="text-[10px] uppercase tracking-wide text-gray-400">
+                  <th className="text-left font-medium px-4 py-2">Asset class</th>
+                  <th className="text-right font-medium px-4 py-2">Share</th>
+                  <th className="text-right font-medium px-4 py-2">Target</th>
+                  <th className="text-right font-medium px-4 py-2">Value</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,21 +158,21 @@ export default function VaultOverviewPage() {
                   const value = (vaultTotal * pct) / 100;
                   return (
                     <tr key={cls} className="border-t border-gray-50">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <AssetIcon assetClass={cls} />
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <AssetIcon assetClass={cls} size="sm" />
                           <span className="font-medium text-gray-900">
                             {CLASS_LABELS[cls] ?? cls}
                           </span>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-right font-semibold text-gray-900 tabular-nums">
+                      <td className="px-4 py-2.5 text-right font-semibold text-gray-900 tabular-nums">
                         {pct.toFixed(2)}%
                       </td>
-                      <td className="px-5 py-4 text-right text-gray-400 tabular-nums">
+                      <td className="px-4 py-2.5 text-right text-gray-400 tabular-nums">
                         {t.toFixed(0)}%
                       </td>
-                      <td className="px-5 py-4 text-right text-gray-900 tabular-nums">
+                      <td className="px-4 py-2.5 text-right text-gray-900 tabular-nums">
                         {money(value)}
                       </td>
                     </tr>
@@ -179,22 +180,22 @@ export default function VaultOverviewPage() {
                 })}
                 {cashPercent > 0.004 && (
                   <tr className="border-t border-gray-50 bg-gray-50/50">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
                         <span
-                          className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-[10px] shrink-0 bg-gray-400"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white shrink-0 bg-gray-400"
                           aria-hidden
                         >
-                          CASH
+                          <Wallet className="w-3.5 h-3.5" />
                         </span>
                         <span className="font-medium text-gray-900">Uninvested cash</span>
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-right font-semibold text-gray-900 tabular-nums">
+                    <td className="px-4 py-2.5 text-right font-semibold text-gray-900 tabular-nums">
                       {cashPercent.toFixed(2)}%
                     </td>
-                    <td className="px-5 py-4 text-right text-gray-400 tabular-nums">—</td>
-                    <td className="px-5 py-4 text-right text-gray-900 tabular-nums">
+                    <td className="px-4 py-2.5 text-right text-gray-400 tabular-nums">—</td>
+                    <td className="px-4 py-2.5 text-right text-gray-900 tabular-nums">
                       {money(vault.cashBalance)}
                     </td>
                   </tr>
@@ -205,9 +206,13 @@ export default function VaultOverviewPage() {
         )}
       </Panel>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* Market moves. Independent of the allocation above: this is what the
+          assets we track are doing, not what the member owns. */}
+      <MarketTable />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Panel title="Your plan">
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-2 gap-4">
             {[
               ['Risk profile', PROFILE_LABELS[vault.riskProfile] ?? vault.riskProfile],
               ['Allocation mode', MODE_LABELS[vault.allocationMode] ?? vault.allocationMode],
@@ -215,30 +220,30 @@ export default function VaultOverviewPage() {
               ['Invested', money(valuation?.holdingsValue ?? 0)],
             ].map(([label, value]) => (
               <div key={label}>
-                <p className="text-xs text-gray-400">{label}</p>
-                <p className="text-sm font-semibold text-gray-900 mt-1">{value}</p>
+                <p className="text-[10px] text-gray-400">{label}</p>
+                <p className="text-xs font-semibold text-gray-900 mt-0.5">{value}</p>
               </div>
             ))}
           </div>
         </Panel>
 
         <Panel title="Position">
-          <div className="space-y-4">
+          <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">Return since inception</span>
+              <span className="text-xs text-gray-500">Return since inception</span>
               <Trend value={valuation?.unrealisedGainLossPercent ?? 0} />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">Invested</span>
-              <span className="text-sm font-semibold text-gray-900 tabular-nums">
+              <span className="text-xs text-gray-500">Invested</span>
+              <span className="text-xs font-semibold text-gray-900 tabular-nums">
                 {money(valuation?.holdingsValue ?? 0)}
               </span>
             </div>
             {data?.drift && (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Drift from target</span>
+                <span className="text-xs text-gray-500">Drift from target</span>
                 <span
-                  className={`text-sm font-semibold tabular-nums ${
+                  className={`text-xs font-semibold tabular-nums ${
                     data.drift.rebalanceRequired ? 'text-amber-600' : 'text-gray-900'
                   }`}
                 >

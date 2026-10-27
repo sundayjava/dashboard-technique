@@ -312,7 +312,7 @@ export async function processAutoContributions(
             link:
               plan === null
                 ? '/retirement-vault/allocation'
-                : '/retirement-vault/holdings',
+                : '/retirement-vault/dashboard',
           },
         })
         .catch(() => undefined);

@@ -15,7 +15,6 @@ export interface VaultNavItem {
 export const VAULT_NAV: VaultNavItem[] = [
   { label: 'Overview', href: '/retirement-vault/dashboard', icon: LayoutDashboard },
   { label: 'Allocation', href: '/retirement-vault/allocation', icon: PieChart },
-  { label: 'Holdings', href: '/retirement-vault/holdings', icon: Wallet },
   { label: 'Performance', href: '/retirement-vault/performance', icon: TrendingUp },
   { label: 'Expert Allocator', href: '/retirement-vault/allocator', icon: Sparkles },
   { label: 'Contributions', href: '/retirement-vault/contributions', icon: CalendarClock },

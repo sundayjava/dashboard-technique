@@ -244,7 +244,7 @@ async function notify(
         type: 'INVESTMENT',
         title: 'Investment executed',
         message: `$${amount.toFixed(2)} was invested in ${vaultNumber}. ${summary}.`,
-        link: '/retirement-vault/holdings',
+        link: '/retirement-vault/dashboard',
       },
     })
     .catch(() => undefined);

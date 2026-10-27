@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
               `automatically. ${autoInvested.summary}.`
             : `$${amount.toLocaleString()} is now available in ${vault.vaultNumber}. ` +
               `It is held as cash until you choose how to invest it.`,
-          link: autoInvested ? '/retirement-vault/holdings' : '/retirement-vault/allocation',
+          link: autoInvested ? '/retirement-vault/dashboard' : '/retirement-vault/allocation',
         },
       })
       .catch((error) => {
