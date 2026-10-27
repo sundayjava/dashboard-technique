@@ -99,6 +99,18 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     defaultValue: DEFAULT_VAULT_POLICY.flexiblePenaltyPercent,
     unit: 'percent',
   },
+  {
+    key: 'dailyRateCapPercent',
+    label: 'Daily performance rate cap',
+    description:
+      "The furthest a single day's class rate may move a member's balance, in percentage " +
+      'points either way. Bounds the admin uplift plus the market moves it is added to, so ' +
+      'a mistyped figure cannot compound overnight.',
+    min: 0.1,
+    max: 50,
+    defaultValue: DEFAULT_VAULT_POLICY.dailyRateCapPercent,
+    unit: 'percent',
+  },
 ];
 
 /** Short cache: policy changes rarely but must take effect promptly. */
@@ -353,17 +365,16 @@ export async function propagateProfileAllocation(
   if (vaults.length === 0) return 0;
 
   for (const vault of vaults) {
-    const existing = await prisma.vaultAllocation.findMany({ where: { vaultId: vault.id } });
-    const pinned = new Set(existing.filter((a) => a.isUserOverride).map((a) => a.assetClass));
-
     await prisma.$transaction([
       // Rows for classes that no longer exist are removed, or a retired class
       // would keep a target forever.
       prisma.vaultAllocation.deleteMany({
         where: { vaultId: vault.id, assetClass: { notIn: classKeys } },
       }),
+      // Every class, with none held back: pinning is retired, so an admin's
+      // percentages now reach the whole profile rather than skipping whichever
+      // classes a member once froze.
       ...classKeys
-        .filter((key) => !pinned.has(key))
         .map((assetClass) =>
           prisma.vaultAllocation.upsert({
             where: { vaultId_assetClass: { vaultId: vault.id, assetClass } },

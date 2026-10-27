@@ -1696,6 +1696,12 @@ model VaultAssetClassDef {
   /// removing one the rest of the system was designed around.
   isSystem     Boolean  @default(false)
 
+  /// Percentage points the admin adds to this class's own close-of-day market
+  /// performance to form the day's rate. Read at the moment a day is computed,
+  /// so it may be changed as often as the admin likes during the day without
+  /// retroactively altering a day already credited.
+  dailyUpliftPercent Float @default(0)
+
   updatedBy    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1808,6 +1814,7 @@ model RetirementVault {
   withdrawals           VaultWithdrawalRequest[]
   rebalanceEvents       VaultRebalanceEvent[]
   valuations            VaultValuation[]
+  classAccruals         VaultClassAccrual[]
   reportCards           VaultReportCard[]
 
   @@index([userId])
@@ -1855,6 +1862,14 @@ model VaultAllocation {
   isUserOverride Boolean         @default(false)
   overriddenAt   DateTime?
 
+  // Cumulative performance the daily engine has credited to this class, in
+  // currency. Kept as a running total so a valuation costs one row per class
+  // instead of replaying every accrual ever written. May be negative.
+  accruedPerformance Float     @default(0)
+  // The last day already credited. The engine's idempotency guard: a day on or
+  // before this is never applied twice, however often the job runs.
+  lastAccruedDate    DateTime? @db.Date
+
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -1864,6 +1879,75 @@ model VaultAllocation {
   @@unique([vaultId, assetClass])
   @@index([vaultId])
   @@map("vault_allocations")
+}
+
+/// The day's rate for one asset class, and the arithmetic that produced it.
+///
+/// Global, not per member: the rate depends only on how the class's
+/// instruments closed and on the admin's uplift, so every vault holding that
+/// class grows by the same figure. Stored rather than recomputed because the
+/// uplift is editable at will -- recomputing last Tuesday after the admin
+/// moved the number would silently rewrite history members have already seen.
+///
+/// `assetClass` is a bare string, like VaultAllocation's, so a day survives
+/// the class it describes being removed.
+model VaultClassPerformanceDay {
+  id              String   @id @default(cuid())
+  assetClass      String
+  performanceDate DateTime @db.Date
+
+  /// Sum of every priced instrument's close-of-day change in this class.
+  assetSumPercent Float
+  /// The admin's uplift as it stood when this day was computed.
+  upliftPercent   Float
+  /// assetSumPercent + upliftPercent, after the safety clamp.
+  totalPercent    Float
+  /// True when the clamp bit, so an admin can see the rate was limited.
+  wasClamped      Boolean  @default(false)
+
+  /// Instruments that contributed. A class whose prices all failed to sync
+  /// records zero assets and is skipped rather than credited on no data.
+  assetCount      Int      @default(0)
+  /// JSON [{ symbol, changePercent }], for showing the member the workings.
+  breakdown       String?  @db.Text
+
+  computedAt      DateTime @default(now())
+
+  /// One rate per class per day. Re-running a day corrects it in place.
+  @@unique([assetClass, performanceDate])
+  @@index([performanceDate])
+  @@map("vault_class_performance_days")
+}
+
+/// One day's credit to one member's holding of one asset class.
+///
+/// The audit trail behind `VaultAllocation.accruedPerformance`: a member can
+/// be shown exactly which day moved their balance and by how much, and a
+/// mistaken day can be found and reversed without recomputing everything.
+model VaultClassAccrual {
+  id           String   @id @default(cuid())
+  vaultId      String
+  assetClass   String
+  accrualDate  DateTime @db.Date
+
+  /// The class's allocated value before the credit.
+  openingValue Float
+  /// The rate applied, copied from the day so the row stands on its own.
+  ratePercent  Float
+  /// openingValue x ratePercent / 100. Negative on a losing day.
+  amount       Float
+  closingValue Float
+
+  createdAt    DateTime @default(now())
+
+  vault        RetirementVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  /// The idempotency guard that matters: a vault cannot be credited twice for
+  /// the same class on the same day, whatever retries the job makes.
+  @@unique([vaultId, assetClass, accrualDate])
+  @@index([vaultId, accrualDate])
+  @@index([accrualDate])
+  @@map("vault_class_accruals")
 }
 
 model VaultHolding {

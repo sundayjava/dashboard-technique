@@ -40,6 +40,19 @@ export const WITHDRAWAL_NOTICE_DAYS = 14;
 export const SOFT_LOCK_PENALTY_PERCENT = 5;
 export const FLEXIBLE_PENALTY_PERCENT = 2;
 
+/**
+ * How far a single day's class rate may travel, in percentage points either
+ * way.
+ *
+ * The day's rate is the sum of a class's instrument moves plus an uplift an
+ * admin types freely, so nothing in the formula itself bounds it. A stray
+ * keystroke -- 50 where 0.5 was meant -- would compound into every member's
+ * balance overnight, and that is far harder to unwind than to prevent. When
+ * the clamp bites it is recorded on the day, so a limited rate is visible
+ * rather than silent.
+ */
+export const DAILY_RATE_CAP_PERCENT = 10;
+
 export type AllocationMap = Record<VaultAssetClass, number>;
 
 /**
@@ -103,6 +116,7 @@ export interface VaultPolicy {
   withdrawalNoticeDays: number;
   softLockPenaltyPercent: number;
   flexiblePenaltyPercent: number;
+  dailyRateCapPercent: number;
   targetAllocations: Record<RiskProfile, AllocationMap>;
 }
 
@@ -120,6 +134,7 @@ export const DEFAULT_VAULT_POLICY: VaultPolicy = {
   withdrawalNoticeDays: WITHDRAWAL_NOTICE_DAYS,
   softLockPenaltyPercent: SOFT_LOCK_PENALTY_PERCENT,
   flexiblePenaltyPercent: FLEXIBLE_PENALTY_PERCENT,
+  dailyRateCapPercent: DAILY_RATE_CAP_PERCENT,
   targetAllocations: TARGET_ALLOCATIONS,
 };
 

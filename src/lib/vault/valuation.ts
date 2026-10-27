@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { BENCHMARK_BLEND } from './asset-registry';
 import { AllocationMap, getAllAssetClasses } from './allocation-model';
 import { toUtcDateOnly } from './price-providers';
+import { buildClassPositions } from './class-performance';
 
 /**
  * Vault valuation.
@@ -267,6 +268,10 @@ export interface VaultValuationResult {
   unrealisedGainLossPercent: number;
   /** Current share of the vault per asset class, for drift detection. */
   currentAllocation: AllocationMap;
+  /** Performance the daily engine has credited, summed across classes. */
+  accruedPerformance: number;
+  /** Principal and credited performance per class, for the allocation view. */
+  classValues: Record<string, { principal: number; accrued: number; value: number }>;
   holdings: HoldingValuation[];
   benchmarkValue: number | null;
   benchmarkIndex: number | null;
@@ -298,6 +303,11 @@ export interface PreloadedVaultRows {
       units: number;
       costBasis: number;
       asset: { symbol: string; assetClass: VaultAssetClass };
+    }>;
+    allocations: Array<{
+      assetClass: string;
+      accruedPerformance: number;
+      lastAccruedDate: Date | null;
     }>;
   };
   contributions: Array<{ amount: number; processedAt: Date | null }>;
@@ -337,7 +347,7 @@ export async function valueVault(
     const [v, c, w] = await Promise.all([
       prisma.retirementVault.findUnique({
         where: { id: vaultId },
-        include: { holdings: { include: { asset: true } } },
+        include: { holdings: { include: { asset: true } }, allocations: true },
       }),
       prisma.vaultContribution.findMany({
         where: {
@@ -360,30 +370,49 @@ export async function valueVault(
 
   if (vault === null) return null;
 
+  // WHAT A HOLDING IS WORTH, AND WHY IT IS NOT units x price.
+  //
+  // A class now earns one rate a day -- the sum of its instruments' closes
+  // plus the admin's uplift -- and that rate is what moves a member's money.
+  // See class-performance.ts. Valuing the same market movement a second time
+  // through the share price would pay for it twice, so the balance is
+  // principal (cost basis) plus the performance credited to the class.
+  //
+  // Prices are still read and still reported per holding: they are what the
+  // member sees on the market board, and they are the input the rate is built
+  // from. They simply no longer set the balance.
+  const positions = buildClassPositions(vault);
+
   const holdings: HoldingValuation[] = [];
   const missingPrices: string[] = [];
   let holdingsValue = 0;
+  let accruedPerformance = 0;
 
   for (const holding of vault.holdings) {
     // A zero-unit holding is a closed position, not a missing price.
     if (holding.units === 0) continue;
 
     const price = prices.get(holding.assetId);
-    if (price === undefined) {
-      missingPrices.push(holding.asset.symbol);
-      continue;
-    }
+    if (price === undefined) missingPrices.push(holding.asset.symbol);
 
-    const value = holding.units * price.close;
-    const gainLoss = value - holding.costBasis;
+    const position = positions.get(holding.asset.assetClass);
+
+    // The class's credited performance is split across its instruments by
+    // their share of the principal, so the parts still add up to the class.
+    const share =
+      position !== undefined && position.principal > 0
+        ? holding.costBasis / position.principal
+        : 0;
+    const gainLoss = (position?.accrued ?? 0) * share;
+    const value = holding.costBasis + gainLoss;
 
     holdings.push({
       assetId: holding.assetId,
       symbol: holding.asset.symbol,
       assetClass: holding.asset.assetClass,
       units: holding.units,
-      price: price.close,
-      priceDate: price.priceDate,
+      price: price?.close ?? 0,
+      priceDate: price?.priceDate ?? valuationDate,
       value,
       costBasis: holding.costBasis,
       gainLoss,
@@ -391,6 +420,23 @@ export async function valueVault(
     });
 
     holdingsValue += value;
+    accruedPerformance += gainLoss;
+  }
+
+  // Performance credited to a class the member has since sold out of. It is
+  // theirs and must not vanish from the total just because the principal that
+  // earned it has gone.
+  const classValues: Record<string, { principal: number; accrued: number; value: number }> = {};
+  for (const position of positions.values()) {
+    classValues[position.assetClass] = {
+      principal: position.principal,
+      accrued: position.accrued,
+      value: position.value,
+    };
+    if (position.principal <= 0 && position.accrued !== 0) {
+      holdingsValue += position.accrued;
+      accruedPerformance += position.accrued;
+    }
   }
 
   const totalValue = holdingsValue + vault.cashBalance;
@@ -429,6 +475,8 @@ export async function valueVault(
     unrealisedGainLossPercent:
       vault.totalContributed > 0 ? (unrealisedGainLoss / vault.totalContributed) * 100 : 0,
     currentAllocation,
+    accruedPerformance,
+    classValues,
     holdings,
     benchmarkValue,
     benchmarkIndex,

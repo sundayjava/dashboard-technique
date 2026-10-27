@@ -3,6 +3,8 @@ import { PriceSyncTrigger } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { sendInvestmentMaturityNotification } from '@/lib/email';
 import { syncAssetPrices } from '@/lib/vault/price-sync';
+import { runDailyClassPerformance } from '@/lib/vault/class-performance';
+import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import { valueAllActiveVaults } from '@/lib/vault/valuation';
 import { serveElapsedNotices } from '@/lib/vault/withdrawal-engine';
 import { runScheduledRebalances } from '@/lib/vault/rebalance-engine';
@@ -59,6 +61,12 @@ export async function GET(request: NextRequest) {
   // the investment work above nor steal function time from it. Failures are
   // logged and recorded in price_sync_runs, never thrown.
   const vaultPriceSync = await runVaultPriceSync();
+
+  // The day's performance is credited between the sync and the valuations,
+  // which is the only order that works: the rates are built from the closes the
+  // sync just wrote, and a valuation has to see the credits to report them.
+  const vaultClassPerformance =
+    vaultPriceSync.succeeded > 0 ? await runClassPerformance() : null;
 
   // Vaults are revalued immediately after the sync, while prices are freshest.
   // Skipped when nothing could be priced: revaluing against stale prices would
@@ -131,6 +139,7 @@ export async function GET(request: NextRequest) {
     {
       ...investmentPayload,
       vaultPriceSync,
+      vaultClassPerformance,
       vaultValuations,
       vaultAutoContributions,
       vaultRebalances,
@@ -138,6 +147,55 @@ export async function GET(request: NextRequest) {
     },
     { status: httpStatus },
   );
+}
+
+/**
+ * Close the day for every asset class and credit each member.
+ *
+ * Isolated like the sync above: this moves real balances, so a failure must
+ * leave them untouched rather than half-credited. The engine's own unique keys
+ * make a retry safe, so a failed night can simply be run again.
+ */
+async function runClassPerformance() {
+  try {
+    const policy = await loadVaultPolicy();
+    const result = await runDailyClassPerformance(new Date(), policy);
+
+    console.log(
+      `📈 Class performance ${result.date.toISOString().slice(0, 10)}: ` +
+        `${result.rates.length} class rate(s), ${result.creditsWritten} credit(s) across ` +
+        `${result.vaultsCredited}/${result.vaultsConsidered} vault(s), net ` +
+        `${result.netAmount.toFixed(2)}`,
+    );
+    for (const rate of result.rates) {
+      console.log(
+        `   ${rate.assetClass} @ ${rate.performanceDate.toISOString().slice(0, 10)}: ` +
+          `${rate.assetSumPercent.toFixed(4)}% (${rate.assetCount} asset(s))` +
+          ` + ${rate.upliftPercent}% uplift = ${rate.totalPercent.toFixed(4)}%` +
+          (rate.wasClamped ? ' [capped]' : ''),
+      );
+    }
+    if (result.alreadyCredited > 0) {
+      console.log(`   ${result.alreadyCredited} already credited today; left alone.`);
+    }
+    for (const failure of result.failures) {
+      console.warn(`   vault ${failure.vaultId}: ${failure.reason}`);
+    }
+
+    return {
+      date: result.date,
+      classRates: result.rates.length,
+      creditsWritten: result.creditsWritten,
+      vaultsCredited: result.vaultsCredited,
+      vaultsConsidered: result.vaultsConsidered,
+      alreadyCredited: result.alreadyCredited,
+      netAmount: result.netAmount,
+      failed: result.failures.length,
+    };
+  } catch (error) {
+    console.error('❌ Class performance threw:', error);
+    return null;
+  }
 }
 
 async function runVaultValuations() {

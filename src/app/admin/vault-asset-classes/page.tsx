@@ -12,6 +12,7 @@ interface Row {
   displayOrder: number;
   isActive: boolean;
   isSystem: boolean;
+  dailyUpliftPercent: number;
   assetCount: number;
   holdingCount: number;
   removalBlockers: string[];
@@ -38,6 +39,7 @@ export default function AdminAssetClassesPage() {
   const [profiles, setProfiles] = useState<string[]>([]);
   const [cryptoCap, setCryptoCap] = useState(5);
   const [drafts, setDrafts] = useState<Record<string, Record<string, string>>>({});
+  const [uplifts, setUplifts] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -49,6 +51,7 @@ export default function AdminAssetClassesPage() {
       setProfiles(res.data?.profiles ?? []);
       setCryptoCap(res.data?.cryptoCapPercent ?? 5);
       setDrafts({});
+      setUplifts({});
     } catch {
       toast.error('Could not load the asset classes.');
     } finally {
@@ -95,6 +98,41 @@ export default function AdminAssetClassesPage() {
         axios.isAxiosError(error) && error.response?.data?.error
           ? error.response.data.error
           : 'Could not save.',
+      );
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const upliftFor = (key: string) =>
+    uplifts[key] ?? String(rows.find((r) => r.key === key)?.dailyUpliftPercent ?? 0);
+
+  const upliftDirty = (row: Row) => {
+    const raw = upliftFor(row.key).trim();
+    // A blank field is not a change to zero. Treating it as one would let a
+    // half-finished edit save an uplift nobody chose.
+    if (raw === '') return false;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed !== row.dailyUpliftPercent;
+  };
+
+  const saveUplift = async (row: Row) => {
+    setSaving(row.key);
+    try {
+      await axios.put('/api/admin/vault-asset-classes', {
+        key: row.key,
+        dailyUpliftPercent: Number(upliftFor(row.key)) || 0,
+      });
+      // Said plainly, because it is the one thing about this field that is not
+      // obvious: today's figure has not been paid yet, and yesterday's cannot
+      // be changed.
+      toast.success(`${row.name} uplift saved. It applies from the next day closed.`);
+      await load();
+    } catch (error) {
+      toast.error(
+        axios.isAxiosError(error) && error.response?.data?.error
+          ? error.response.data.error
+          : 'Could not save the uplift.',
       );
     } finally {
       setSaving(null);
@@ -163,6 +201,13 @@ export default function AdminAssetClassesPage() {
         <p className="text-xs text-gray-500 mt-1">
           Crypto is capped at {cryptoCap}% regardless of what is set here.
         </p>
+        <p className="text-xs text-gray-500 mt-1">
+          <span className="font-medium text-gray-700">Uplift / day</span> is separate from the
+          percentages. Each night a class earns the sum of its own instruments&apos; closing
+          moves plus its uplift, and every member&apos;s money in that class grows by the
+          result. Change it as often as you like &mdash; a day already closed keeps the figure
+          it was credited with.
+        </p>
       </div>
 
       {/* The matrix. One column per profile, one row per class. */}
@@ -173,6 +218,12 @@ export default function AdminAssetClassesPage() {
               <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                 <th className="text-left font-medium px-5 py-3">Asset class</th>
                 <th className="text-right font-medium px-5 py-3">Used by</th>
+                <th
+                  className="text-right font-medium px-5 py-3"
+                  title="Percentage points added to this class's own market moves to form the day's rate"
+                >
+                  Uplift / day
+                </th>
                 {profiles.map((p) => (
                   <th key={p} className="text-right font-medium px-5 py-3">
                     {PROFILE_LABELS[p] ?? p}
@@ -207,6 +258,40 @@ export default function AdminAssetClassesPage() {
                         {row.holdingCount} holding{row.holdingCount === 1 ? '' : 's'}
                       </>
                     )}
+                  </td>
+                  <td className="px-5 py-4 text-right whitespace-nowrap">
+                    <input
+                      type="number"
+                      value={upliftFor(row.key)}
+                      onChange={(e) =>
+                        setUplifts((u) => ({ ...u, [row.key]: e.target.value }))
+                      }
+                      step={0.01}
+                      min={-25}
+                      max={25}
+                      className={`w-20 px-2 py-1.5 border rounded-lg text-sm text-right tabular-nums ${
+                        upliftDirty(row)
+                          ? 'border-gray-900 ring-1 ring-gray-900'
+                          : 'border-gray-200'
+                      }`}
+                    />
+                    <button
+                      onClick={() => saveUplift(row)}
+                      disabled={saving === row.key || !upliftDirty(row)}
+                      title={
+                        upliftDirty(row)
+                          ? `Save ${row.name}'s uplift`
+                          : 'Change the figure to save it'
+                      }
+                      className="ml-1.5 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-black text-white text-xs font-medium hover:bg-gray-800 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      {saving === row.key ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Check className="w-3 h-3" />
+                      )}
+                      Save
+                    </button>
                   </td>
                   {profiles.map((p) => (
                     <td key={p} className="px-5 py-4 text-right">
@@ -245,6 +330,7 @@ export default function AdminAssetClassesPage() {
               {/* Totals, which must read exactly 100 before a profile can save. */}
               <tr className="bg-gray-50">
                 <td className="px-5 py-4 font-semibold text-gray-900">Total</td>
+                <td />
                 <td />
                 {profiles.map((p) => {
                   const total = profileTotal(p);

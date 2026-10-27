@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { OPEN_VAULT_STATUSES } from '@/lib/vault/vault-utils';
 import { valueVault } from '@/lib/vault/valuation';
+import { getLatestClassRates } from '@/lib/vault/class-performance';
 import { computeDrift } from '@/lib/vault/allocation-model';
 import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import type { AllocationMap } from '@/lib/vault/allocation-model';
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
       .map((c) => ({ amount: c.amount, processedAt: c.processedAt }))
       .sort((a, b) => (a.processedAt?.getTime() ?? 0) - (b.processedAt?.getTime() ?? 0));
 
-    const [account, valuation, policy] = await Promise.all([
+    const [account, valuation, policy, classRates] = await Promise.all([
       prisma.account.findFirst({
         where: { userId, status: AccountStatus.ACTIVE },
         orderBy: { createdAt: 'asc' },
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
         withdrawals: vault.withdrawals,
       }),
       loadVaultPolicy(),
+      getLatestClassRates(),
     ]);
 
     const targetMap = allocations.reduce((map, row) => {
@@ -119,6 +121,8 @@ export async function GET(request: NextRequest) {
               unrealisedGainLossPercent: valuation.unrealisedGainLossPercent,
               benchmarkValue: valuation.benchmarkValue,
               currentAllocation: valuation.currentAllocation,
+              accruedPerformance: valuation.accruedPerformance,
+              classValues: valuation.classValues,
               complete: valuation.complete,
               missingPrices: valuation.missingPrices,
               holdings: valuation.holdings.map((h) => ({
@@ -134,6 +138,20 @@ export async function GET(request: NextRequest) {
               })),
             },
       targetAllocation: targetMap,
+      // The day's rate per class, and the arithmetic behind it. The breakdown
+      // is included so a member can see WHICH instruments moved their money
+      // rather than being handed a percentage to take on trust.
+      classPerformance: {
+        date: classRates.date,
+        rates: classRates.rates.map((rate) => ({
+          assetClass: rate.assetClass,
+          assetSumPercent: rate.assetSumPercent,
+          upliftPercent: rate.upliftPercent,
+          totalPercent: rate.totalPercent,
+          assetCount: rate.assetCount,
+          breakdown: rate.breakdown,
+        })),
+      },
       drift:
         drift === null
           ? null

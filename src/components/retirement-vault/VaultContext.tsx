@@ -53,9 +53,26 @@ export interface Valuation {
   unrealisedGainLossPercent: number;
   benchmarkValue: number | null;
   currentAllocation: Record<string, number>;
+  /** Performance the daily engine has credited, summed across classes. */
+  accruedPerformance: number;
+  /** Principal and credited performance per class. */
+  classValues: Record<string, { principal: number; accrued: number; value: number }>;
   complete: boolean;
   missingPrices: string[];
   holdings: Holding[];
+}
+
+/** One asset class's rate for the most recently closed day. */
+export interface ClassRate {
+  assetClass: string;
+  /** Sum of the class's instrument moves at the close. */
+  assetSumPercent: number;
+  /** What the admin added on top. */
+  upliftPercent: number;
+  /** assetSumPercent + upliftPercent: the rate the money grew by. */
+  totalPercent: number;
+  assetCount: number;
+  breakdown: Array<{ symbol: string; changePercent: number }>;
 }
 
 export interface VaultData {
@@ -63,6 +80,7 @@ export interface VaultData {
   vault: VaultSummary | null;
   valuation: Valuation | null;
   targetAllocation: Record<string, number>;
+  classPerformance: { date: string | null; rates: ClassRate[] };
   drift: { maxAbsoluteDrift: number; rebalanceRequired: boolean } | null;
   contributions: Array<{
     id: string;
@@ -134,11 +152,29 @@ export function VaultProvider({
 
 /* ---------------------------------------------------------------- helpers */
 
-export const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/**
+ * Currency, for display.
+ *
+ * Both helpers tolerate a missing number and render an em dash. They are used
+ * in roughly forty places against data that arrives over the network, and a
+ * null reaching one of them used to throw inside render and take down the
+ * whole page -- so a single absent field cost the member every other figure on
+ * the screen as well.
+ *
+ * A dash rather than $0.00 on purpose: "no number" and "zero dollars" are
+ * different statements, and showing a balance of zero that is really a failed
+ * fetch is the more misleading of the two. Call sites that genuinely mean zero
+ * already pass `?? 0`.
+ */
+export const money = (n: number | null | undefined) =>
+  typeof n === 'number' && Number.isFinite(n)
+    ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '—';
 
-export const moneyShort = (n: number) =>
-  `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+export const moneyShort = (n: number | null | undefined) =>
+  typeof n === 'number' && Number.isFinite(n)
+    ? `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+    : '—';
 
 export const CLASS_LABELS: Record<string, string> = {
   GLOBAL_EQUITIES: 'Global Equities',

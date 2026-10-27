@@ -19,6 +19,33 @@ export interface ClassWriteResult {
 
 const KEY_PATTERN = /^[A-Z][A-Z0-9_]{2,39}$/;
 
+/**
+ * Bound on the admin's daily uplift.
+ *
+ * Wider than the daily rate cap in policy, because the uplift is added to the
+ * class's market moves BEFORE that cap is applied -- an admin may legitimately
+ * want an uplift large enough to offset a bad day. The cap then limits what
+ * actually reaches a member.
+ */
+const UPLIFT_LIMIT_PERCENT = 25;
+
+function readUplift(value: unknown, errors: string[]): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+
+  const uplift = Number(value);
+  if (!Number.isFinite(uplift)) {
+    errors.push('The daily uplift must be a number.');
+    return undefined;
+  }
+  if (Math.abs(uplift) > UPLIFT_LIMIT_PERCENT) {
+    errors.push(
+      `The daily uplift must be between -${UPLIFT_LIMIT_PERCENT} and ${UPLIFT_LIMIT_PERCENT} percentage points.`,
+    );
+    return undefined;
+  }
+  return uplift;
+}
+
 /** Turn a display name into a stable key. */
 export function slugifyClassKey(name: string): string {
   return name
@@ -38,10 +65,17 @@ export function slugifyClassKey(name: string): string {
  * redistributes deliberately afterwards.
  */
 export async function createAssetClass(
-  input: { key?: string; name?: string; description?: string | null },
+  input: {
+    key?: string;
+    name?: string;
+    description?: string | null;
+    dailyUpliftPercent?: number;
+  },
   updatedBy: string,
 ): Promise<ClassWriteResult> {
   const errors: string[] = [];
+
+  const dailyUpliftPercent = readUplift(input.dailyUpliftPercent, errors);
 
   const name = (input.name ?? '').trim();
   if (name.length < 2) errors.push('Give the asset class a name.');
@@ -71,6 +105,7 @@ export async function createAssetClass(
         key,
         name,
         description: input.description?.trim() || null,
+        dailyUpliftPercent: dailyUpliftPercent ?? 0,
         displayOrder: (last?.displayOrder ?? 0) + 10,
         isActive: true,
         isSystem: false,
@@ -98,11 +133,24 @@ export async function createAssetClass(
 /** Rename, redescribe or reorder a class. The key never changes. */
 export async function updateAssetClass(
   key: string,
-  input: { name?: string; description?: string | null; displayOrder?: number; isActive?: boolean },
+  input: {
+    name?: string;
+    description?: string | null;
+    displayOrder?: number;
+    isActive?: boolean;
+    dailyUpliftPercent?: number;
+  },
   updatedBy: string,
 ): Promise<ClassWriteResult> {
   const existing = await prisma.vaultAssetClassDef.findUnique({ where: { key } });
   if (existing === null) return { ok: false, errors: ['Asset class not found.'] };
+
+  // Changing the uplift affects only days not yet closed. A day already
+  // credited keeps the figure it was computed with, which is why the rate is
+  // stored rather than derived -- see class-performance.ts.
+  const upliftErrors: string[] = [];
+  const dailyUpliftPercent = readUplift(input.dailyUpliftPercent, upliftErrors);
+  if (upliftErrors.length > 0) return { ok: false, errors: upliftErrors };
 
   if (input.name !== undefined && input.name.trim().length < 2) {
     return { ok: false, errors: ['Give the asset class a name.'] };
@@ -124,6 +172,7 @@ export async function updateAssetClass(
         : {}),
       ...(input.displayOrder !== undefined ? { displayOrder: input.displayOrder } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(dailyUpliftPercent !== undefined ? { dailyUpliftPercent } : {}),
       updatedBy,
     },
   });
@@ -201,6 +250,8 @@ export interface ProfileMatrixRow {
   displayOrder: number;
   isActive: boolean;
   isSystem: boolean;
+  /** Percentage points added to this class's market moves each day. */
+  dailyUpliftPercent: number;
   /** Instruments priced into this class. */
   assetCount: number;
   /** Members currently holding it. */
@@ -256,6 +307,7 @@ export async function getClassMatrix(): Promise<{
       displayOrder: c.displayOrder,
       isActive: c.isActive,
       isSystem: c.isSystem,
+      dailyUpliftPercent: c.dailyUpliftPercent,
       assetCount: assetCounts.find((a) => a.assetClass === c.key)?._count._all ?? 0,
       holdingCount: holdingsByClass.get(c.key) ?? 0,
       removalBlockers: await describeRemovalBlockers(c.key),
