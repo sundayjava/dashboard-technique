@@ -64,10 +64,39 @@ async function main() {
   check('starts DIVERSIFIED', vault.allocationMode === 'DIVERSIFIED');
   check('expert allocator off', vault.expertAllocatorActive === false);
 
-  console.log('\n=== 1. Cooldown blocks an immediate switch ===');
-  // Creation sets modeLastChangedAt, so the cooldown is already running.
-  const blocked = await modePUT(req('/api/retirement-vault/allocation-mode', 'PUT', {
+  console.log('\n=== 1. A brand-new vault is NOT in cooldown ===');
+  // The mode chosen during onboarding is a choice, not a switch. Starting the
+  // clock at creation meant a member who picked Diversified on day one could
+  // not reach the Expert Allocator for the whole cooldown.
+  check('modeLastChangedAt is null on a new vault', vault.modeLastChangedAt === null,
+    String(vault.modeLastChangedAt));
+  const fresh = await modeGET(req('/api/retirement-vault/allocation-mode', 'GET'));
+  const freshBody = await fresh.json();
+  check('canSwitch is true straight away', freshBody.canSwitch === true,
+    JSON.stringify(freshBody).slice(0, 150));
+  check('no days remaining', freshBody.daysRemaining === 0, String(freshBody.daysRemaining));
+
+  console.log('\n=== 2. The first switch is allowed immediately ===');
+  const beforeValue = (await valueVault(vaultId))!.totalValue;
+  const on = await modePUT(req('/api/retirement-vault/allocation-mode', 'PUT', {
     allocationMode: 'EXPERT_ALLOCATOR',
+  }));
+  const onBody = await on.json();
+  check('switch accepted', on.status === 200, JSON.stringify(onBody).slice(0, 180));
+  check('expertAllocatorActive is now true', onBody.expertAllocatorActive === true);
+
+  const expertVault = await prisma.retirementVault.findUniqueOrThrow({ where: { id: vaultId } });
+  check('persisted as EXPERT_ALLOCATOR', expertVault.allocationMode === 'EXPERT_ALLOCATOR');
+  check('cooldown clock now started', expertVault.modeLastChangedAt !== null &&
+    Date.now() - expertVault.modeLastChangedAt.getTime() < 60_000);
+
+  const afterValue = (await valueVault(vaultId))!.totalValue;
+  check('switching did not change the vault value',
+    Math.abs(afterValue - beforeValue) < 1, `${beforeValue} -> ${afterValue}`);
+
+  console.log('\n=== 3. The cooldown then blocks the NEXT switch ===');
+  const blocked = await modePUT(req('/api/retirement-vault/allocation-mode', 'PUT', {
+    allocationMode: 'DIVERSIFIED',
   }));
   const blockedBody = await blocked.json();
   check('switch refused -> 429', blocked.status === 429, `got ${blocked.status}`);
@@ -79,37 +108,13 @@ async function main() {
   );
   console.log(`  "${blockedBody.error}"`);
 
-  const stillOff = await prisma.retirementVault.findUniqueOrThrow({ where: { id: vaultId } });
-  check('mode genuinely unchanged', stillOff.allocationMode === 'DIVERSIFIED');
+  const stillExpert = await prisma.retirementVault.findUniqueOrThrow({ where: { id: vaultId } });
+  check('mode genuinely unchanged', stillExpert.allocationMode === 'EXPERT_ALLOCATOR');
 
-  console.log('\n=== 2. Status endpoint reports the cooldown ===');
   const status = await modeGET(req('/api/retirement-vault/allocation-mode', 'GET'));
   const statusBody = await status.json();
-  check('canSwitch is false', statusBody.canSwitch === false);
+  check('status endpoint reports canSwitch false', statusBody.canSwitch === false);
   check('days remaining reported', statusBody.daysRemaining > 0, String(statusBody.daysRemaining));
-
-  console.log('\n=== 3. Once the cooldown lapses, Expert can be turned ON ===');
-  await prisma.retirementVault.update({
-    where: { id: vaultId },
-    data: { modeLastChangedAt: new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS + 1) * 24 * 60 * 60 * 1000) },
-  });
-
-  const beforeValue = (await valueVault(vaultId))!.totalValue;
-  const on = await modePUT(req('/api/retirement-vault/allocation-mode', 'PUT', {
-    allocationMode: 'EXPERT_ALLOCATOR',
-  }));
-  const onBody = await on.json();
-  check('switch accepted', on.status === 200, JSON.stringify(onBody).slice(0, 180));
-  check('expertAllocatorActive is now true', onBody.expertAllocatorActive === true);
-
-  const expertVault = await prisma.retirementVault.findUniqueOrThrow({ where: { id: vaultId } });
-  check('persisted as EXPERT_ALLOCATOR', expertVault.allocationMode === 'EXPERT_ALLOCATOR');
-  check('cooldown clock reset', expertVault.modeLastChangedAt !== null &&
-    Date.now() - expertVault.modeLastChangedAt.getTime() < 60_000);
-
-  const afterValue = (await valueVault(vaultId))!.totalValue;
-  check('switching did not change the vault value',
-    Math.abs(afterValue - beforeValue) < 1, `${beforeValue} -> ${afterValue}`);
 
   console.log('\n=== 4. Switching rebalances immediately ===');
   const events = await prisma.vaultRebalanceEvent.findMany({ where: { vaultId } });

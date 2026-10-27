@@ -247,7 +247,13 @@ export async function POST(request: NextRequest) {
           allocationMode,
           focusedAssetClass,
           expertAllocatorActive: allocationMode === AllocationMode.EXPERT_ALLOCATOR,
-          modeLastChangedAt: now,
+          // Left null deliberately. The mode picked during onboarding is a
+          // CHOICE, not a switch, so the cooldown clock must not already be
+          // running on a vault nobody has switched yet -- that locked every
+          // new member out of their own allocation controls for the full
+          // cooldown before they had done anything. It starts on the first
+          // real switch, in the allocation-mode route.
+          modeLastChangedAt: null,
           initialDeposit,
           monthlyContribution,
           monthlyContributionDay,
