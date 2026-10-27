@@ -12,7 +12,12 @@ import {
 } from '../src/app/api/retirement-vault/withdraw/route';
 import { PUT as adminPUT, GET as adminGET } from '../src/app/api/admin/vault-withdrawals/route';
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
-import { quoteWithdrawal, serveElapsedNotices } from '../src/lib/vault/withdrawal-engine';
+import {
+  applyLiquidationPlan,
+  buildLiquidationPlan,
+  quoteWithdrawal,
+  serveElapsedNotices,
+} from '../src/lib/vault/withdrawal-engine';
 import { loadVaultPolicy } from '../src/lib/vault/policy-store';
 import { valueVault } from '../src/lib/vault/valuation';
 
@@ -203,6 +208,48 @@ async function main() {
 
   const memberQueue = await adminGET(req('/api/admin/vault-withdrawals', 'GET'));
   check('non-admin blocked from the queue', memberQueue.status === 403, `got ${memberQueue.status}`);
+
+  console.log('\n=== 11. Selling takes credited performance out with it ===');
+  // A class is worth principal + the performance credited to it, and the two
+  // live apart: principal on the holdings, the accrual on the allocation row.
+  // Selling units alone paid the member for the gain and left it in the vault
+  // -- money from nowhere. This is the guard against that coming back.
+  await prisma.vaultAllocation.updateMany({
+    where: { vaultId: vault.id, assetClass: 'GLOBAL_EQUITIES' },
+    data: { accruedPerformance: 500 },
+  });
+
+  const withPerf = (await valueVault(vault.id))!;
+  check('credited performance lifts the vault',
+    Math.abs(withPerf.accruedPerformance - 500) < 0.01,
+    `got ${withPerf.accruedPerformance}`);
+
+  const plan = await buildLiquidationPlan(vault.id, 1000);
+  check('the plan raises exactly what was asked',
+    plan.complete && Math.abs(plan.totalRaised - 1000) < 0.01,
+    `raised ${plan.totalRaised}`);
+  check('it releases performance as well as units',
+    plan.accruedReleased.some((a) => a.amount > 0),
+    JSON.stringify(plan.accruedReleased));
+
+  const soldFromHoldings = plan.totalRaised - plan.fromCash;
+  await prisma.$transaction(async (tx) => {
+    await applyLiquidationPlan(tx, plan);
+  });
+
+  const sold = (await valueVault(vault.id))!;
+  check('holdings fell by exactly what the sale raised',
+    Math.abs((withPerf.holdingsValue - sold.holdingsValue) - soldFromHoldings) < 0.01,
+    `fell ${(withPerf.holdingsValue - sold.holdingsValue).toFixed(2)}, raised ${soldFromHoldings.toFixed(2)}`);
+  check('credited performance went down with it',
+    sold.accruedPerformance < withPerf.accruedPerformance - 0.01,
+    `${withPerf.accruedPerformance} -> ${sold.accruedPerformance}`);
+  check('performance fell in the same proportion as the units',
+    Math.abs(
+      sold.accruedPerformance / withPerf.accruedPerformance -
+        sold.holdingsValue / withPerf.holdingsValue,
+    ) < 0.01,
+    `accrued ratio ${(sold.accruedPerformance / withPerf.accruedPerformance).toFixed(4)}`);
 }
 
 async function cleanup() {

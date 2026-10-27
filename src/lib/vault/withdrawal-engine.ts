@@ -125,6 +125,16 @@ export interface LiquidationPlan {
   /** Cash taken from the vault's uninvested balance before selling. */
   fromCash: number;
   lines: LiquidationLine[];
+  /**
+   * Credited performance released per class, mirroring the units sold.
+   *
+   * A class is worth its principal plus the performance credited to it, and
+   * the two live in different places: principal on the holdings, the accrual
+   * on the allocation row. Selling units alone would pay the member for
+   * performance and then leave it sitting in the vault -- money out of thin
+   * air. This is what the sale takes back out.
+   */
+  accruedReleased: Array<{ assetClass: string; amount: number }>;
   totalRaised: number;
 }
 
@@ -149,6 +159,7 @@ export async function buildLiquidationPlan(
     complete: false,
     fromCash: 0,
     lines: [],
+    accruedReleased: [],
     totalRaised: 0,
   };
 
@@ -178,6 +189,11 @@ export async function buildLiquidationPlan(
   let remaining = targetAmount - fromCash;
 
   const lines: LiquidationLine[] = [];
+  const accruedReleased: Array<{ assetClass: string; amount: number }> = [];
+  // Performance credited to a class the member has already sold out of. It is
+  // part of the vault's value, so it has to be sellable -- otherwise a full
+  // withdrawal would leave an unreachable balance behind.
+  let orphanProceeds = 0;
 
   if (remaining > 1e-9 && valuation.holdingsValue > 0) {
     // Each holding contributes in proportion to its share of invested value,
@@ -193,14 +209,31 @@ export async function buildLiquidationPlan(
         symbol: holding.symbol,
         unitsSold,
         price: holding.price,
-        proceeds: unitsSold * holding.price,
+        // Proceeds come from the holding's VALUE, not units x price. A class's
+        // worth is now its principal plus the performance credited to it (see
+        // class-performance.ts), so pricing the sale off the market would raise
+        // a different figure from the balance the member was shown and leave
+        // the withdrawal short or over.
+        proceeds: holding.value * fraction,
         costBasisReleased: holding.costBasis * fraction,
       });
     }
+    // The accrual goes out at the same fraction as the units, so each class
+    // falls by fraction x (principal + accrued) -- exactly its share of value.
+    for (const [assetClass, position] of Object.entries(valuation.classValues)) {
+      if (position.accrued === 0) continue;
+      const amount = position.accrued * fraction;
+      accruedReleased.push({ assetClass, amount });
+      // A class with no principal has no holding line to carry its share, so
+      // it is counted here instead of being quietly left out of the total.
+      if (position.principal <= 0) orphanProceeds += amount;
+    }
+
     remaining = 0;
   }
 
-  const totalRaised = fromCash + lines.reduce((sum, l) => sum + l.proceeds, 0);
+  const totalRaised =
+    fromCash + lines.reduce((sum, l) => sum + l.proceeds, 0) + orphanProceeds;
 
   return {
     vaultId,
@@ -208,6 +241,7 @@ export async function buildLiquidationPlan(
     complete: true,
     fromCash,
     lines,
+    accruedReleased,
     totalRaised,
   };
 }
@@ -241,6 +275,16 @@ export async function applyLiquidationPlan(
         // rounding drift cannot accumulate across many withdrawals.
         averageCost: units > 0 ? costBasis / units : 0,
       },
+    });
+  }
+
+  // Take the sold performance back off the allocation rows. Without this the
+  // member is paid for a gain the vault still believes it holds.
+  for (const released of plan.accruedReleased) {
+    if (released.amount === 0) continue;
+    await tx.vaultAllocation.updateMany({
+      where: { vaultId: plan.vaultId, assetClass: released.assetClass },
+      data: { accruedPerformance: { decrement: released.amount } },
     });
   }
 }

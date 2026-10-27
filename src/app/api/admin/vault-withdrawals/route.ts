@@ -264,11 +264,24 @@ export async function PUT(request: NextRequest) {
 
     // A vault emptied by a withdrawal is closed rather than left active and
     // worthless, so it stops appearing as a live retirement plan.
+    //
+    // "No units and no cash" is NOT the same as "nothing left": a class is
+    // worth its principal plus the performance credited to it, and that
+    // accrual lives on the allocation row, outliving the holding it was earned
+    // on. Closing on units alone could shut a vault that still held a balance.
     const remaining = await prisma.vaultHolding.aggregate({
       where: { vaultId: existing.vault.id },
       _sum: { units: true },
     });
-    if ((remaining._sum.units ?? 0) <= 1e-9 && result.vault.cashBalance <= 0.01) {
+    const accrued = await prisma.vaultAllocation.aggregate({
+      where: { vaultId: existing.vault.id },
+      _sum: { accruedPerformance: true },
+    });
+    if (
+      (remaining._sum.units ?? 0) <= 1e-9 &&
+      result.vault.cashBalance <= 0.01 &&
+      Math.abs(accrued._sum.accruedPerformance ?? 0) <= 0.01
+    ) {
       await prisma.retirementVault.update({
         where: { id: existing.vault.id },
         data: { status: VaultStatus.CLOSED, closedAt: new Date(), closureReason: 'Fully withdrawn' },
