@@ -8,7 +8,7 @@ import {
   toUtcDateOnly,
 } from './types';
 
-const BASE_URL = 'https://api.coingecko.com/api/v3/simple/price';
+const BASE_URL = 'https://api.coingecko.com/api/v3/coins/markets';
 
 /**
  * CoinGecko — crypto primary feed.
@@ -17,6 +17,12 @@ const BASE_URL = 'https://api.coingecko.com/api/v3/simple/price';
  * already backs the production crypto converter. Provider symbols are
  * CoinGecko slugs ("bitcoin", "ethereum", "ripple"), stored per asset in
  * VaultAsset.providerSymbol rather than hardcoded here.
+ *
+ * Uses /coins/markets rather than /simple/price. Both are keyless, free and
+ * batched, and both return the same spot price -- but /simple/price carries
+ * no OHLC whatsoever, so every coin showed an empty 24h high and low. This
+ * endpoint returns high_24h, low_24h and the prior close outright, which
+ * means they no longer have to be derived from the change percentage.
  */
 export class CoinGeckoAdapter implements PriceProviderAdapter {
   readonly provider = PriceProvider.COINGECKO;
@@ -36,12 +42,15 @@ export class CoinGeckoAdapter implements PriceProviderAdapter {
     if (ids.length === 0) return { quotes, errors };
 
     const url =
-      `${BASE_URL}?ids=${encodeURIComponent(ids.join(','))}` +
-      `&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true`;
+      `${BASE_URL}?vs_currency=usd&ids=${encodeURIComponent(ids.join(','))}` +
+      `&per_page=${ids.length}&page=1&sparkline=false&price_change_percentage=24h` +
+      // Without this the vendor rounds low-priced coins to 2dp, so XRP sat at
+      // $1.29 through every refresh and looked frozen beside BTC and ETH.
+      `&precision=6`;
 
-    let payload: Record<string, Record<string, unknown>>;
+    let rows: Array<Record<string, unknown>>;
     try {
-      payload = await getJson<Record<string, Record<string, unknown>>>({
+      rows = await getJson<Array<Record<string, unknown>>>({
         url,
         provider: this.provider,
         providerSymbol: ids.join(','),
@@ -72,8 +81,16 @@ export class CoinGeckoAdapter implements PriceProviderAdapter {
 
     const priceDate = toUtcDateOnly(new Date());
 
+    // The endpoint answers with an array, in its own order, so index it by
+    // the coin id we asked for rather than trusting position.
+    const payload = new Map<string, Record<string, unknown>>();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const id = typeof row['id'] === 'string' ? row['id'] : undefined;
+      if (id !== undefined) payload.set(id, row);
+    }
+
     for (const id of ids) {
-      const entry = payload[id];
+      const entry = payload.get(id);
 
       if (entry === undefined) {
         errors.push(
@@ -87,35 +104,39 @@ export class CoinGeckoAdapter implements PriceProviderAdapter {
         continue;
       }
 
-      const close = parseVendorNumber(entry['usd']);
+      const close = parseVendorNumber(entry['current_price']);
       if (close === undefined || close <= 0) {
         errors.push(
           new PriceProviderError({
             provider: this.provider,
             providerSymbol: id,
-            message: `Unusable USD price: ${String(entry['usd'])}`,
+            message: `Unusable USD price: ${String(entry['current_price'])}`,
             retryable: false,
           }),
         );
         continue;
       }
 
-      const changePercent = parseVendorNumber(entry['usd_24h_change']);
+      const changePercent = parseVendorNumber(entry['price_change_percentage_24h']);
 
-      // simple/price carries no OHLC. Derive the prior close from the 24h
-      // change so downstream gain/loss has a reference point; omit it rather
-      // than guess when the change is missing or degenerate.
+      // The vendor gives the 24h move outright; fall back to deriving the
+      // prior close from the percentage only when it does not.
+      const change24h = parseVendorNumber(entry['price_change_24h']);
       const previousClose =
-        changePercent !== undefined && changePercent !== -100
-          ? close / (1 + changePercent / 100)
-          : undefined;
+        change24h !== undefined
+          ? close - change24h
+          : changePercent !== undefined && changePercent !== -100
+            ? close / (1 + changePercent / 100)
+            : undefined;
 
       quotes.set(id, {
         providerSymbol: id,
         close,
+        high: parseVendorNumber(entry['high_24h']),
+        low: parseVendorNumber(entry['low_24h']),
         previousClose,
         changePercent,
-        volume: parseVendorNumber(entry['usd_24h_vol']),
+        volume: parseVendorNumber(entry['total_volume']),
         priceDate,
         source: this.provider,
       });

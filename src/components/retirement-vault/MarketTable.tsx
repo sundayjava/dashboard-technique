@@ -96,7 +96,8 @@ export default function MarketTable() {
     );
   }
 
-  const anyLive = rows.some((r) => r.live);
+  const liveCount = rows.filter((r) => r.live).length;
+  const anyLive = liveCount > 0;
   // Only show a column some asset can actually fill. A column of dashes
   // spends width to say nothing.
   const showHighLow = rows.some((r) => r.high !== null || r.low !== null);
@@ -111,7 +112,7 @@ export default function MarketTable() {
           {anyLive && (
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" aria-hidden />
           )}
-          {anyLive ? 'Live · 30s' : 'Latest close'}
+          {anyLive ? `${liveCount} live · 30s` : 'Latest close'}
         </span>
       }
     >
@@ -149,7 +150,23 @@ export default function MarketTable() {
                   <div className="flex items-center gap-2 min-w-0">
                     <AssetIcon symbol={r.symbol} assetClass={r.assetClass} size="sm" />
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 leading-tight">{r.symbol}</p>
+                      <p className="font-semibold text-gray-900 leading-tight flex items-center gap-1.5">
+                        {r.symbol}
+                        {r.live ? (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"
+                            title="Live price, refreshed every 30 seconds"
+                            aria-label="live"
+                          />
+                        ) : (
+                          <span
+                            className="text-[9px] font-normal text-gray-300 shrink-0"
+                            title="Daily close. Intraday prices are not available on our market-data plan."
+                          >
+                            close
+                          </span>
+                        )}
+                      </p>
                       <p className="text-[10px] text-gray-400 truncate max-w-[9rem]">{r.name}</p>
                     </div>
                   </div>
@@ -192,8 +209,8 @@ export default function MarketTable() {
         </table>
       </div>
       <p className="text-[10px] text-gray-400 px-4 py-2 border-t border-gray-50">
-        Market prices for the assets this vault tracks. Not your holdings.
-        {!anyLive && ' Equity prices are the latest daily close.'}
+        Market prices for the assets this vault tracks. Not your holdings. A green
+        dot marks a live price; the rest are the latest daily close.
       </p>
     </Panel>
   );
@@ -201,7 +218,9 @@ export default function MarketTable() {
 
 /** A $0.51 coin and a $67,000 coin need different precision to read at all. */
 function price(value: number): string {
-  const digits = value >= 1000 ? 0 : value >= 1 ? 2 : 4;
+  // Enough decimals to show a real move, without trailing noise: a $71 ETF
+  // does not need four places, a $1.29 coin does.
+  const digits = value >= 1000 ? 0 : value >= 10 ? 2 : value >= 1 ? 4 : 6;
   return `$${value.toLocaleString('en-US', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

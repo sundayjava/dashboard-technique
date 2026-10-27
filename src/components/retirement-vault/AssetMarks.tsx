@@ -8,6 +8,7 @@ import {
   Gem,
   Globe,
   Landmark,
+  LineChart,
   Shapes,
   type LucideIcon,
 } from 'lucide-react';
@@ -72,6 +73,7 @@ const SYMBOL_MARKS: Record<string, MarkComponent> = {
   SLV: Coins,           // iShares Silver Trust
   VNQ: Building2,       // Vanguard Real Estate
   DBC: CandlestickChart,// Invesco DB Commodity Index
+  SPY: LineChart,       // SPDR S&P 500, the benchmark leg
 };
 
 /** Fallback by class, which also covers class-level rows with no ticker. */

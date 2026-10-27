@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PriceProvider, VaultAssetRole } from '@prisma/client';
+import { PriceProvider } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { fetchPricesForAssets } from '@/lib/vault/price-providers';
@@ -54,8 +54,12 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateRequest(request);
     if (!auth.success) return auth.response;
 
+    // Every tracked asset, benchmark instruments included. This board answers
+    // "what are markets doing", and SPY is a market the member can read even
+    // though no vault ever holds it -- excluding it listed 9 of the 10 assets
+    // we actually price.
     const assets = await prisma.vaultAsset.findMany({
-      where: { isActive: true, role: { not: VaultAssetRole.BENCHMARK } },
+      where: { isActive: true },
       orderBy: [{ displayOrder: 'asc' }, { symbol: 'asc' }],
       take: MARKET_ASSET_LIMIT,
       select: {
