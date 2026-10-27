@@ -27,7 +27,10 @@ import { valueVault } from './valuation';
  *     a Conservative vault into a Growth one.
  *   - The crypto cap is applied last, to the final allocation, so no
  *     combination of tilts can breach it.
- *   - Member overrides are honoured exactly and the engine works around them.
+ *   - Every class is rebalanced. Pinning was retired with the Expert
+ *     Allocator page, and `isUserOverride` on old rows is deliberately not
+ *     read: a pin nobody can see or release would freeze an allocation
+ *     forever.
  *   - With insufficient price history the engine does NOT tilt at all. It
  *     rebalances to the plain target and says why.
  */
@@ -64,7 +67,6 @@ export interface RebalanceProposal {
   portfolioValue: number;
   explanation: string;
   signals: SignalSet;
-  pinnedClasses: VaultAssetClass[];
 }
 
 /**
@@ -159,50 +161,13 @@ function applyTilts(
   return { tilted, reasons };
 }
 
-/**
- * Re-impose member overrides on a tilted allocation.
- *
- * A pinned class is held exactly where the member put it and the engine
- * redistributes around it. This is what lets someone override one allocation
- * without leaving Expert mode.
- */
-function honourOverrides(
-  tilted: AllocationMap,
-  overrides: Map<VaultAssetClass, number>,
-): AllocationMap {
-  if (overrides.size === 0) return tilted;
-
-  const result = { ...tilted };
-  let pinnedTotal = 0;
-  for (const [assetClass, value] of overrides) {
-    result[assetClass] = value;
-    pinnedTotal += value;
-  }
-
-  const free = getAllAssetClasses().filter((c) => !overrides.has(c));
-  const freeTotal = free.reduce((sum, c) => sum + tilted[c], 0);
-  const remainder = Math.max(0, 100 - pinnedTotal);
-
-  for (const assetClass of free) {
-    result[assetClass] =
-      freeTotal > 0
-        ? remainder * (tilted[assetClass] / freeTotal)
-        : free.length > 0
-          ? remainder / free.length
-          : 0;
-  }
-
-  return result;
-}
-
 /** Build the member-facing narrative for a rebalance. */
 function buildExplanation(params: {
   signals: SignalSet;
   changes: ProposedChange[];
   trigger: RebalanceTrigger;
-  pinned: VaultAssetClass[];
 }): string {
-  const { signals, changes, trigger, pinned } = params;
+  const { signals, changes, trigger } = params;
 
   const opener =
     trigger === RebalanceTrigger.DRIFT_THRESHOLD
@@ -250,14 +215,7 @@ function buildExplanation(params: {
       ? `We ${moves.join('; ')}.`
       : 'No allocation changes were needed.';
 
-  const pinnedText =
-    pinned.length > 0
-      ? ` Your pinned allocation${pinned.length > 1 ? 's' : ''} (${pinned
-          .map((p) => p.replace(/_/g, ' ').toLowerCase())
-          .join(', ')}) ${pinned.length > 1 ? 'were' : 'was'} left untouched.`
-      : '';
-
-  return `${opener} ${context} ${movesText}${pinnedText}`;
+  return `${opener} ${context} ${movesText}`;
 }
 
 /**
@@ -292,23 +250,16 @@ export async function proposeRebalance(
     policy,
   );
 
-  const overrides = new Map<VaultAssetClass, number>();
-  for (const row of vault.allocations) {
-    if (row.isUserOverride) overrides.set(row.assetClass, row.targetPercent);
-  }
-
   // Only Expert mode tilts. Other modes rebalance back to their plain target.
   const { tilted, reasons } =
     vault.allocationMode === AllocationMode.EXPERT_ALLOCATOR || vault.expertAllocatorActive
       ? applyTilts(baseTarget, signals)
       : { tilted: { ...baseTarget }, reasons: {} as Partial<Record<VaultAssetClass, string>> };
 
-  const withOverrides = honourOverrides(tilted, overrides);
-
-  // Cap applied LAST, to the final allocation, so no combination of tilts and
-  // overrides can breach it.
+  // Cap applied LAST, to the final allocation, so no combination of tilts can
+  // breach it.
   const proposedTarget = enforceCryptoCap(
-    normaliseTo100(withOverrides),
+    normaliseTo100(tilted),
     policy.cryptoCapPercent,
   );
 
@@ -334,9 +285,7 @@ export async function proposeRebalance(
     }))
     .filter((c) => Math.abs(c.toPercent - c.fromPercent) >= 0.05);
 
-  const pinnedClasses = [...overrides.keys()];
-
-  const explanation = buildExplanation({ signals, changes, trigger, pinned: pinnedClasses });
+  const explanation = buildExplanation({ signals, changes, trigger });
 
   // Nothing to do when the vault holds nothing, or is already on target.
   let actionable = true;
@@ -366,7 +315,6 @@ export async function proposeRebalance(
     portfolioValue,
     explanation,
     signals,
-    pinnedClasses,
   };
 }
 
@@ -404,10 +352,21 @@ export async function applyRebalance(
     where: { isActive: true, role: { not: 'BENCHMARK' } },
   });
 
-  // Target value per instrument: class target x sleeve weight within class.
+  // TARGET COST BASIS per instrument, not target market value.
+  //
+  // A class is worth its principal plus the performance credited to it, and
+  // that credit belongs to the class that earned it -- a rebalance moves money
+  // between classes, it does not move a past day's performance. So the figure
+  // a rebalance has to land is the PRINCIPAL: target value less what the class
+  // has already been credited. Holding units then follow the principal at
+  // today's price, which keeps them a faithful record of what was bought.
   const targetValueByAsset = new Map<string, number>();
   for (const assetClass of getAllAssetClasses()) {
-    const classValue = (valuation.holdingsValue * proposal.proposedTarget[assetClass]) / 100;
+    const classTarget = (valuation.holdingsValue * proposal.proposedTarget[assetClass]) / 100;
+    const accrued = valuation.classValues[assetClass]?.accrued ?? 0;
+    // Floored at zero: a class credited more than its new target still keeps
+    // that credit, it simply holds no principal.
+    const classValue = Math.max(0, classTarget - accrued);
     const classAssets = assets.filter((a) => a.assetClass === assetClass);
     const weightTotal = classAssets.reduce((s, a) => s + a.sleeveWeight, 0);
 
@@ -464,23 +423,21 @@ export async function applyRebalance(
         const price = priceByAsset.get(asset.id) ?? asset.currentPrice;
         if (price <= 0) continue;
 
-        const targetUnits = targetValue / price;
+        // The principal IS the target now, so it is set directly rather than
+        // derived from a unit change. Units follow it at today's price.
+        const newCostBasis = Math.max(0, targetValue);
+        const targetUnits = newCostBasis / price;
         const currentUnits = unitsByAsset.get(asset.id) ?? 0;
-        if (Math.abs(targetUnits - currentUnits) < 1e-9) continue;
-
-        const holding = existingByAsset.get(asset.id);
         const currentCost = costBasisByAsset.get(asset.id) ?? 0;
 
-        // Cost basis follows the units: selling releases it proportionally,
-        // buying adds the cash spent. Without this, realised gain/loss on a
-        // later withdrawal would be wrong.
-        let newCostBasis: number;
-        if (targetUnits < currentUnits && currentUnits > 0) {
-          newCostBasis = currentCost * (targetUnits / currentUnits);
-        } else {
-          newCostBasis = currentCost + (targetUnits - currentUnits) * price;
+        if (
+          Math.abs(targetUnits - currentUnits) < 1e-9 &&
+          Math.abs(newCostBasis - currentCost) < 1e-9
+        ) {
+          continue;
         }
-        newCostBasis = Math.max(0, newCostBasis);
+
+        const holding = existingByAsset.get(asset.id);
 
         if (holding === undefined) {
           if (targetUnits <= 0) continue;
@@ -506,7 +463,7 @@ export async function applyRebalance(
       }
 
       // Store the new targets so the dashboard and drift checks agree with
-      // what the engine just did. Pinned classes keep their override flag.
+      // what the engine just did.
       for (const assetClass of getAllAssetClasses()) {
         await tx.vaultAllocation.upsert({
           where: {
@@ -516,7 +473,6 @@ export async function applyRebalance(
             vaultId: proposal.vaultId,
             assetClass,
             targetPercent: proposal.proposedTarget[assetClass],
-            isUserOverride: proposal.pinnedClasses.includes(assetClass),
           },
           update: { targetPercent: proposal.proposedTarget[assetClass] },
         });

@@ -166,28 +166,31 @@ async function main() {
   check('per-class changes stored', event.changes.length > 0, `got ${event.changes.length}`);
   check('value at execution recorded', (event.valueAtExecution ?? 0) > 0);
 
-  console.log('\n=== 7. Member override is honoured and worked around ===');
+  console.log('\n=== 7. A legacy override flag is IGNORED, not honoured ===');
+  // Pinning is retired. Rows written before it was removed still carry the
+  // flag, and the engine must rebalance them like any other class -- honouring
+  // a pin no member can see or release would freeze an allocation forever.
   await prisma.vaultAllocation.update({
     where: { vaultId_assetClass: { vaultId: vault.id, assetClass: VaultAssetClass.COMMODITIES } },
     data: { targetPercent: 25, isUserOverride: true, overriddenAt: new Date() },
   });
-  const pinned = await proposeRebalance(vault.id, RebalanceTrigger.QUARTERLY, { signals });
-  check('pinned class held exactly where the member put it',
-    Math.abs(pinned!.proposedTarget.COMMODITIES - 25) < 0.01,
-    `got ${pinned!.proposedTarget.COMMODITIES}`);
-  check('still totals 100%', proposalTotalsOneHundred(pinned!));
-  check('crypto still capped alongside an override', pinned!.proposedTarget.CRYPTO <= 5.001);
-  check('explanation tells the member it was left alone',
-    pinned!.explanation.toLowerCase().includes('pinned'), pinned!.explanation);
+  const legacy = await proposeRebalance(vault.id, RebalanceTrigger.QUARTERLY, { signals });
+  check('the stale 25% is not held',
+    Math.abs(legacy!.proposedTarget.COMMODITIES - 25) > 0.01,
+    `got ${legacy!.proposedTarget.COMMODITIES}`);
+  check('still totals 100%', proposalTotalsOneHundred(legacy!));
+  check('crypto still capped', legacy!.proposedTarget.CRYPTO <= 5.001);
+  check('the explanation no longer mentions pinning',
+    !legacy!.explanation.toLowerCase().includes('pinned'), legacy!.explanation);
   check('expert mode remains on', (await prisma.retirementVault.findFirstOrThrow({ where: { id: vault.id } })).expertAllocatorActive);
 
-  console.log('\n=== 8. A hostile override cannot breach the cap ===');
+  console.log('\n=== 8. A stale 60% crypto flag cannot breach the cap ===');
   await prisma.vaultAllocation.update({
     where: { vaultId_assetClass: { vaultId: vault.id, assetClass: VaultAssetClass.CRYPTO } },
     data: { targetPercent: 60, isUserOverride: true },
   });
   const hostile = await proposeRebalance(vault.id, RebalanceTrigger.QUARTERLY, { signals });
-  check('60% crypto override clamped to the cap',
+  check('60% crypto flag clamped to the cap',
     hostile!.proposedTarget.CRYPTO <= 5.001, `got ${hostile!.proposedTarget.CRYPTO}`);
   check('and still totals 100%', proposalTotalsOneHundred(hostile!), String(sumAllocation(hostile!.proposedTarget)));
 

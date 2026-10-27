@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import {
   ArrowLeft, CalendarClock, FileText, HelpCircle, LayoutDashboard, Minus,
-  PieChart, Sparkles, TrendingUp, Wallet, X,
+  PieChart, TrendingUp, Wallet, X,
 } from 'lucide-react';
 
 export interface VaultNavItem {
@@ -16,7 +16,6 @@ export const VAULT_NAV: VaultNavItem[] = [
   { label: 'Overview', href: '/retirement-vault/dashboard', icon: LayoutDashboard },
   { label: 'Allocation', href: '/retirement-vault/allocation', icon: PieChart },
   { label: 'Performance', href: '/retirement-vault/performance', icon: TrendingUp },
-  { label: 'Expert Allocator', href: '/retirement-vault/allocator', icon: Sparkles },
   { label: 'Contributions', href: '/retirement-vault/contributions', icon: CalendarClock },
   { label: 'Withdrawals', href: '/retirement-vault/withdrawals', icon: Minus },
   { label: 'Reports', href: '/retirement-vault/reports', icon: FileText },

@@ -212,7 +212,7 @@ export default function AllocationModeCard({ onChanged }: { onChanged: () => voi
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
             <p className="text-xs text-amber-900">
               Changing mode re-targets your vault and rebalances your holdings straight away.
-              Any allocation you have pinned is released. You will not be able to change again
+              Your targets are replaced by the new mode&apos;s. You will not be able to change again
               for {state.cooldownDays} days.
             </p>
           </div>

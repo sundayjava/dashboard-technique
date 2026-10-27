@@ -157,9 +157,9 @@ export async function PUT(request: NextRequest) {
         },
       });
 
-      // Switching mode replaces the targets wholesale, and any pinned class is
-      // released: an override made under Expert mode has no meaning once the
-      // member has moved to a different mode entirely.
+      // Switching mode replaces the targets wholesale. The override flag is
+      // cleared as it goes: pinning is retired, and this scrubs the legacy
+      // flag from any row written before it was removed.
       for (const [assetClass, targetPercent] of Object.entries(targetAllocation)) {
         await tx.vaultAllocation.upsert({
           where: {

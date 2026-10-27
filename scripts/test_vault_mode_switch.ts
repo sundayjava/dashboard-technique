@@ -6,7 +6,6 @@ import { createSessionToken } from '../src/lib/session';
 import { POST as createPOST } from '../src/app/api/retirement-vault/create/route';
 import { POST as depositPOST } from '../src/app/api/retirement-vault/deposit/route';
 import { GET as modeGET, PUT as modePUT } from '../src/app/api/retirement-vault/allocation-mode/route';
-import { PUT as rebalPUT } from '../src/app/api/retirement-vault/rebalances/route';
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import { valueVault } from '../src/lib/vault/valuation';
 import { MODE_SWITCH_COOLDOWN_DAYS } from '../src/lib/vault/allocation-model';
@@ -165,26 +164,30 @@ async function main() {
   check('crypto still capped after the switch',
     focusedBody.targetAllocation?.CRYPTO <= 5.001, `got ${focusedBody.targetAllocation?.CRYPTO}`);
 
-  console.log('\n=== 7. Switching releases pinned allocations ===');
+  console.log('\n=== 7. Switching clears any legacy override flag ===');
+  // Pinning is retired. A switch still clears the old flag, so a row left over
+  // from before cannot keep an allocation frozen once the engine stops
+  // reading it.
   await prisma.retirementVault.update({
     where: { id: vaultId },
     data: { modeLastChangedAt: new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS + 1) * 24 * 60 * 60 * 1000) },
   });
-  await rebalPUT(req('/api/retirement-vault/rebalances', 'PUT', {
-    assetClass: 'REAL_ESTATE', targetPercent: 20, pinned: true,
-  }));
-  const pinnedBefore = await prisma.vaultAllocation.count({
+  await prisma.vaultAllocation.updateMany({
+    where: { vaultId, assetClass: 'REAL_ESTATE' },
+    data: { isUserOverride: true, overriddenAt: new Date() },
+  });
+  const staleBefore = await prisma.vaultAllocation.count({
     where: { vaultId, isUserOverride: true },
   });
-  check('a class is pinned', pinnedBefore === 1, `got ${pinnedBefore}`);
+  check('a legacy flag is present', staleBefore === 1, `got ${staleBefore}`);
 
   await modePUT(req('/api/retirement-vault/allocation-mode', 'PUT', {
     allocationMode: 'EXPERT_ALLOCATOR',
   }));
-  const pinnedAfter = await prisma.vaultAllocation.count({
+  const staleAfter = await prisma.vaultAllocation.count({
     where: { vaultId, isUserOverride: true },
   });
-  check('pins released by the mode change', pinnedAfter === 0, `got ${pinnedAfter}`);
+  check('cleared by the mode change', staleAfter === 0, `got ${staleAfter}`);
 
   console.log('\n=== 8. Switching to the SAME mode is rejected ===');
   await prisma.retirementVault.update({
