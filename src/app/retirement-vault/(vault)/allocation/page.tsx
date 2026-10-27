@@ -5,6 +5,7 @@ import { AssetIcon } from '@/components/retirement-vault/VaultUI';
 import AllocationDoughnut from '@/components/retirement-vault/AllocationDoughnut';
 import AllocationModeCard from '@/components/retirement-vault/AllocationModeCard';
 import InvestPanel from '@/components/retirement-vault/InvestPanel';
+import ClassPerformance from '@/components/retirement-vault/ClassPerformance';
 
 /** Composition, target comparison and the mode toggle. */
 export default function VaultAllocationPage() {
@@ -89,6 +90,7 @@ export default function VaultAllocationPage() {
         </p>
       </div>
 
+      <ClassPerformance />
     </div>
   );
 }

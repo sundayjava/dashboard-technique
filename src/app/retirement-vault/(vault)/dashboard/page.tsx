@@ -11,6 +11,8 @@ import {
 } from '@/components/retirement-vault/VaultUI';
 import ExpertToggle from '@/components/retirement-vault/ExpertToggle';
 import MarketTable from '@/components/retirement-vault/MarketTable';
+import ClassPerformance from '@/components/retirement-vault/ClassPerformance';
+import RebalanceHistory from '@/components/retirement-vault/RebalanceHistory';
 
 /** Overview: the headline numbers, then routes into the detail pages. */
 export default function VaultOverviewPage() {
@@ -36,11 +38,36 @@ export default function VaultOverviewPage() {
     .sort((a, b) => b[1] - a[1]);
 
   const target = data?.targetAllocation ?? {};
+  const classValues = valuation?.classValues ?? {};
+
+  /**
+   * Profit on a class, as a percentage of what the member put into it.
+   *
+   * Cumulative, not the day's rate: it opens at +0.00% the moment money lands
+   * and grows as days are credited, which is the figure a member means by
+   * "how is my crypto doing". The day's own rate lives in the performance
+   * panel below, where its workings can be shown beside it.
+   *
+   * Null when there is no principal to measure against -- a percentage of
+   * nothing is not zero, it is undefined, and printing +0.00% there would
+   * claim a flat return the member never had.
+   */
+  const gainPercentFor = (cls: string): number | null => {
+    const position = classValues[cls];
+    if (position === undefined || position.principal <= 0) return null;
+    return (position.accrued / position.principal) * 100;
+  };
 
   return (
     <div className="space-y-4">
-      {/* Three headline cards: one accent, one plain, one brand. */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/*
+        The headline cards and uninvested cash share ONE grid.
+        Stacked full width, these four filled a phone screen on their own and
+        pushed the allocation below the fold, so on mobile they tile two
+        across. On desktop the three stat cards keep their own row and cash
+        sits beneath with the toggle beside it, exactly as before.
+      */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatCard
           tone="blue"
           icon={PiggyBank}
@@ -87,16 +114,13 @@ export default function VaultOverviewPage() {
           onAction={() => router.push('/retirement-vault/reports')}
           actionLabel="View reports"
         />
-      </div>
 
-      {/* Uninvested cash is the thing most likely to need action, so it sits
-          above the allocation list with the toggle beside it. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Fourth tile, completing the 2x2 on a phone. */}
         <Panel>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col h-full sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
             <div className="min-w-0">
               <p className="text-xs text-gray-500">Uninvested cash</p>
-              <p className="text-xl font-bold text-gray-900 tabular-nums mt-0.5">
+              <p className="text-lg sm:text-xl font-bold text-gray-900 tabular-nums mt-0.5 truncate">
                 {money(vault.cashBalance)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
@@ -106,19 +130,25 @@ export default function VaultOverviewPage() {
               </p>
             </div>
             {vault.cashBalance > 0.01 && (
-              <PillButton
-                tone="dark"
-                onClick={() => router.push('/retirement-vault/allocation')}
-              >
-                Invest now
-              </PillButton>
+              <div className="mt-auto sm:mt-0 shrink-0">
+                <PillButton
+                  tone="dark"
+                  onClick={() => router.push('/retirement-vault/allocation')}
+                >
+                  Invest now
+                </PillButton>
+              </div>
             )}
           </div>
         </Panel>
 
-        <Panel>
-          <ExpertToggle onChanged={refresh} compact />
-        </Panel>
+        {/* Full width under the tiles: a switch with a status line needs the
+            room, and halving it would wrap the label mid-sentence. */}
+        <div className="col-span-2 md:col-span-2">
+          <Panel>
+            <ExpertToggle onChanged={refresh} compact />
+          </Panel>
+        </div>
       </div>
 
       {/* Allocation, as a pool-style list with per-asset colour. */}
@@ -172,8 +202,24 @@ export default function VaultOverviewPage() {
                       <td className="px-4 py-2.5 text-right text-gray-400 tabular-nums">
                         {t.toFixed(0)}%
                       </td>
-                      <td className="px-4 py-2.5 text-right text-gray-900 tabular-nums">
-                        {money(value)}
+                      {/* The move sits above the value it is a move in. */}
+                      <td className="px-4 py-2.5 text-right tabular-nums">
+                        {(() => {
+                          const gain = gainPercentFor(cls);
+                          if (gain === null) return null;
+                          const up = gain >= 0;
+                          return (
+                            <p
+                              className={`text-[11px] font-semibold leading-tight ${
+                                up ? 'text-lime-700' : 'text-red-600'
+                              }`}
+                            >
+                              {up ? '+' : ''}
+                              {gain.toFixed(2)}%
+                            </p>
+                          );
+                        })()}
+                        <p className="text-gray-900 leading-tight">{money(value)}</p>
                       </td>
                     </tr>
                   );
@@ -208,6 +254,12 @@ export default function VaultOverviewPage() {
 
       {/* Market moves. Independent of the allocation above: this is what the
           assets we track are doing, not what the member owns. */}
+      {/* The day's rate per class, above the allocated value it applies to. */}
+      <ClassPerformance />
+
+      {/* Moved here from its own page, which was mostly empty around it. */}
+      <RebalanceHistory />
+
       <MarketTable />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -252,10 +304,10 @@ export default function VaultOverviewPage() {
               </div>
             )}
             <Link
-              href="/retirement-vault/allocator"
+              href="/retirement-vault/allocation"
               className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 pt-1"
             >
-              Expert Allocator <ArrowRight className="w-3 h-3" />
+              Manage allocation <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
         </Panel>

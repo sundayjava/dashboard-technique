@@ -71,25 +71,36 @@ export function StatCard({
 }) {
   const t = TONES[tone];
   return (
-    <div className={`${t.card} rounded-2xl p-5 shadow-sm relative overflow-hidden`}>
+    <div className={`${t.card} rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden`}>
       {Icon && (
-        <div className={`${t.badge} w-11 h-11 rounded-xl flex items-center justify-center mb-6`}>
-          <Icon className="w-5 h-5" />
+        <div
+          className={`${t.badge} w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center mb-3 sm:mb-6`}
+        >
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
       )}
       <p className={`text-xs ${t.label}`}>{label}</p>
-      <div className="flex items-end justify-between gap-3 mt-1">
+      <div className="flex items-end justify-between gap-2 sm:gap-3 mt-1">
         <div className="min-w-0">
-          <p className={`text-2xl font-bold ${t.value} tabular-nums truncate`}>{value}</p>
+          <p className={`text-lg sm:text-2xl font-bold ${t.value} tabular-nums truncate`}>
+            {value}
+          </p>
           {sub && <div className="mt-1">{sub}</div>}
         </div>
         {onAction && (
+          /*
+            Two across on a phone leaves ~126px inside the card, and sharing
+            that row with the button clipped the value to "$1,500.0". So on
+            mobile the button lifts out to the top corner, opposite the icon,
+            and the number gets the full width. From `sm` up it returns to the
+            value row, where there is room for both.
+          */
           <button
             onClick={onAction}
             aria-label={actionLabel ?? label}
-            className={`${t.action} w-10 h-10 rounded-full flex items-center justify-center shrink-0 hover:opacity-85 transition-opacity cursor-pointer`}
+            className={`${t.action} absolute top-4 right-4 sm:static w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 hover:opacity-85 transition-opacity cursor-pointer`}
           >
-            <ArrowUpRight className="w-4 h-4" />
+            <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         )}
       </div>
