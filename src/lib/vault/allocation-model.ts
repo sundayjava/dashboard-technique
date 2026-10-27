@@ -24,7 +24,7 @@ export const CRYPTO_CAP_PERCENT = 5;
 export const DRIFT_THRESHOLD_PERCENT = 5;
 
 /** Cooldown on member-initiated allocation mode switches. */
-export const MODE_SWITCH_COOLDOWN_DAYS = 30;
+export const MODE_SWITCH_COOLDOWN_DAYS = 60;
 
 /** Notice period served before an early withdrawal is paid. */
 export const WITHDRAWAL_NOTICE_DAYS = 14;

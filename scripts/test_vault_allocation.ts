@@ -7,6 +7,7 @@ import {
   applyOverrides,
   canSwitchMode,
   getInvestableClasses,
+  MODE_SWITCH_COOLDOWN_DAYS,
   computeDrift,
   enforceCryptoCap,
   getAllAssetClasses,
@@ -184,12 +185,21 @@ check('never switched -> allowed', never.allowed);
 
 const justSwitched = canSwitchMode(new Date());
 check('just switched -> blocked', !justSwitched.allowed);
-check('reports ~30 days remaining', justSwitched.daysRemaining === 30, `got ${justSwitched.daysRemaining}`);
+check(
+  `reports the full ${MODE_SWITCH_COOLDOWN_DAYS}-day cooldown`,
+  justSwitched.daysRemaining === MODE_SWITCH_COOLDOWN_DAYS,
+  `got ${justSwitched.daysRemaining}`,
+);
 
-const longAgo = canSwitchMode(new Date(Date.now() - 31 * 24 * 60 * 60 * 1000));
-check('switched 31 days ago -> allowed', longAgo.allowed);
+// Just past the cooldown, whatever it is set to.
+const longAgo = canSwitchMode(
+  new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS + 1) * 24 * 60 * 60 * 1000),
+);
+check(`switched ${MODE_SWITCH_COOLDOWN_DAYS + 1} days ago -> allowed`, longAgo.allowed);
 
-const almost = canSwitchMode(new Date(Date.now() - 29.8 * 24 * 60 * 60 * 1000));
+const almost = canSwitchMode(
+  new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS - 0.2) * 24 * 60 * 60 * 1000),
+);
 check('0.2 days left rounds up to 1, not 0', almost.daysRemaining === 1, `got ${almost.daysRemaining}`);
 
 console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);

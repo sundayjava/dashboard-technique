@@ -9,6 +9,7 @@ import { GET as modeGET, PUT as modePUT } from '../src/app/api/retirement-vault/
 import { PUT as rebalPUT } from '../src/app/api/retirement-vault/rebalances/route';
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import { valueVault } from '../src/lib/vault/valuation';
+import { MODE_SWITCH_COOLDOWN_DAYS } from '../src/lib/vault/allocation-model';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -71,6 +72,11 @@ async function main() {
   const blockedBody = await blocked.json();
   check('switch refused -> 429', blocked.status === 429, `got ${blocked.status}`);
   check('tells the member how long', (blockedBody.daysRemaining ?? 0) > 0, JSON.stringify(blockedBody));
+  check(
+    `the cooldown is ${MODE_SWITCH_COOLDOWN_DAYS} days`,
+    blockedBody.daysRemaining === MODE_SWITCH_COOLDOWN_DAYS,
+    `got ${blockedBody.daysRemaining}`,
+  );
   console.log(`  "${blockedBody.error}"`);
 
   const stillOff = await prisma.retirementVault.findUniqueOrThrow({ where: { id: vaultId } });
@@ -85,7 +91,7 @@ async function main() {
   console.log('\n=== 3. Once the cooldown lapses, Expert can be turned ON ===');
   await prisma.retirementVault.update({
     where: { id: vaultId },
-    data: { modeLastChangedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    data: { modeLastChangedAt: new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS + 1) * 24 * 60 * 60 * 1000) },
   });
 
   const beforeValue = (await valueVault(vaultId))!.totalValue;
@@ -120,7 +126,7 @@ async function main() {
   console.log('\n=== 5. Expert can be turned back OFF ===');
   await prisma.retirementVault.update({
     where: { id: vaultId },
-    data: { modeLastChangedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    data: { modeLastChangedAt: new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS + 1) * 24 * 60 * 60 * 1000) },
   });
   const off = await modePUT(req('/api/retirement-vault/allocation-mode', 'PUT', {
     allocationMode: 'DIVERSIFIED',
@@ -132,7 +138,7 @@ async function main() {
   console.log('\n=== 6. Switching to FOCUSED needs a class ===');
   await prisma.retirementVault.update({
     where: { id: vaultId },
-    data: { modeLastChangedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    data: { modeLastChangedAt: new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS + 1) * 24 * 60 * 60 * 1000) },
   });
   const noClass = await modePUT(req('/api/retirement-vault/allocation-mode', 'PUT', {
     allocationMode: 'FOCUSED',
@@ -157,7 +163,7 @@ async function main() {
   console.log('\n=== 7. Switching releases pinned allocations ===');
   await prisma.retirementVault.update({
     where: { id: vaultId },
-    data: { modeLastChangedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    data: { modeLastChangedAt: new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS + 1) * 24 * 60 * 60 * 1000) },
   });
   await rebalPUT(req('/api/retirement-vault/rebalances', 'PUT', {
     assetClass: 'REAL_ESTATE', targetPercent: 20, pinned: true,
@@ -178,7 +184,7 @@ async function main() {
   console.log('\n=== 8. Switching to the SAME mode is rejected ===');
   await prisma.retirementVault.update({
     where: { id: vaultId },
-    data: { modeLastChangedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) },
+    data: { modeLastChangedAt: new Date(Date.now() - (MODE_SWITCH_COOLDOWN_DAYS + 1) * 24 * 60 * 60 * 1000) },
   });
   const same = await modePUT(req('/api/retirement-vault/allocation-mode', 'PUT', {
     allocationMode: 'EXPERT_ALLOCATOR',
