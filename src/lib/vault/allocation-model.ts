@@ -151,17 +151,6 @@ export function getAllAssetClasses(): VaultAssetClass[] {
   return [...ALL_ASSET_CLASSES];
 }
 
-function emptyAllocation(): AllocationMap {
-  return {
-    [VaultAssetClass.GLOBAL_EQUITIES]: 0,
-    [VaultAssetClass.FIXED_INCOME]: 0,
-    [VaultAssetClass.COMMODITIES]: 0,
-    [VaultAssetClass.REAL_ESTATE]: 0,
-    [VaultAssetClass.FUTURES_MACRO]: 0,
-    [VaultAssetClass.CRYPTO]: 0,
-  };
-}
-
 /**
  * Classes present in an allocation.
  *

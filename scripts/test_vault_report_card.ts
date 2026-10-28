@@ -125,7 +125,7 @@ async function main() {
   console.log('\n=== 7. Generation is idempotent ===');
   const n1 = await generateReportCards(vaultId);
   const count1 = await prisma.vaultReportCard.count({ where: { vaultId } });
-  const n2 = await generateReportCards(vaultId);
+  await generateReportCards(vaultId);
   const count2 = await prisma.vaultReportCard.count({ where: { vaultId } });
   check('cards generated', n1 >= 1, `got ${n1}`);
   check('re-running does not duplicate', count1 === count2 && count2 >= 1, `${count1} -> ${count2}`);
