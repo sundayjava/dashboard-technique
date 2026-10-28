@@ -5,7 +5,6 @@ import axios from 'axios';
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import { Loader2, TrendingDown, TrendingUp } from 'lucide-react';
 import { CLASS_LABELS, PROFILE_LABELS, money, useVault } from './VaultContext';
-import { CLASS_COLORS } from './VaultUI';
 import PerformanceChart, { SeriesPoint } from './PerformanceChart';
 
 type Period = 'MONTH' | 'QUARTER' | 'YEAR';
@@ -55,11 +54,32 @@ const PERIOD_LABELS: Record<Period, string> = {
   YEAR: 'Annual',
 };
 
+/**
+ * Class hues lifted for a dark panel.
+ *
+ * The same six identities as the light screens, brightened: the light set is
+ * tuned for 3:1 against white, and CRYPTO's #008300 in particular disappears
+ * against near-black. Hue is preserved, so a member moving from the overview
+ * to this page still reads the same class as the same colour.
+ */
+const DARK_CLASS_COLORS: Record<string, string> = {
+  GLOBAL_EQUITIES: '#4d9bff',
+  FIXED_INCOME: '#ff8a5c',
+  COMMODITIES: '#2dd4a7',
+  REAL_ESTATE: '#f5b73d',
+  FUTURES_MACRO: '#f08bb4',
+  CRYPTO: '#3ec46d',
+};
+
+function classColor(key: string): string {
+  return DARK_CLASS_COLORS[key] ?? '#94a3b8';
+}
+
 /** Signed percentage, coloured. Zero is neutral, not green. */
 function Pct({ value, className = '' }: { value: number | null; className?: string }) {
-  if (value === null) return <span className="text-gray-400">—</span>;
+  if (value === null) return <span className="text-slate-500">—</span>;
   const tone =
-    value > 0.0049 ? 'text-emerald-600' : value < -0.0049 ? 'text-red-600' : 'text-gray-600';
+    value > 0.0049 ? 'text-emerald-400' : value < -0.0049 ? 'text-red-400' : 'text-slate-300';
   return (
     <span className={`tabular-nums ${tone} ${className}`}>
       {value > 0 ? '+' : ''}
@@ -71,7 +91,7 @@ function Pct({ value, className = '' }: { value: number | null; className?: stri
 /** Signed money, coloured on the same rule. */
 function Amount({ value, className = '' }: { value: number; className?: string }) {
   const tone =
-    value > 0.004 ? 'text-emerald-600' : value < -0.004 ? 'text-red-600' : 'text-gray-600';
+    value > 0.004 ? 'text-emerald-400' : value < -0.004 ? 'text-red-400' : 'text-slate-300';
   return (
     <span className={`tabular-nums ${tone} ${className}`}>
       {value > 0 ? '+' : value < 0 ? '−' : ''}
@@ -80,12 +100,18 @@ function Amount({ value, className = '' }: { value: number; className?: string }
   );
 }
 
-/** Micro label above a figure: uppercase, tracked, quiet. */
 function Micro({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] uppercase tracking-[0.08em] text-gray-400 font-medium">
-      {children}
-    </p>
+    <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">{children}</p>
+  );
+}
+
+/** The gold pill that dates each section, as in the statement design. */
+function PeriodBadge({ label }: { label: string }) {
+  return (
+    <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded px-2 py-1">
+      {label}
+    </span>
   );
 }
 
@@ -93,21 +119,43 @@ function Tile({
   label,
   value,
   sub,
-  valueClass = 'text-gray-900',
 }: {
   label: string;
   value: React.ReactNode;
   sub?: React.ReactNode;
-  valueClass?: string;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200/70 bg-white p-4">
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-4">
       <Micro>{label}</Micro>
-      <p className={`text-xl sm:text-2xl font-semibold tabular-nums mt-1.5 ${valueClass}`}>
+      <p className="text-xl sm:text-2xl font-semibold tabular-nums mt-1.5 text-slate-50">
         {value}
       </p>
-      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
+      {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
     </div>
+  );
+}
+
+function Section({
+  title,
+  badge,
+  children,
+  padded = true,
+}: {
+  title: string;
+  badge?: string;
+  children: React.ReactNode;
+  padded?: boolean;
+}) {
+  return (
+    <section className="rounded-xl border border-white/[0.07] bg-white/[0.03] overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.06]">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">
+          {title}
+        </h2>
+        {badge && <PeriodBadge label={badge} />}
+      </div>
+      <div className={padded ? 'p-4' : ''}>{children}</div>
+    </section>
   );
 }
 
@@ -117,6 +165,12 @@ function Tile({
  * One fetch drives the period switch, the four tiles, the per-class table, the
  * benchmark chart and the allocation summary, so no two figures on the screen
  * can describe different windows or disagree on a total.
+ *
+ * DARK, ALONE AMONG THE VAULT PAGES. It is a statement rather than a
+ * dashboard, so it is drawn as a self-contained dark document sitting inside
+ * the light shell. Darkening the sidebar and header for one route would make
+ * the rest of the app look broken on the way in and out; one dark surface
+ * reads as a deliberate artefact instead.
  */
 export default function PerformanceStatement() {
   const { data } = useVault();
@@ -146,21 +200,21 @@ export default function PerformanceStatement() {
   const donut = (statement?.classes ?? []).map((c) => ({
     name: CLASS_LABELS[c.assetClass] ?? c.assetClass,
     value: c.allocationPercent,
-    color: CLASS_COLORS[c.assetClass] ?? '#9ca3af',
+    color: classColor(c.assetClass),
   }));
 
   return (
-    <div className="space-y-4">
+    <div className="rounded-2xl bg-[#0b1220] border border-white/[0.06] p-4 sm:p-5 space-y-4 shadow-xl">
       {/* Period switch. Governs every figure below, including the chart. */}
-      <div className="inline-flex rounded-xl border border-gray-200/70 bg-white p-1">
+      <div className="inline-flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
         {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
           <button
             key={p}
             onClick={() => setPeriod(p)}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               period === p
-                ? 'bg-gray-900 text-white'
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                ? 'bg-slate-50 text-slate-900'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'
             }`}
           >
             {PERIOD_LABELS[p]}
@@ -170,15 +224,14 @@ export default function PerformanceStatement() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-300" />
+          <Loader2 className="w-6 h-6 animate-spin text-slate-600" />
         </div>
       ) : statement === null ? (
-        <div className="rounded-xl border border-gray-200/70 bg-white p-8 text-center">
-          <p className="text-sm text-gray-500">Could not load your statement.</p>
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-8 text-center">
+          <p className="text-sm text-slate-400">Could not load your statement.</p>
         </div>
       ) : (
         <>
-          {/* Four tiles, 2x2 on a phone. */}
           <div className="grid grid-cols-2 gap-3">
             <Tile
               label="Vault balance"
@@ -187,15 +240,15 @@ export default function PerformanceStatement() {
                 statement.available ? (
                   <span className="inline-flex items-center gap-1">
                     {(t?.balanceChange ?? 0) >= 0 ? (
-                      <TrendingUp className="w-3 h-3 text-emerald-600" />
+                      <TrendingUp className="w-3 h-3 text-emerald-400" />
                     ) : (
-                      <TrendingDown className="w-3 h-3 text-red-600" />
+                      <TrendingDown className="w-3 h-3 text-red-400" />
                     )}
                     <Amount value={t?.balanceChange ?? 0} />
-                    <span className="text-gray-400">this {periodWord(period)}</span>
+                    <span className="text-slate-500">this {periodWord(period)}</span>
                   </span>
                 ) : (
-                  <span className="text-gray-400">No movement recorded yet</span>
+                  <span className="text-slate-500">No movement recorded yet</span>
                 )
               }
             />
@@ -204,9 +257,9 @@ export default function PerformanceStatement() {
               value={<Pct value={t?.returnPercent ?? null} />}
               sub={
                 t?.benchmarkReturnPercent === null || t?.benchmarkReturnPercent === undefined ? (
-                  <span className="text-gray-400">Passive 60/40: —</span>
+                  <span className="text-slate-500">Passive 60/40: —</span>
                 ) : (
-                  <span className="text-gray-500">
+                  <span className="text-slate-400">
                     Passive 60/40:{' '}
                     <span className="tabular-nums">
                       {t.benchmarkReturnPercent > 0 ? '+' : ''}
@@ -217,10 +270,16 @@ export default function PerformanceStatement() {
               }
             />
             <Tile
-              label={period === 'MONTH' ? 'Total contributed' : `Contributions (${statement.periodLabel})`}
-              value={money(period === 'MONTH' ? (t?.totalContributed ?? 0) : (t?.contributions ?? 0))}
+              label={
+                period === 'MONTH'
+                  ? 'Total contributed'
+                  : `Contributions (${statement.periodLabel})`
+              }
+              value={money(
+                period === 'MONTH' ? (t?.totalContributed ?? 0) : (t?.contributions ?? 0),
+              )}
               sub={
-                <span className="text-gray-500">
+                <span className="text-slate-400">
                   {t?.contributionCount
                     ? `${money(t.contributions)} in ${statement.periodLabel}`
                     : `Nothing added in ${statement.periodLabel}`}
@@ -234,42 +293,40 @@ export default function PerformanceStatement() {
               }
               sub={
                 period === 'MONTH' ? (
-                  <span className="text-gray-500">
+                  <span className="text-slate-400">
                     <Pct value={t?.gainPercentOfContributed ?? null} /> since inception
                   </span>
                 ) : (
-                  <span className="text-gray-400">Excludes money you paid in</span>
+                  <span className="text-slate-500">Excludes money you paid in</span>
                 )
               }
             />
           </div>
 
           {!statement.available && statement.unavailableReason && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-xs text-amber-900">{statement.unavailableReason}</p>
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3">
+              <p className="text-xs text-amber-200/90">{statement.unavailableReason}</p>
             </div>
           )}
 
-          {/* Per-class performance. */}
-          <section className="rounded-xl border border-gray-200/70 bg-white overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
-                {period === 'MONTH' ? 'Asset breakdown' : `${PERIOD_LABELS[period]} asset performance`}
-              </h2>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 bg-gray-100 rounded px-2 py-1">
-                {statement.periodLabel}
-              </span>
-            </div>
-
+          <Section
+            title={
+              period === 'MONTH'
+                ? 'Asset breakdown'
+                : `${PERIOD_LABELS[period]} asset performance`
+            }
+            badge={statement.periodLabel}
+            padded={false}
+          >
             {statement.classes.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-gray-500">
+              <p className="px-4 py-8 text-center text-sm text-slate-400">
                 Nothing invested yet. Fund your vault and each class will report here.
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-[0.08em] text-gray-400 border-b border-gray-100">
+                    <tr className="text-[10px] uppercase tracking-[0.1em] text-slate-500 border-b border-white/[0.06]">
                       <th className="text-left font-medium px-4 py-2">Asset class</th>
                       <th className="hidden sm:table-cell text-right font-medium px-3 py-2">
                         Allocation
@@ -283,24 +340,24 @@ export default function PerformanceStatement() {
                   </thead>
                   <tbody>
                     {statement.classes.map((c) => (
-                      <tr key={c.assetClass} className="border-b border-gray-50">
+                      <tr key={c.assetClass} className="border-b border-white/[0.04]">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span
                               className="w-1.5 h-8 rounded-full shrink-0"
-                              style={{ backgroundColor: CLASS_COLORS[c.assetClass] ?? '#9ca3af' }}
+                              style={{ backgroundColor: classColor(c.assetClass) }}
                               aria-hidden
                             />
                             <div className="min-w-0">
-                              <p className="font-medium text-gray-900 leading-tight">
+                              <p className="font-medium text-slate-100 leading-tight">
                                 {CLASS_LABELS[c.assetClass] ?? c.assetClass}
                               </p>
                               {c.instruments && (
-                                <p className="text-[11px] text-gray-400 font-mono leading-tight mt-0.5">
+                                <p className="text-[11px] text-slate-500 font-mono leading-tight mt-0.5">
                                   {c.instruments}
                                 </p>
                               )}
-                              <p className="sm:hidden text-[11px] text-gray-500 tabular-nums mt-0.5">
+                              <p className="sm:hidden text-[11px] text-slate-400 tabular-nums mt-0.5">
                                 {money(c.closeBalance)} · {c.allocationPercent.toFixed(1)}%
                               </p>
                             </div>
@@ -308,16 +365,16 @@ export default function PerformanceStatement() {
                         </td>
                         <td className="hidden sm:table-cell px-3 py-3">
                           <div className="flex items-center justify-end gap-2">
-                            <span className="hidden sm:block w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <span className="block w-16 h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
                               <span
                                 className="block h-full rounded-full"
                                 style={{
                                   width: `${Math.min(100, c.allocationPercent)}%`,
-                                  backgroundColor: CLASS_COLORS[c.assetClass] ?? '#9ca3af',
+                                  backgroundColor: classColor(c.assetClass),
                                 }}
                               />
                             </span>
-                            <span className="tabular-nums text-gray-900 font-medium w-12 text-right">
+                            <span className="tabular-nums text-slate-100 font-medium w-12 text-right">
                               {c.allocationPercent.toFixed(1)}%
                             </span>
                           </div>
@@ -325,7 +382,7 @@ export default function PerformanceStatement() {
                         <td className="px-3 py-3 text-right font-medium">
                           <Amount value={c.gain} />
                         </td>
-                        <td className="hidden sm:table-cell px-3 py-3 text-right tabular-nums text-gray-900">
+                        <td className="hidden sm:table-cell px-3 py-3 text-right tabular-nums text-slate-100">
                           {money(c.closeBalance)}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">
@@ -336,21 +393,21 @@ export default function PerformanceStatement() {
 
                     {statement.contributionNote && (
                       <tr>
-                        <td colSpan={5} className="px-4 py-2 text-[11px] text-gray-400 italic">
+                        <td colSpan={5} className="px-4 py-2 text-[11px] text-slate-500 italic">
                           {statement.contributionNote}
                         </td>
                       </tr>
                     )}
 
-                    <tr className="bg-gray-50/70 font-semibold">
-                      <td className="px-4 py-3 text-gray-900">Portfolio total</td>
-                      <td className="hidden sm:table-cell px-3 py-3 text-right tabular-nums text-gray-900">
+                    <tr className="bg-white/[0.04] font-semibold">
+                      <td className="px-4 py-3 text-slate-50">Portfolio total</td>
+                      <td className="hidden sm:table-cell px-3 py-3 text-right tabular-nums text-slate-50">
                         {statement.total.allocationPercent.toFixed(1)}%
                       </td>
                       <td className="px-3 py-3 text-right">
                         <Amount value={statement.total.gain} />
                       </td>
-                      <td className="hidden sm:table-cell px-3 py-3 text-right tabular-nums text-gray-900">
+                      <td className="hidden sm:table-cell px-3 py-3 text-right tabular-nums text-slate-50">
                         {money(statement.total.closeBalance)}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -361,26 +418,16 @@ export default function PerformanceStatement() {
                 </table>
               </div>
             )}
-          </section>
+          </Section>
 
-          {/* Benchmark: our chart, not a pair of bars. */}
-          <section className="rounded-xl border border-gray-200/70 bg-white p-4">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
-                vs. passive 60/40
-              </h2>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 bg-gray-100 rounded px-2 py-1">
-                {statement.periodLabel}
-              </span>
-            </div>
-
+          <Section title="vs. passive 60/40" badge={statement.periodLabel}>
             {statement.series.length >= 2 ? (
-              <PerformanceChart series={statement.series} />
+              <PerformanceChart series={statement.series} dark />
             ) : (
               <div className="h-[200px] flex flex-col items-center justify-center text-center px-6">
-                <TrendingUp className="w-8 h-8 text-gray-200 mb-2" />
-                <p className="text-sm text-gray-600 font-medium">Not enough history yet</p>
-                <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                <TrendingUp className="w-8 h-8 text-slate-700 mb-2" />
+                <p className="text-sm text-slate-200 font-medium">Not enough history yet</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">
                   Your vault is valued once a day. {statement.series.length} valuation
                   {statement.series.length === 1 ? '' : 's'} so far in {statement.periodLabel};
                   the line starts once there are two.
@@ -389,20 +436,16 @@ export default function PerformanceStatement() {
             )}
 
             {statement.verdict && (
-              <p className="text-xs text-gray-600 mt-3 leading-relaxed">{statement.verdict}</p>
+              <p className="text-xs text-slate-300 mt-3 leading-relaxed">{statement.verdict}</p>
             )}
-            <p className="text-[11px] text-gray-400 mt-2">
+            <p className="text-[11px] text-slate-500 mt-2">
               The comparison is a buy-and-hold 60/40 stock-bond blend fed the same contributions
               on the same dates as your vault.
             </p>
-          </section>
+          </Section>
 
-          {/* Allocation summary. */}
           {donut.length > 0 && (
-            <section className="rounded-xl border border-gray-200/70 bg-white p-4">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500 mb-3">
-                Allocation summary
-              </h2>
+            <Section title="Allocation summary">
               <div className="flex flex-col sm:flex-row items-center gap-5">
                 <div className="relative w-[150px] h-[150px] shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
@@ -423,10 +466,10 @@ export default function PerformanceStatement() {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-xl font-semibold text-gray-900 tabular-nums">
+                    <span className="text-xl font-semibold text-slate-50 tabular-nums">
                       {donut.length}
                     </span>
-                    <span className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
+                    <span className="text-[10px] uppercase tracking-[0.1em] text-slate-500">
                       classes
                     </span>
                   </div>
@@ -437,33 +480,37 @@ export default function PerformanceStatement() {
                     <li key={c.assetClass} className="flex items-center gap-2 text-xs">
                       <span
                         className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: CLASS_COLORS[c.assetClass] ?? '#9ca3af' }}
+                        style={{ backgroundColor: classColor(c.assetClass) }}
                         aria-hidden
                       />
-                      <span className="text-gray-700 flex-1 truncate">
+                      <span className="text-slate-300 flex-1 truncate">
                         {CLASS_LABELS[c.assetClass] ?? c.assetClass}
                       </span>
-                      <span className="tabular-nums text-gray-900 font-medium">
+                      <span className="tabular-nums text-slate-50 font-medium">
                         {c.allocationPercent.toFixed(1)}%
                       </span>
                     </li>
                   ))}
                 </ul>
               </div>
-            </section>
+            </Section>
           )}
 
-          {/* Footer: disclaimer, then the statement block. */}
-          <div className="pt-2 space-y-3">
-            <p className="text-[11px] text-gray-400 leading-relaxed">
+          <div className="space-y-3 border-t border-white/[0.06]">
+            <p className="text-[11px] text-slate-500 leading-relaxed pt-3">
               This statement is for informational purposes only. Past performance does not
               guarantee future results. The Retirement Vault holds a hard cap on cryptocurrency
               exposure at all times.
             </p>
-            <div className="text-[11px] text-gray-400 font-mono leading-relaxed">
-              <p>Statement ID: ACR-STMT-{statement.periodLabel.replace(/\s+/g, '-').toUpperCase()}</p>
+            <div className="text-[11px] text-slate-600 font-mono leading-relaxed">
+              <p>
+                Statement ID: ACR-STMT-
+                {statement.periodLabel.replace(/\s+/g, '-').toUpperCase()}
+              </p>
               <p>Account: {vault?.vaultNumber ?? '—'}</p>
-              <p>Profile: {PROFILE_LABELS[vault?.riskProfile ?? ''] ?? vault?.riskProfile ?? '—'}</p>
+              <p>
+                Profile: {PROFILE_LABELS[vault?.riskProfile ?? ''] ?? vault?.riskProfile ?? '—'}
+              </p>
               <p>
                 Generated:{' '}
                 {new Date().toLocaleDateString('en-GB', {

@@ -22,6 +22,16 @@ import {
 const VAULT_COLOR = '#2a78d6';
 const BENCHMARK_COLOR = '#eb6834';
 
+/**
+ * Brighter hues for the dark statement.
+ *
+ * Same two identities, lifted for contrast: #2a78d6 clears 3:1 against white
+ * but not against a near-black panel, and a comparison line nobody can follow
+ * is worse than no line.
+ */
+const DARK_VAULT_COLOR = '#4d9bff';
+const DARK_BENCHMARK_COLOR = '#ff8a5c';
+
 export interface SeriesPoint {
   date: string;
   vault: number;
@@ -32,7 +42,19 @@ export interface SeriesPoint {
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function PerformanceChart({ series }: { series: SeriesPoint[] }) {
+export default function PerformanceChart({
+  series,
+  dark = false,
+}: {
+  series: SeriesPoint[];
+  dark?: boolean;
+}) {
+  const grid = dark ? '#1e293b' : '#f1f1ef';
+  const tick = dark ? '#64748b' : '#9ca3af';
+  const axis = dark ? '#1e293b' : '#e5e7eb';
+  const vaultColor = dark ? DARK_VAULT_COLOR : VAULT_COLOR;
+  const benchColor = dark ? DARK_BENCHMARK_COLOR : BENCHMARK_COLOR;
+
   /**
    * Y bounds fitted to the data rather than anchored at zero.
    *
@@ -57,16 +79,16 @@ export default function PerformanceChart({ series }: { series: SeriesPoint[] }) 
     <div className="h-[260px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={series} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-          <CartesianGrid stroke="#f1f1ef" strokeWidth={1} vertical={false} />
+          <CartesianGrid stroke={grid} strokeWidth={1} vertical={false} />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tick={{ fontSize: 11, fill: tick }}
             tickLine={false}
-            axisLine={{ stroke: '#e5e7eb' }}
+            axisLine={{ stroke: axis }}
             minTickGap={32}
           />
           <YAxis
-            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tick={{ fontSize: 11, fill: tick }}
             tickLine={false}
             axisLine={false}
             width={64}
@@ -79,11 +101,13 @@ export default function PerformanceChart({ series }: { series: SeriesPoint[] }) 
           <Tooltip
             contentStyle={{
               borderRadius: 8,
-              border: '1px solid #e5e7eb',
+              border: `1px solid ${dark ? '#1e293b' : '#e5e7eb'}`,
+              background: dark ? '#0f172a' : '#ffffff',
+              color: dark ? '#e2e8f0' : undefined,
               fontSize: 12,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             }}
-            cursor={{ stroke: '#d1d5db', strokeWidth: 1 }}
+            cursor={{ stroke: dark ? '#334155' : '#d1d5db', strokeWidth: 1 }}
             formatter={(value) => (value === null ? '—' : money(Number(value)))}
           />
           <Legend
@@ -96,24 +120,24 @@ export default function PerformanceChart({ series }: { series: SeriesPoint[] }) 
             type="monotone"
             dataKey="vault"
             name="Your vault"
-            stroke={VAULT_COLOR}
+            stroke={vaultColor}
             strokeWidth={2.5}
             strokeLinecap="round"
             strokeLinejoin="round"
             dot={false}
-            activeDot={{ r: 4, strokeWidth: 2, stroke: '#ffffff' }}
+            activeDot={{ r: 4, strokeWidth: 2, stroke: dark ? '#0f172a' : '#ffffff' }}
             isAnimationActive={false}
           />
           <Line
             type="monotone"
             dataKey="benchmark"
             name="Passive 60/40"
-            stroke={BENCHMARK_COLOR}
+            stroke={benchColor}
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
             dot={false}
-            activeDot={{ r: 4, strokeWidth: 2, stroke: '#ffffff' }}
+            activeDot={{ r: 4, strokeWidth: 2, stroke: dark ? '#0f172a' : '#ffffff' }}
             connectNulls
             isAnimationActive={false}
           />
