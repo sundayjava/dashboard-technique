@@ -1,12 +1,8 @@
 'use client';
 
-import PerformanceChart from '@/components/retirement-vault/PerformanceChart';
+import PerformanceStatement from '@/components/retirement-vault/PerformanceStatement';
 
-/** Vault value against the traditional 401k comparator. */
+/** The performance statement: period figures, per-class table and the benchmark. */
 export default function VaultPerformancePage() {
-  return (
-    <div className="space-y-6">
-      <PerformanceChart />
-    </div>
-  );
+  return <PerformanceStatement />;
 }

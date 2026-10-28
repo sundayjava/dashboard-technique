@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { getOpenVaultForUser } from '@/lib/vault/vault-utils';
 import { generateReportCards } from '@/lib/vault/report-card';
+import {
+  buildPerformanceStatement,
+  StatementPeriod,
+} from '@/lib/vault/performance-statement';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -32,7 +36,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No vault found.' }, { status: 404 });
     }
 
-    const rangeKey = new URL(request.url).searchParams.get('range') ?? 'ALL';
+    const params = new URL(request.url).searchParams;
+
+    // The statement drives the whole screen: period switch, tiles, per-class
+    // table and the chart all come from one build, so they cannot disagree.
+    const periodParam = (params.get('period') ?? '').toUpperCase();
+    const period: StatementPeriod =
+      periodParam === 'QUARTER' || periodParam === 'YEAR' || periodParam === 'MONTH'
+        ? periodParam
+        : 'MONTH';
+    const statement = await buildPerformanceStatement(vault.id, period);
+
+    const rangeKey = params.get('range') ?? 'ALL';
     const days = RANGES[rangeKey] ?? null;
 
     const since =
@@ -73,6 +88,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      statement,
+      periods: ['MONTH', 'QUARTER', 'YEAR'],
+      profile: vault.riskProfile,
+      vaultNumber: vault.vaultNumber,
       range: rangeKey,
       ranges: Object.keys(RANGES),
       // One point cannot describe a trend. The UI uses this to show an honest
