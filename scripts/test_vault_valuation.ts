@@ -258,16 +258,30 @@ async function main() {
     `${countAfterFirst} -> ${countAfterSecond}`,
   );
 
-  console.log('\n=== 7. Incomplete valuations are refused ===');
-  // Before any price history existed, nothing can be priced.
+  console.log('\n=== 7. A missing price no longer blocks the record ===');
+  // This section asserted the opposite until the value basis changed. When a
+  // vault was worth units x price, an absent price understated it and
+  // refusing was right. A vault is now worth principal plus credited
+  // performance, so the stored figures are correct regardless -- and refusing
+  // would leave a hole that can never be filled, because book value cannot be
+  // rebuilt from price history.
   const ancient = new Date('2020-01-01T00:00:00Z');
   const ancientResult = await recordVaultValuation(vault.id, ancient);
-  check('refuses to record when prices are missing', !ancientResult.recorded);
-  check('reports which symbols were missing', (ancientResult.reason ?? '').includes('Missing prices'), ancientResult.reason ?? '');
+  check('records the day even with no prices at all', ancientResult.recorded,
+    ancientResult.reason ?? '');
+  check('and says which symbols were missing',
+    (ancientResult.reason ?? '').includes('no price for'), ancientResult.reason ?? '');
   const ancientRows = await prisma.vaultValuation.count({
     where: { vaultId: vault.id, valuationDate: ancient },
   });
-  check('no row written for the refused valuation', ancientRows === 0);
+  check('a row was written', ancientRows === 1, `got ${ancientRows}`);
+  const ancientRow = await prisma.vaultValuation.findFirstOrThrow({
+    where: { vaultId: vault.id, valuationDate: ancient },
+  });
+  check('the balance is the book value, not zero',
+    ancientRow.totalValue > 0, `got ${ancientRow.totalValue}`);
+  check('the benchmark is null, since that one DOES need prices',
+    ancientRow.benchmarkValue === null, String(ancientRow.benchmarkValue));
   console.log(`  "${ancientResult.reason}"`);
 }
 

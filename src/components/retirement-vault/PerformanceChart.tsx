@@ -72,6 +72,30 @@ export default function PerformanceChart() {
 
   const ahead = (summary?.outperformanceValue ?? 0) >= 0;
 
+  /**
+   * Y-axis bounds fitted to the data rather than anchored at zero.
+   *
+   * Both lines start from the same contributions, so a zero baseline put
+   * $10,168 and $10,723 inside a $0-$12,000 range and squashed a 5.5% gap into
+   * two flat parallel lines. The whole point of the chart is the divergence,
+   * and a zero axis hid it.
+   *
+   * A shared starting point is what makes this honest: the lines begin
+   * together, so the eye compares their separation, not their height above an
+   * arbitrary floor. The 8% padding keeps either line off the frame edge.
+   */
+  const bounds = (() => {
+    const values = series.flatMap((p) =>
+      [p.vault, p.benchmark].filter((v): v is number => typeof v === 'number'),
+    );
+    if (values.length === 0) return undefined;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    // A flat series has no range to pad, so fall back to a band around it.
+    const pad = max - min < 1e-9 ? Math.max(1, max * 0.05) : (max - min) * 0.08;
+    return [Math.max(0, min - pad), max + pad] as [number, number];
+  })();
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       {/* Filters in one row above the chart. */}
@@ -159,7 +183,11 @@ export default function PerformanceChart() {
                   tickLine={false}
                   axisLine={false}
                   width={64}
-                  tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+                  domain={bounds ?? ['auto', 'auto']}
+                  allowDecimals={false}
+                  tickFormatter={(v) =>
+                    `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                  }
                 />
                 <Tooltip
                   contentStyle={{

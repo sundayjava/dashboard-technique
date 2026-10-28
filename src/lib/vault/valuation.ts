@@ -567,13 +567,19 @@ export async function recordVaultValuation(
     return { recorded: false, reason: 'Vault not found.', valuation: null };
   }
 
-  if (!valuation.complete) {
-    return {
-      recorded: false,
-      reason: `Missing prices for: ${valuation.missingPrices.join(', ')}`,
-      valuation,
-    };
-  }
+  // A MISSING PRICE NO LONGER BLOCKS THE RECORD.
+  //
+  // This used to refuse, and rightly so: when a vault was worth units x price,
+  // an absent price understated it and a wrong balance is worse than a gap.
+  // A vault is now worth its principal plus the performance credited to it,
+  // and neither depends on a price, so every figure stored below is correct
+  // whether or not an instrument happened to sync.
+  //
+  // Refusing anyway would be worse than useless here, because the gap can
+  // never be closed: book value is not reconstructible from price history, so
+  // a night skipped is a hole in the member's chart forever. The benchmark is
+  // the one price-dependent field and it is already nullable, so it simply
+  // comes through empty for that day.
 
   await prisma.vaultValuation.upsert({
     where: {
@@ -605,7 +611,16 @@ export async function recordVaultValuation(
     data: { lastValuedAt: new Date() },
   });
 
-  return { recorded: true, valuation };
+  return {
+    recorded: true,
+    // Still reported, because a missing price means the market board and the
+    // benchmark are stale even though the balance is sound.
+    reason:
+      valuation.missingPrices.length > 0
+        ? `Recorded; no price for: ${valuation.missingPrices.join(', ')}`
+        : undefined,
+    valuation,
+  };
 }
 
 export interface BatchValuationResult {
