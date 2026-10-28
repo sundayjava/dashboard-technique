@@ -1,5 +1,6 @@
 export { Hero } from "./Hero";
 export { AcredisPlus } from "./AcredisPlus";
+export { RetirementVault } from "./RetirementVault";
 export { CryptoRewards } from "./CryptoRewards";
 export { WhyAcredis } from "./WhyAcredis";
 export { BlockchainWealth } from "./BlockchainWealth";

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Hero, AcredisPlus, CryptoRewards, WhyAcredis, BlockchainWealth, SmartCard, InvestmentPlans, FAQ, ServicesShowcase } from "@/components/sections";
+import { Hero, AcredisPlus, RetirementVault, CryptoRewards, WhyAcredis, BlockchainWealth, SmartCard, InvestmentPlans, FAQ, ServicesShowcase } from "@/components/sections";
 import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
@@ -71,6 +71,9 @@ export default function Home() {
       />
       <Hero />
       <AcredisPlus />
+      {/* Third: the vault sits between the dark "how it works" and the grey
+          services strip, so it is light rather than a third dark block. */}
+      <RetirementVault />
       <ServicesShowcase />
       <CryptoRewards />
       <WhyAcredis />
