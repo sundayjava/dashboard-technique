@@ -186,6 +186,10 @@ export const adminSidebarItems: AdminSidebarItem[] = [
         href: "/admin/vault-asset-classes",
       },
       {
+        label: "Vault Instruments",
+        href: "/admin/vault-instruments",
+      },
+      {
         label: "Retirement Vault Policy",
         href: "/admin/vault-policy",
       },
