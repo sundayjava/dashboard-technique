@@ -5,6 +5,7 @@ import { authenticateRequest } from '@/lib/auth-middleware';
 import { OPEN_VAULT_STATUSES } from '@/lib/vault/vault-utils';
 import { valueVault } from '@/lib/vault/valuation';
 import { getLatestClassRates } from '@/lib/vault/class-performance';
+import { getAssetClassNames } from '@/lib/vault/asset-class-store';
 import { computeDrift } from '@/lib/vault/allocation-model';
 import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import type { AllocationMap } from '@/lib/vault/allocation-model';
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
       .map((c) => ({ amount: c.amount, processedAt: c.processedAt }))
       .sort((a, b) => (a.processedAt?.getTime() ?? 0) - (b.processedAt?.getTime() ?? 0));
 
-    const [account, valuation, policy, classRates] = await Promise.all([
+    const [account, valuation, policy, classRates, classNames] = await Promise.all([
       prisma.account.findFirst({
         where: { userId, status: AccountStatus.ACTIVE },
         orderBy: { createdAt: 'asc' },
@@ -76,6 +77,10 @@ export async function GET(request: NextRequest) {
       }),
       loadVaultPolicy(),
       getLatestClassRates(),
+      // The admin names their asset classes; every screen was reading a
+      // hardcoded six-entry map, so a class added in admin reached members as
+      // its raw key. Served here and resolved client-side.
+      getAssetClassNames(),
     ]);
 
     const targetMap = allocations.reduce((map, row) => {
@@ -138,6 +143,7 @@ export async function GET(request: NextRequest) {
               })),
             },
       targetAllocation: targetMap,
+      assetClassNames: classNames,
       // The day's rate per class, and the arithmetic behind it. The breakdown
       // is included so a member can see WHICH instruments moved their money
       // rather than being handed a percentage to take on trust.

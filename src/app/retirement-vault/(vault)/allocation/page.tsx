@@ -1,6 +1,6 @@
 'use client';
 
-import { CLASS_LABELS, money, sharesOfVault, useVault } from '@/components/retirement-vault/VaultContext';
+import { money, sharesOfVault, useClassLabel, useVault } from '@/components/retirement-vault/VaultContext';
 import { AssetIcon } from '@/components/retirement-vault/VaultUI';
 import AllocationDoughnut from '@/components/retirement-vault/AllocationDoughnut';
 import AllocationModeCard from '@/components/retirement-vault/AllocationModeCard';
@@ -10,6 +10,7 @@ import ClassPerformance from '@/components/retirement-vault/ClassPerformance';
 /** Composition, target comparison and the mode toggle. */
 export default function VaultAllocationPage() {
   const { data, refresh } = useVault();
+  const label = useClassLabel();
   const valuation = data?.valuation;
   const target = data?.targetAllocation ?? {};
   const drift = data?.drift;
@@ -55,7 +56,7 @@ export default function VaultAllocationPage() {
                   <div className="flex justify-between items-center text-xs mb-1">
                     <span className="flex items-center gap-2 min-w-0">
                       <AssetIcon assetClass={cls} size="sm" />
-                      <span className="text-gray-700 truncate">{CLASS_LABELS[cls] ?? cls}</span>
+                      <span className="text-gray-700 truncate">{label(cls)}</span>
                     </span>
                     <span className="text-gray-500 tabular-nums shrink-0">
                       {current.toFixed(1)}%{' '}

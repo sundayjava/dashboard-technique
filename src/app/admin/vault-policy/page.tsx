@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { AlertTriangle, Loader2, RotateCcw, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { classLabel } from '@/lib/vault/class-presentation';
 
 interface PolicySetting {
   key: string;
@@ -31,15 +32,6 @@ interface PolicyData {
   sleeveAssets: SleeveAsset[];
   vaultCount: number;
 }
-
-const CLASS_LABELS: Record<string, string> = {
-  GLOBAL_EQUITIES: 'Global Equities',
-  FIXED_INCOME: 'Bonds / Fixed Income',
-  COMMODITIES: 'Commodities',
-  REAL_ESTATE: 'Real Estate / REITs',
-  FUTURES_MACRO: 'Futures / Macro',
-  CRYPTO: 'Crypto',
-};
 
 export default function AdminVaultPolicyPage() {
   const [loading, setLoading] = useState(true);
@@ -97,7 +89,7 @@ export default function AdminVaultPolicyPage() {
         .filter((a) => a.assetClass === assetClass)
         .map((a) => ({ id: a.id, weight: Number(sleeveDrafts[a.id] ?? 0) / 100 }));
       await axios.put('/api/admin/vault-policy', { sleeveWeights });
-      toast.success(`${CLASS_LABELS[assetClass]} split saved.`);
+      toast.success(`${classLabel(assetClass)} split saved.`);
       await load();
     } catch (error) {
       toast.error(
@@ -240,7 +232,7 @@ export default function AdminVaultPolicyPage() {
             return (
               <div key={cls} className="border border-gray-200 rounded-lg p-4">
                 <p className="text-sm font-semibold text-gray-900 mb-3">
-                  {CLASS_LABELS[cls] ?? cls}
+                  {classLabel(cls)}
                 </p>
                 <div className="space-y-2">
                   {assets.map((asset) => (

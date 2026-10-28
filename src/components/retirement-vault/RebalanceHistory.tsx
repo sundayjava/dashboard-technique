@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { CLASS_LABELS } from './VaultContext';
+import { useClassLabel } from './VaultContext';
 import { Panel } from './VaultUI';
 
 interface RebalanceEvent {
@@ -28,6 +28,7 @@ interface RebalanceEvent {
  * silence there reads as a broken feature.
  */
 export default function RebalanceHistory() {
+  const label = useClassLabel();
   const [events, setEvents] = useState<RebalanceEvent[]>([]);
   const [expertActive, setExpertActive] = useState(false);
   const [signalsAvailable, setSignalsAvailable] = useState(true);
@@ -105,7 +106,7 @@ export default function RebalanceHistory() {
                           up ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                         }`}
                       >
-                        {CLASS_LABELS[c.assetClass] ?? c.assetClass}{' '}
+                        {label(c.assetClass)}{' '}
                         {c.fromPercent.toFixed(1)}% → {c.toPercent.toFixed(1)}%
                       </span>
                     );

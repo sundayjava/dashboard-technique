@@ -1,7 +1,7 @@
 'use client';
 
 import { TrendingDown, TrendingUp } from 'lucide-react';
-import { CLASS_LABELS, money, useVault } from './VaultContext';
+import { money, useClassLabel, useVault } from './VaultContext';
 import { AssetIcon, Panel } from './VaultUI';
 
 /**
@@ -19,6 +19,7 @@ import { AssetIcon, Panel } from './VaultUI';
  */
 export default function ClassPerformance() {
   const { data } = useVault();
+  const label = useClassLabel();
 
   const rates = data?.classPerformance?.rates ?? [];
   const classValues = data?.valuation?.classValues ?? {};
@@ -93,7 +94,7 @@ export default function ClassPerformance() {
                   {money(value)}
                 </p>
                 <p className="text-[11px] text-gray-400 tabular-nums">
-                  {CLASS_LABELS[rate.assetClass] ?? rate.assetClass} &middot;{' '}
+                  {label(rate.assetClass)} &middot;{' '}
                   {rate.assetSumPercent >= 0 ? '+' : ''}
                   {rate.assetSumPercent.toFixed(2)}% market
                   {rate.upliftPercent !== 0 && (

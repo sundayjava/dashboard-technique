@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import { Loader2, TrendingDown, TrendingUp } from 'lucide-react';
-import { CLASS_LABELS, PROFILE_LABELS, money, useVault } from './VaultContext';
+import { PROFILE_LABELS, money, useClassLabel, useVault } from './VaultContext';
 import PerformanceChart, { SeriesPoint } from './PerformanceChart';
+import { classColorDark as classColor } from '@/lib/vault/class-presentation';
 
 type Period = 'MONTH' | 'QUARTER' | 'YEAR';
 
@@ -62,18 +63,7 @@ const PERIOD_LABELS: Record<Period, string> = {
  * against near-black. Hue is preserved, so a member moving from the overview
  * to this page still reads the same class as the same colour.
  */
-const DARK_CLASS_COLORS: Record<string, string> = {
-  GLOBAL_EQUITIES: '#4d9bff',
-  FIXED_INCOME: '#ff8a5c',
-  COMMODITIES: '#2dd4a7',
-  REAL_ESTATE: '#f5b73d',
-  FUTURES_MACRO: '#f08bb4',
-  CRYPTO: '#3ec46d',
-};
 
-function classColor(key: string): string {
-  return DARK_CLASS_COLORS[key] ?? '#94a3b8';
-}
 
 /** Signed percentage, coloured. Zero is neutral, not green. */
 function Pct({ value, className = '' }: { value: number | null; className?: string }) {
@@ -174,6 +164,7 @@ function Section({
  */
 export default function PerformanceStatement() {
   const { data } = useVault();
+  const label = useClassLabel();
   const [period, setPeriod] = useState<Period>('MONTH');
   const [statement, setStatement] = useState<Statement | null>(null);
   const [loading, setLoading] = useState(true);
@@ -198,7 +189,7 @@ export default function PerformanceStatement() {
   const t = statement?.tiles;
 
   const donut = (statement?.classes ?? []).map((c) => ({
-    name: CLASS_LABELS[c.assetClass] ?? c.assetClass,
+    name: label(c.assetClass),
     value: c.allocationPercent,
     color: classColor(c.assetClass),
   }));
@@ -350,7 +341,7 @@ export default function PerformanceStatement() {
                             />
                             <div className="min-w-0">
                               <p className="font-medium text-slate-100 leading-tight">
-                                {CLASS_LABELS[c.assetClass] ?? c.assetClass}
+                                {label(c.assetClass)}
                               </p>
                               {c.instruments && (
                                 <p className="text-[11px] text-slate-500 font-mono leading-tight mt-0.5">
@@ -484,7 +475,7 @@ export default function PerformanceStatement() {
                         aria-hidden
                       />
                       <span className="text-slate-300 flex-1 truncate">
-                        {CLASS_LABELS[c.assetClass] ?? c.assetClass}
+                        {label(c.assetClass)}
                       </span>
                       <span className="tabular-nums text-slate-50 font-medium">
                         {c.allocationPercent.toFixed(1)}%

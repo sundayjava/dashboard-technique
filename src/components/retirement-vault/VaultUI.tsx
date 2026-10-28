@@ -2,6 +2,7 @@
 
 import { ArrowUpRight, TrendingDown, TrendingUp } from 'lucide-react';
 import { resolveAssetMark } from './AssetMarks';
+import { DEFAULT_CLASS_COLORS, classColor } from '@/lib/vault/class-presentation';
 
 /**
  * Shared visual language for the vault.
@@ -14,14 +15,12 @@ import { resolveAssetMark } from './AssetMarks';
  * A different palette per surface would make colour meaningless as identity.
  */
 
-export const CLASS_COLORS: Record<string, string> = {
-  GLOBAL_EQUITIES: '#2a78d6',
-  FIXED_INCOME: '#eb6834',
-  COMMODITIES: '#1baf7a',
-  REAL_ESTATE: '#eda100',
-  FUTURES_MACRO: '#e87ba4',
-  CRYPTO: '#008300',
-};
+/**
+ * Light-screen hues. Re-exported from the shared resolver so an admin-created
+ * class gets a distinct palette colour instead of falling through to grey.
+ */
+export const CLASS_COLORS = DEFAULT_CLASS_COLORS;
+export { classColor };
 
 /** Brand lime, used for the single highlighted figure on a view. */
 export const LIME = '#c1ff72';
@@ -147,7 +146,7 @@ export function AssetIcon({
   // A coin carries its own brand colour; everything else keeps the class
   // colour so the icon, the row and the doughnut slice agree.
   const { Mark, brandColor } = resolveAssetMark(symbol, assetClass);
-  const color = brandColor ?? CLASS_COLORS[assetClass] ?? '#6b7280';
+  const color = brandColor ?? classColor(assetClass);
   const dim = size === 'sm' ? 'w-7 h-7' : 'w-9 h-9';
   const glyph = size === 'sm' ? 'w-3.5 h-3.5' : 'w-[18px] h-[18px]';
   return (

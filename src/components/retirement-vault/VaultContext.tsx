@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { DEFAULT_CLASS_LABELS, classLabel } from '@/lib/vault/class-presentation';
 import axios from 'axios';
 // Imported for its side effect: it installs the auth interceptor on load, so
 // the fetch below cannot run before the Authorization header exists.
@@ -80,6 +81,8 @@ export interface VaultData {
   vault: VaultSummary | null;
   valuation: Valuation | null;
   targetAllocation: Record<string, number>;
+  /** Display names the admin set, keyed by class. */
+  assetClassNames: Record<string, string>;
   classPerformance: { date: string | null; rates: ClassRate[] };
   drift: { maxAbsoluteDrift: number; rebalanceRequired: boolean } | null;
   contributions: Array<{
@@ -176,14 +179,26 @@ export const moneyShort = (n: number | null | undefined) =>
     ? `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
     : '—';
 
-export const CLASS_LABELS: Record<string, string> = {
-  GLOBAL_EQUITIES: 'Global Equities',
-  FIXED_INCOME: 'Bonds / Fixed Income',
-  COMMODITIES: 'Commodities',
-  REAL_ESTATE: 'Real Estate / REITs',
-  FUTURES_MACRO: 'Futures / Macro',
-  CRYPTO: 'Crypto',
-};
+/**
+ * Labels for the shipped six, kept as a fallback only.
+ *
+ * Prefer `useClassLabel()`, which resolves the admin's own name first. This
+ * map cannot know about a class created after the build.
+ */
+export const CLASS_LABELS = DEFAULT_CLASS_LABELS;
+
+/**
+ * Resolve a class's display name against whatever the admin has configured.
+ *
+ * Falls back to the shipped label, then to a humanised key, so a class added
+ * in admin reads as "Private Credit" rather than PRIVATE_CREDIT even before
+ * the dashboard payload arrives.
+ */
+export function useClassLabel(): (key: string) => string {
+  const { data } = useVault();
+  const names = data?.assetClassNames;
+  return useCallback((key: string) => classLabel(key, names), [names]);
+}
 
 export const PROFILE_LABELS: Record<string, string> = {
   CONSERVATIVE: 'Conservative',

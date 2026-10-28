@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Banknote, PiggyBank, Target, Wallet } from 'lucide-react';
 import {
-  CLASS_LABELS, MODE_LABELS, PROFILE_LABELS, money, moneyShort, sharesOfVault, useVault,
+  MODE_LABELS, PROFILE_LABELS, money, moneyShort, sharesOfVault, useClassLabel, useVault,
 } from '@/components/retirement-vault/VaultContext';
 import {
   AssetIcon, Panel, PillButton, StatCard, Trend,
@@ -17,6 +17,7 @@ import RebalanceHistory from '@/components/retirement-vault/RebalanceHistory';
 /** Overview: the headline numbers, then routes into the detail pages. */
 export default function VaultOverviewPage() {
   const { data, refresh } = useVault();
+  const label = useClassLabel();
   const router = useRouter();
   const vault = data?.vault;
   const valuation = data?.valuation;
@@ -192,7 +193,7 @@ export default function VaultOverviewPage() {
                         <div className="flex items-center gap-2">
                           <AssetIcon assetClass={cls} size="sm" />
                           <span className="font-medium text-gray-900">
-                            {CLASS_LABELS[cls] ?? cls}
+                            {label(cls)}
                           </span>
                         </div>
                       </td>

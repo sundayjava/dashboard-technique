@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { Table2 } from 'lucide-react';
+import { classColor, classLabel } from '@/lib/vault/class-presentation';
 
 /**
  * Allocation composition.
@@ -19,24 +20,6 @@ import { Table2 } from 'lucide-react';
 const CHART_SURFACE = '#ffffff';
 
 /** Fixed slot order. Index is the asset class's position, never its rank. */
-const CLASS_COLORS: Record<string, string> = {
-  GLOBAL_EQUITIES: '#2a78d6',
-  FIXED_INCOME: '#eb6834',
-  COMMODITIES: '#1baf7a',
-  REAL_ESTATE: '#eda100',
-  FUTURES_MACRO: '#e87ba4',
-  CRYPTO: '#008300',
-};
-
-const CLASS_LABELS: Record<string, string> = {
-  GLOBAL_EQUITIES: 'Global Equities',
-  FIXED_INCOME: 'Bonds / Fixed Income',
-  COMMODITIES: 'Commodities',
-  REAL_ESTATE: 'Real Estate / REITs',
-  FUTURES_MACRO: 'Futures / Macro',
-  CRYPTO: 'Crypto',
-};
-
 interface Props {
   allocation: Record<string, number>;
   totalValue: number;
@@ -81,10 +64,10 @@ export default function AllocationDoughnut({
       const value = (totalValue * percent) / 100;
       return {
         assetClass,
-        label: CLASS_LABELS[assetClass] ?? assetClass,
+        label: classLabel(assetClass),
         percent: vaultTotal > 0 ? (value / vaultTotal) * 100 : 0,
         value,
-        color: CLASS_COLORS[assetClass] ?? '#6b7280',
+        color: classColor(assetClass),
         target: targetAllocation?.[assetClass] ?? null,
       };
     })

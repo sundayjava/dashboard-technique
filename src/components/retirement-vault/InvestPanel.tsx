@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Check, Loader2, Sparkles, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { CLASS_LABELS, money } from './VaultContext';
+import { money, useClassLabel } from './VaultContext';
 import { AssetIcon, Panel } from './VaultUI';
 
 interface ClassCapacity {
@@ -28,6 +28,7 @@ interface ClassCapacity {
  * the system places it.
  */
 export default function InvestPanel({ onInvested }: { onInvested: () => void }) {
+  const label = useClassLabel();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [expert, setExpert] = useState(false);
@@ -153,7 +154,7 @@ export default function InvestPanel({ onInvested }: { onInvested: () => void }) 
                   <AssetIcon assetClass={c.assetClass} size="sm" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-900 leading-tight">
-                      {CLASS_LABELS[c.assetClass] ?? c.assetClass}
+                      {label(c.assetClass)}
                     </p>
                     <p className="text-[11px] text-gray-400 tabular-nums">
                       {c.atCap
