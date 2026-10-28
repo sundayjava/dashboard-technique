@@ -11,6 +11,7 @@ import {
 import toast from 'react-hot-toast';
 import { SessionManager } from '@/lib/session';
 import { DEFAULT_COPY_MAP } from '@/lib/vault/onboarding-copy';
+import { humanise } from '@/lib/vault/class-presentation';
 
 interface User {
   id: string;
@@ -61,13 +62,20 @@ const ALLOCATION_MODE_KEYS = [
   { value: 'EXPERT_ALLOCATOR', icon: Sparkles, prefix: 'step3.expert' },
 ];
 
-const ASSET_CLASS_VALUES = [
-  'GLOBAL_EQUITIES',
-  'FIXED_INCOME',
-  'COMMODITIES',
-  'REAL_ESTATE',
-  'FUTURES_MACRO',
-  'CRYPTO',
+/**
+ * The shipped six, used only until the live list arrives.
+ *
+ * Asset classes are rows an admin can add to, so this list cannot be the
+ * source of truth -- a class created in admin was previously impossible to
+ * pick as a Focused strategy.
+ */
+const FALLBACK_ASSET_CLASSES: Array<{ key: string; name: string | null }> = [
+  { key: 'GLOBAL_EQUITIES', name: null },
+  { key: 'FIXED_INCOME', name: null },
+  { key: 'COMMODITIES', name: null },
+  { key: 'REAL_ESTATE', name: null },
+  { key: 'FUTURES_MACRO', name: null },
+  { key: 'CRYPTO', name: null },
 ];
 
 const PROFILE_LABELS: Record<string, string> = {
@@ -95,6 +103,8 @@ export default function CreateRetirementVaultPage() {
     (key: string) => copy[key] ?? DEFAULT_COPY_MAP[key] ?? key,
     [copy],
   );
+  const [assetClasses, setAssetClasses] =
+    useState<Array<{ key: string; name: string | null }>>(FALLBACK_ASSET_CLASSES);
   const [checkingVault, setCheckingVault] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -158,6 +168,8 @@ export default function CreateRetirementVaultPage() {
           return;
         }
         setQuestions(questionsRes.data?.questions ?? []);
+        const classes = questionsRes.data?.assetClasses;
+        if (Array.isArray(classes) && classes.length > 0) setAssetClasses(classes);
       } catch {
         if (!cancelled) toast.error('Could not load the onboarding form.');
       } finally {
@@ -674,20 +686,29 @@ export default function CreateRetirementVaultPage() {
                     {t('step3.focusClass.label')}
                   </label>
                   <div className="grid md:grid-cols-2 gap-3">
-                    {ASSET_CLASS_VALUES.map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setFocusedAssetClass(value)}
-                        className={`px-4 py-3 rounded-lg border text-sm text-left transition-colors cursor-pointer ${
-                          focusedAssetClass === value
-                            ? 'border-black bg-[#e0ff57] text-black font-medium'
-                            : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                        }`}
-                      >
-                        {t(`assetClass.${value}`)}
-                      </button>
-                    ))}
+                    {assetClasses.map(({ key, name }) => {
+                      // Admin-editable copy wins where it exists; t() returns
+                      // the key itself when it does not, which is the signal
+                      // to fall back to the class's own stored name.
+                      const copyKey = `assetClass.${key}`;
+                      const translated = t(copyKey);
+                      const label =
+                        translated === copyKey ? (name || humanise(key)) : translated;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setFocusedAssetClass(key)}
+                          className={`px-4 py-3 rounded-lg border text-sm text-left transition-colors cursor-pointer ${
+                            focusedAssetClass === key
+                              ? 'border-black bg-[#e0ff57] text-black font-medium'
+                              : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
                   {focusedAssetClass === 'CRYPTO' && (
                     <div className="flex items-start gap-2 mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">

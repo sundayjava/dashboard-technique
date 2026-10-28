@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { loadQuestionnaire } from '@/lib/vault/questionnaire-store';
+import { getAssetClasses } from '@/lib/vault/asset-class-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +23,14 @@ export async function GET(request: NextRequest) {
   // Admin-managed set, falling back to the shipped questions if none stored.
   const questions = await loadQuestionnaire();
 
+  // Onboarding's Focused picker was a hardcoded six, so a class added in
+  // admin could never be chosen as a focus. Served here because onboarding
+  // already fetches this endpoint.
+  const assetClasses = await getAssetClasses();
+
   return NextResponse.json({
     success: true,
+    assetClasses: assetClasses.map((c) => ({ key: c.key, name: c.name })),
     questions: questions.map((question) => ({
       id: question.id,
       question: question.question,
