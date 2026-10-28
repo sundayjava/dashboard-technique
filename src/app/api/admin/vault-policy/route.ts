@@ -1,15 +1,12 @@
 import { VaultAssetClass } from '@/lib/vault/asset-classes';
 import { NextRequest, NextResponse } from 'next/server';
-import { RiskProfile } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth-middleware';
-import { AllocationMap, getAllAssetClasses } from '@/lib/vault/allocation-model';
 import {
   POLICY_SETTINGS,
   loadVaultPolicyDetailed,
   seedVaultPolicy,
   updatePolicySetting,
-  updateProfileAllocation,
 } from '@/lib/vault/policy-store';
 
 export const dynamic = 'force-dynamic';
@@ -61,8 +58,6 @@ export async function GET(request: NextRequest) {
         defaultValue: definition.defaultValue,
         value: policy[definition.key],
       })),
-      targetAllocations: policy.targetAllocations,
-      assetClasses: getAllAssetClasses(),
       sleeveAssets,
       vaultCount,
     });
@@ -78,10 +73,11 @@ export async function GET(request: NextRequest) {
 /**
  * Update policy.
  *
- * Accepts one of three shapes, each validated before anything is written:
- *   { setting, value }              - a scalar policy setting
- *   { riskProfile, allocation }     - a profile's full allocation set
+ * Accepts one of two shapes, each validated before anything is written:
+ *   { setting, value }                - a scalar policy setting
  *   { sleeveWeights: [{id, weight}] } - instrument split inside a class
+ *
+ * Profile allocations are edited on Admin -> Asset classes.
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -103,34 +99,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: true, updated: body.setting });
     }
 
-    // --- profile allocation ------------------------------------------------
-    if (typeof body.riskProfile === 'string') {
-      if (!Object.values(RiskProfile).includes(body.riskProfile as RiskProfile)) {
-        return NextResponse.json(
-          { success: false, error: 'Unknown risk profile.' },
-          { status: 400 },
-        );
-      }
-
-      const allocation = getAllAssetClasses().reduce((map, assetClass) => {
-        map[assetClass] = Number(body.allocation?.[assetClass] ?? 0);
-        return map;
-      }, {} as AllocationMap);
-
-      const result = await updateProfileAllocation(
-        body.riskProfile as RiskProfile,
-        allocation,
-        adminId,
-      );
-
-      if (!result.ok) {
-        return NextResponse.json(
-          { success: false, error: result.errors.join(' ') },
-          { status: 400 },
-        );
-      }
-      return NextResponse.json({ success: true, updated: body.riskProfile });
-    }
+    // Profile allocations are NOT accepted here. They are edited on
+    // Admin -> Asset classes, which sends the live class list; this route
+    // built the map from the hardcoded shipped six, so a profile saved here
+    // wrote 0% to any class an admin had added and propagated that to every
+    // member on the profile. Removing the UI alone would have left the
+    // hazard one request away, so the branch goes with it.
 
     // --- sleeve weights ----------------------------------------------------
     if (Array.isArray(body.sleeveWeights)) {
