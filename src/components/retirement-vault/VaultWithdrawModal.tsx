@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { AlertTriangle, Loader2, Lock, X } from 'lucide-react';
+import { AlertTriangle, Clock, Loader2, Lock, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Quote {
@@ -44,6 +44,15 @@ export default function VaultWithdrawModal({
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /**
+   * The confirmation step.
+   *
+   * A withdrawal is reviewed by an admin before any money moves, and it does
+   * not land the same day. Telling a member that only after they have
+   * committed turns a normal wait into a support ticket, so the last thing
+   * between them and the request is a plain statement of what happens next.
+   */
+  const [confirming, setConfirming] = useState(false);
 
   const numericAmount = Number(amount);
   const amountValid = Number.isFinite(numericAmount) && numericAmount > 0;
@@ -70,6 +79,10 @@ export default function VaultWithdrawModal({
     const timer = setTimeout(() => fetchQuote(numericAmount), 400);
     return () => clearTimeout(timer);
   }, [open, amountValid, withinBalance, numericAmount, fetchQuote]);
+
+  useEffect(() => {
+    if (!open) setConfirming(false);
+  }, [open]);
 
   if (!open) return null;
 
@@ -99,6 +112,7 @@ export default function VaultWithdrawModal({
       setPin('');
       setReason('');
       setQuote(null);
+      setConfirming(false);
       onSuccess();
       onClose();
     } catch (error) {
@@ -138,7 +152,10 @@ export default function VaultWithdrawModal({
             <input
               type="number"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => {
+                setAmount(e.target.value);
+                setConfirming(false);
+              }}
               min={1}
               step={50}
               disabled={submitting}
@@ -223,16 +240,49 @@ export default function VaultWithdrawModal({
           </div>
         </div>
 
+        {confirming && (
+          <div className="mx-6 mb-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-start gap-2">
+              <Clock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="text-sm text-amber-900">
+                <p className="font-semibold">Before you submit</p>
+                <ul className="mt-1.5 space-y-1 text-xs leading-relaxed">
+                  <li>
+                    Your request is reviewed by our team before any money moves. Nothing is
+                    sold until it is approved.
+                  </li>
+                  {quote !== null && quote.noticePeriodDays > 0 && (
+                    <li>
+                      A {quote.noticePeriodDays}-day notice period applies, and you can cancel
+                      free of charge at any point during it.
+                    </li>
+                  )}
+                  <li>
+                    Once approved, allow <span className="font-semibold">2 working days</span>{' '}
+                    for the money to reach your account.
+                  </li>
+                  {quote !== null && quote.penaltyAmount > 0 && (
+                    <li>
+                      {money(quote.penaltyAmount)} will be deducted as an early withdrawal
+                      penalty. You will receive {money(quote.netAmount)}.
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
           <button
-            onClick={onClose}
+            onClick={() => (confirming ? setConfirming(false) : onClose())}
             disabled={submitting}
             className="flex-1 py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 cursor-pointer disabled:opacity-40"
           >
-            Cancel
+            {confirming ? 'Back' : 'Cancel'}
           </button>
           <button
-            onClick={handleSubmit}
+            onClick={() => (confirming ? handleSubmit() : setConfirming(true))}
             disabled={submitting || !amountValid || !withinBalance || pin.length < 4}
             className="flex-1 py-3 rounded-lg bg-black text-white font-medium hover:bg-gray-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
           >
@@ -241,8 +291,10 @@ export default function VaultWithdrawModal({
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Submitting
               </>
+            ) : confirming ? (
+              'Confirm withdrawal'
             ) : (
-              'Request withdrawal'
+              'Review request'
             )}
           </button>
         </div>
