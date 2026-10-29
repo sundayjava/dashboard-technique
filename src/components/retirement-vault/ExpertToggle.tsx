@@ -243,7 +243,7 @@ export function AllocatorSwitch({
     >
       <span
         className={`inline-flex items-center justify-center h-5 w-5 rounded-full bg-white
-          shadow-sm ring-1 ring-black/[0.06] transition-transform duration-200 ease-out ${
+          shadow-sm ring-1 ring-black/6 transition-transform duration-200 ease-out ${
             on ? 'translate-x-5' : 'translate-x-0'
           }`}
       >

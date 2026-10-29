@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PriceSyncTrigger } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { sendInvestmentMaturityNotification } from '@/lib/email';
-import { syncAssetPrices } from '@/lib/vault/price-sync';
-import { runDailyClassPerformance } from '@/lib/vault/class-performance';
-import { loadVaultPolicy } from '@/lib/vault/policy-store';
-import { valueAllActiveVaults } from '@/lib/vault/valuation';
-import { serveElapsedNotices } from '@/lib/vault/withdrawal-engine';
-import { runScheduledRebalances } from '@/lib/vault/rebalance-engine';
-import { processAutoContributions } from '@/lib/vault/auto-contribution';
+import { runVaultNightly } from '@/lib/vault/nightly';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,192 +47,29 @@ export async function GET(request: NextRequest) {
     httpStatus = 500;
   }
 
-  // --- Retirement Vault price sync ---------------------------------------
-  // Folded in here because the Vercel Hobby plan allows only two cron entries
-  // and both are already in use.
-  //
-  // It runs LAST and is fully isolated: a vendor outage can neither throw into
-  // the investment work above nor steal function time from it. Failures are
-  // logged and recorded in price_sync_runs, never thrown.
-  const vaultPriceSync = await runVaultPriceSync();
-
-  // The day's performance is credited between the sync and the valuations,
-  // which is the only order that works: the rates are built from the closes the
-  // sync just wrote, and a valuation has to see the credits to report them.
-  const vaultClassPerformance =
-    vaultPriceSync.succeeded > 0 ? await runClassPerformance() : null;
-
-  // Vaults are revalued immediately after the sync, while prices are freshest.
-  // Skipped when nothing could be priced: revaluing against stale prices would
-  // write a misleading NAV for the day, and a gap in the series is both more
-  // honest and easier to spot.
-  const vaultValuations =
-    vaultPriceSync.succeeded > 0 ? await runVaultValuations() : null;
-
-  // Monthly auto-contributions. Runs BEFORE rebalancing so new money is
-  // invested at today's prices and then included in the same allocation pass,
-  // rather than sitting until tomorrow.
-  let vaultAutoContributions = null;
-  if (vaultPriceSync.succeeded > 0) {
-    try {
-      const result = await processAutoContributions();
-      vaultAutoContributions = {
-        considered: result.considered,
-        charged: result.charged,
-        failed: result.failed,
-        totalCharged: result.totalCharged,
-      };
-      if (result.charged > 0 || result.failed > 0) {
-        console.log(
-          `💵 Auto-contributions: ${result.charged} charged ` +
-            `($${result.totalCharged.toLocaleString()}), ${result.failed} failed`,
-        );
-      }
-    } catch (error) {
-      console.error('❌ Auto-contributions threw:', error);
-    }
-  }
-
-  // Expert Allocator. Runs after valuation so it works on today's prices, and
-  // only when pricing succeeded: rebalancing against stale prices would trade
-  // real holdings on figures we know to be wrong.
-  let vaultRebalances = null;
-  if (vaultPriceSync.succeeded > 0) {
-    try {
-      const result = await runScheduledRebalances();
-      vaultRebalances = {
-        considered: result.considered,
-        applied: result.applied,
-        skipped: result.skipped,
-      };
-      if (result.applied > 0) {
-        console.log(`⚖️  Vault rebalances applied: ${result.applied}/${result.considered}`);
-      }
-      for (const failure of result.failures) {
-        console.warn(`   vault ${failure.vaultId}: ${failure.reason}`);
-      }
-    } catch (error) {
-      console.error('❌ Vault rebalancing threw:', error);
-    }
-  }
-
-  // Promote withdrawal requests whose notice period has elapsed, so the admin
-  // queue reflects what is genuinely ready to pay. Independent of pricing: a
-  // notice period passes whether or not a feed responded.
-  let withdrawalNoticesServed = 0;
-  try {
-    withdrawalNoticesServed = await serveElapsedNotices();
-    if (withdrawalNoticesServed > 0) {
-      console.log(`📤 Withdrawal notices served: ${withdrawalNoticesServed}`);
-    }
-  } catch (error) {
-    console.error('❌ Serving withdrawal notices failed:', error);
-  }
+  /*
+   * Retirement Vault, in one call.
+   *
+   * The ordering lives in runVaultNightly() so a scheduler outside Vercel can
+   * run exactly the same chain; two copies of it would drift, and the
+   * ordering is the fragile part. Fully isolated -- nothing in there throws --
+   * so a vendor outage cannot reach the investment work above.
+   */
+  const vault = await runVaultNightly(PriceSyncTrigger.CRON);
 
   return NextResponse.json(
     {
       ...investmentPayload,
-      vaultPriceSync,
-      vaultClassPerformance,
-      vaultValuations,
-      vaultAutoContributions,
-      vaultRebalances,
-      withdrawalNoticesServed,
+      vaultPriceSync: vault.priceSync,
+      vaultClassPerformance: vault.classPerformance,
+      vaultValuations: vault.valuations,
+      vaultReportCards: vault.reportCards,
+      vaultAutoContributions: vault.autoContributions,
+      vaultRebalances: vault.rebalances,
+      withdrawalNoticesServed: vault.withdrawalNoticesServed,
     },
     { status: httpStatus },
   );
-}
-
-/**
- * Close the day for every asset class and credit each member.
- *
- * Isolated like the sync above: this moves real balances, so a failure must
- * leave them untouched rather than half-credited. The engine's own unique keys
- * make a retry safe, so a failed night can simply be run again.
- */
-async function runClassPerformance() {
-  try {
-    const policy = await loadVaultPolicy();
-    const result = await runDailyClassPerformance(new Date(), policy);
-
-    console.log(
-      `📈 Class performance ${result.date.toISOString().slice(0, 10)}: ` +
-        `${result.rates.length} class rate(s), ${result.creditsWritten} credit(s) across ` +
-        `${result.vaultsCredited}/${result.vaultsConsidered} vault(s), net ` +
-        `${result.netAmount.toFixed(2)}`,
-    );
-    for (const rate of result.rates) {
-      console.log(
-        `   ${rate.assetClass} @ ${rate.performanceDate.toISOString().slice(0, 10)}: ` +
-          `${rate.assetSumPercent.toFixed(4)}% (${rate.assetCount} asset(s))` +
-          ` + ${rate.upliftPercent}% uplift = ${rate.totalPercent.toFixed(4)}%` +
-          (rate.wasClamped ? ' [capped]' : ''),
-      );
-    }
-    if (result.alreadyCredited > 0) {
-      console.log(`   ${result.alreadyCredited} already credited today; left alone.`);
-    }
-    for (const failure of result.failures) {
-      console.warn(`   vault ${failure.vaultId}: ${failure.reason}`);
-    }
-
-    return {
-      date: result.date,
-      classRates: result.rates.length,
-      creditsWritten: result.creditsWritten,
-      vaultsCredited: result.vaultsCredited,
-      vaultsConsidered: result.vaultsConsidered,
-      alreadyCredited: result.alreadyCredited,
-      netAmount: result.netAmount,
-      failed: result.failures.length,
-    };
-  } catch (error) {
-    console.error('❌ Class performance threw:', error);
-    return null;
-  }
-}
-
-async function runVaultValuations() {
-  try {
-    const result = await valueAllActiveVaults();
-    console.log(
-      `📊 Vault valuations: ${result.recorded}/${result.attempted} recorded, ` +
-        `${result.skipped} skipped`,
-    );
-    for (const failure of result.failures) {
-      console.warn(`   vault ${failure.vaultId}: ${failure.reason}`);
-    }
-    return {
-      attempted: result.attempted,
-      recorded: result.recorded,
-      skipped: result.skipped,
-    };
-  } catch (error) {
-    // Isolated for the same reason as the price sync: it must not affect the
-    // investment work that already completed above.
-    console.error('❌ Vault valuation threw:', error);
-    return { attempted: 0, recorded: 0, skipped: 0 };
-  }
-}
-
-async function runVaultPriceSync() {
-  try {
-    const result = await syncAssetPrices(PriceSyncTrigger.CRON);
-    console.log(
-      `💹 Vault price sync: ${result.status} ` +
-        `(${result.succeeded} ok, ${result.failed} failed, ${result.durationMs}ms)`,
-    );
-    return {
-      status: result.status,
-      skipped: result.skipped,
-      succeeded: result.succeeded,
-      failed: result.failed,
-      durationMs: result.durationMs,
-    };
-  } catch (error) {
-    console.error('❌ Vault price sync threw:', error);
-    return { status: 'ERROR', skipped: false, succeeded: 0, failed: 0, durationMs: 0 };
-  }
 }
 
 /**
