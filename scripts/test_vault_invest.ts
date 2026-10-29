@@ -8,6 +8,7 @@ import { POST as depositPOST } from '../src/app/api/retirement-vault/deposit/rou
 import { GET as investGET, POST as investPOST } from '../src/app/api/retirement-vault/invest/route';
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import { valueVault } from '../src/lib/vault/valuation';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -40,7 +41,7 @@ async function main() {
   console.log('=== 0. Setup ===');
   const user = await prisma.user.create({
     data: {
-      email: `vault-inv-${STAMP}@internal.test`, name: 'Invest Test', password: 'x',
+      email: `vault-inv-${STAMP}@internal.test`, name: 'Invest Test', password: throwawayPassword(),
       transactionPin: await bcrypt.hash(PIN, 10), phoneNumber: '0', countryCode: 'NG',
       currency: 'USD', authorizationCode: `VIN-${STAMP}`,
     },

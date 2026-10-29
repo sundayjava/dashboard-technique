@@ -7,6 +7,7 @@ import { POST as assessPOST } from '../src/app/api/retirement-vault/assess/route
 import { POST as createPOST } from '../src/app/api/retirement-vault/create/route';
 import { GET as statusGET } from '../src/app/api/retirement-vault/status/route';
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0;
 let failed = 0;
@@ -45,7 +46,7 @@ async function main() {
     data: {
       email: `vault-onboard-test-${STAMP}@internal.test`,
       name: 'Vault Onboarding Test',
-      password: 'not-a-real-login',
+      password: throwawayPassword(),
       transactionPin: '0000',
       phoneNumber: '0000000000',
       countryCode: 'NG',

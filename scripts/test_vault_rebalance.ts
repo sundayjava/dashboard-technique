@@ -16,6 +16,7 @@ import {
 import { valueVault } from '../src/lib/vault/valuation';
 import { sumAllocation } from '../src/lib/vault/allocation-model';
 import { loadVaultPolicy } from '../src/lib/vault/policy-store';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -64,7 +65,7 @@ async function main() {
   console.log('=== 0. Setup: funded Growth vault in Expert mode ===');
   const user = await prisma.user.create({
     data: {
-      email: `vault-rb-${STAMP}@internal.test`, name: 'Rebalance Test', password: 'x',
+      email: `vault-rb-${STAMP}@internal.test`, name: 'Rebalance Test', password: throwawayPassword(),
       transactionPin: await bcrypt.hash(PIN, 10), phoneNumber: '0', countryCode: 'NG',
       currency: 'USD', authorizationCode: `VRB-${STAMP}`,
     },

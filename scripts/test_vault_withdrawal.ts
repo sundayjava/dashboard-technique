@@ -20,6 +20,7 @@ import {
 } from '../src/lib/vault/withdrawal-engine';
 import { loadVaultPolicy } from '../src/lib/vault/policy-store';
 import { valueVault } from '../src/lib/vault/valuation';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -52,7 +53,7 @@ async function main() {
   const user = await prisma.user.create({
     data: {
       email: `vault-wd-test-${STAMP}@internal.test`, name: 'Vault WD Test',
-      password: 'x', transactionPin: await bcrypt.hash(PIN, 10),
+      password: throwawayPassword(), transactionPin: await bcrypt.hash(PIN, 10),
       phoneNumber: '0', countryCode: 'NG', currency: 'USD', authorizationCode: `VWD-${STAMP}`,
     },
   });
@@ -62,7 +63,7 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       email: `vault-wd-admin-${STAMP}@internal.test`, name: 'WD Admin', role: 'ADMIN',
-      password: 'x', transactionPin: await bcrypt.hash(PIN, 10),
+      password: throwawayPassword(), transactionPin: await bcrypt.hash(PIN, 10),
       phoneNumber: '0', countryCode: 'NG', currency: 'USD', authorizationCode: `VWA-${STAMP}`,
     },
   });

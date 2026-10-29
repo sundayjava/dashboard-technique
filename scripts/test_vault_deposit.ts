@@ -8,6 +8,7 @@ import { POST as depositPOST } from '../src/app/api/retirement-vault/deposit/rou
 import { POST as investPOST } from '../src/app/api/retirement-vault/invest/route';
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import { valueVault } from '../src/lib/vault/valuation';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -41,7 +42,7 @@ async function main() {
     data: {
       email: `vault-deposit-test-${STAMP}@internal.test`,
       name: 'Vault Deposit Test',
-      password: 'not-a-real-login',
+      password: throwawayPassword(),
       transactionPin: await bcrypt.hash(PIN, 10),
       phoneNumber: '0000000000',
       countryCode: 'NG',

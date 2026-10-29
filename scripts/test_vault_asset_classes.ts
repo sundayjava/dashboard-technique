@@ -8,6 +8,7 @@ import {
 } from '../src/app/api/admin/vault-asset-classes/route';
 import { invalidateAssetClassCache, getAssetClassKeys } from '../src/lib/vault/asset-class-store';
 import { invalidatePolicyCache, loadVaultPolicy } from '../src/lib/vault/policy-store';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 const check = (l: string, ok: boolean, d = '') =>
@@ -28,14 +29,14 @@ function req(path: string, method: string, body?: unknown, token = adminToken) {
 
 async function main() {
   const admin = await prisma.user.create({ data: {
-    email: `ac-admin-${STAMP}@internal.test`, name: 'AC Admin', role: 'ADMIN', password: 'x',
+    email: `ac-admin-${STAMP}@internal.test`, name: 'AC Admin', role: 'ADMIN', password: throwawayPassword(),
     transactionPin: await bcrypt.hash('1234', 10), phoneNumber: '0', countryCode: 'NG',
     currency: 'USD', authorizationCode: `ACA-${STAMP}` } });
   adminId = admin.id;
   adminToken = createSessionToken(admin.id, admin.email, 'ADMIN');
 
   const member = await prisma.user.create({ data: {
-    email: `ac-member-${STAMP}@internal.test`, name: 'AC Member', password: 'x',
+    email: `ac-member-${STAMP}@internal.test`, name: 'AC Member', password: throwawayPassword(),
     transactionPin: await bcrypt.hash('1234', 10), phoneNumber: '0', countryCode: 'NG',
     currency: 'USD', authorizationCode: `ACM-${STAMP}` } });
   memberId = member.id;

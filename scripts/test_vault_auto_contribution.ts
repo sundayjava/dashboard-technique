@@ -10,6 +10,7 @@ import { PUT as acPUT, GET as acGET } from '../src/app/api/retirement-vault/auto
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import { processAutoContributions } from '../src/lib/vault/auto-contribution';
 import { valueVault } from '../src/lib/vault/valuation';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -41,7 +42,7 @@ async function main() {
   console.log('=== 0. Setup: vault with a $500/month contribution on day 1 ===');
   const user = await prisma.user.create({
     data: {
-      email: `vault-ac-${STAMP}@internal.test`, name: 'AutoContrib Test', password: 'x',
+      email: `vault-ac-${STAMP}@internal.test`, name: 'AutoContrib Test', password: throwawayPassword(),
       transactionPin: await bcrypt.hash(PIN, 10), phoneNumber: '0', countryCode: 'NG',
       currency: 'USD', authorizationCode: `VAC-${STAMP}`,
     },

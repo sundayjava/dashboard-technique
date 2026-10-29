@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../src/lib/prisma';
 import { buildReportCard, generateReportCards, getQuarter } from '../src/lib/vault/report-card';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -37,7 +38,7 @@ async function main() {
   console.log('=== 0. Setup ===');
   const user = await prisma.user.create({
     data: {
-      email: `vault-rc-${STAMP}@internal.test`, name: 'ReportCard Test', password: 'x',
+      email: `vault-rc-${STAMP}@internal.test`, name: 'ReportCard Test', password: throwawayPassword(),
       transactionPin: await bcrypt.hash('1234', 10), phoneNumber: '0', countryCode: 'NG',
       currency: 'USD', authorizationCode: `VRC-${STAMP}`,
     },

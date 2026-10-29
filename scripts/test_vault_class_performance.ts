@@ -17,6 +17,7 @@ import {
 import { valueVault } from '../src/lib/vault/valuation';
 import { DEFAULT_VAULT_POLICY } from '../src/lib/vault/allocation-model';
 import { toUtcDateOnly } from '../src/lib/vault/price-providers';
+import { throwawayPassword } from './fixtures';
 
 /**
  * Daily class performance.
@@ -112,7 +113,7 @@ async function main() {
 
   const user = await prisma.user.create({
     data: {
-      email: `vault-perf-${STAMP}@internal.test`, name: 'Perf Test', password: 'x',
+      email: `vault-perf-${STAMP}@internal.test`, name: 'Perf Test', password: throwawayPassword(),
       transactionPin: await bcrypt.hash(PIN, 10), phoneNumber: '0', countryCode: 'NG',
       currency: 'USD', authorizationCode: `VCP-${STAMP}`,
     },

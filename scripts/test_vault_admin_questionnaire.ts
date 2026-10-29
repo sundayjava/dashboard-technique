@@ -12,6 +12,7 @@ import {
   invalidateQuestionnaireCache, loadQuestionnaire, seedQuestionnaire,
 } from '../src/lib/vault/questionnaire-store';
 import { RISK_QUESTIONS, scoreQuestionnaire } from '../src/lib/vault/risk-questionnaire';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -36,7 +37,7 @@ async function main() {
   console.log('=== 0. Setup ===');
   const admin = await prisma.user.create({
     data: {
-      email: `qadmin-${STAMP}@internal.test`, name: 'Q Admin', role: 'ADMIN', password: 'x',
+      email: `qadmin-${STAMP}@internal.test`, name: 'Q Admin', role: 'ADMIN', password: throwawayPassword(),
       transactionPin: await bcrypt.hash('1234', 10), phoneNumber: '0', countryCode: 'NG',
       currency: 'USD', authorizationCode: `QA-${STAMP}`,
     },
@@ -46,7 +47,7 @@ async function main() {
 
   const member = await prisma.user.create({
     data: {
-      email: `qmember-${STAMP}@internal.test`, name: 'Q Member', password: 'x',
+      email: `qmember-${STAMP}@internal.test`, name: 'Q Member', password: throwawayPassword(),
       transactionPin: await bcrypt.hash('1234', 10), phoneNumber: '0', countryCode: 'NG',
       currency: 'USD', authorizationCode: `QM-${STAMP}`,
     },

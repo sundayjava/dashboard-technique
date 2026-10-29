@@ -9,6 +9,7 @@ import { GET as modeGET, PUT as modePUT } from '../src/app/api/retirement-vault/
 import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import { valueVault } from '../src/lib/vault/valuation';
 import { MODE_SWITCH_COOLDOWN_DAYS } from '../src/lib/vault/allocation-model';
+import { throwawayPassword } from './fixtures';
 
 let passed = 0, failed = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -39,7 +40,7 @@ async function main() {
   console.log('=== 0. Setup: funded DIVERSIFIED vault ===');
   const user = await prisma.user.create({
     data: {
-      email: `vault-mode-${STAMP}@internal.test`, name: 'Mode Test', password: 'x',
+      email: `vault-mode-${STAMP}@internal.test`, name: 'Mode Test', password: throwawayPassword(),
       transactionPin: await bcrypt.hash(PIN, 10), phoneNumber: '0', countryCode: 'NG',
       currency: 'USD', authorizationCode: `VMS-${STAMP}`,
     },

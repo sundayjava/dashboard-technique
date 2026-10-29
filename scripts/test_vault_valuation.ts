@@ -19,6 +19,7 @@ import {
 } from '../src/lib/vault/valuation';
 import { sumAllocation } from '../src/lib/vault/allocation-model';
 import { BENCHMARK_BLEND } from '../src/lib/vault/asset-registry';
+import { throwawayPassword } from './fixtures';
 
 /**
  * Valuation harness.
@@ -53,7 +54,7 @@ async function main() {
     data: {
       email: `vault-valuation-test-${STAMP}@internal.test`,
       name: 'Vault Valuation Test',
-      password: 'not-a-real-login',
+      password: throwawayPassword(),
       transactionPin: '0000',
       phoneNumber: '0000000000',
       countryCode: 'NG',

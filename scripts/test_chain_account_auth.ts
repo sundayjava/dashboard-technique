@@ -5,6 +5,7 @@ import { prisma } from '../src/lib/prisma';
 import { createSessionToken } from '../src/lib/session';
 import { GET as statusGET } from '../src/app/api/chain-account/status/route';
 import { POST as createPOST } from '../src/app/api/chain-account/create/route';
+import { throwawayPassword } from './fixtures';
 
 /**
  * Proves that chain-account create and status derive the acting user from a
@@ -41,7 +42,7 @@ async function mkUser(tag: string) {
     data: {
       email: `chain-auth-${tag}-${STAMP}@internal.test`,
       name: `Chain Auth ${tag}`,
-      password: 'x',
+      password: throwawayPassword(),
       transactionPin: await bcrypt.hash('1234', 10),
       phoneNumber: '0', countryCode: 'NG', currency: 'USD',
       authorizationCode: `CA-${tag}-${STAMP}`,
