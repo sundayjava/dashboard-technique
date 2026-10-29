@@ -57,6 +57,7 @@ model User {
   withdrawals                Withdrawal[]
   arkIIAssignments           ArkIIAssignment[]
   chainAccountMemberships    ChainAccountMember[]
+  retirementVaults           RetirementVault[]
 
   @@map("users")
 }
@@ -1578,4 +1579,775 @@ enum ClosureRequestStatus {
   APPROVED          // Admin approved, account closed
   REJECTED          // Rejected by members or admin
   CANCELLED         // Cancelled by initiator
+}
+
+// ============================================================================
+// RETIREMENT VAULT — MARKET DATA LAYER
+// ----------------------------------------------------------------------------
+// Prices for the Retirement Vault are never fetched from a vendor at render
+// time. A scheduled sync writes them into these tables and every vault read
+// goes to the database. This keeps dashboards fast, immune to vendor rate
+// limits and outages, and gives us an immutable price history we own — which
+// is what the 401k benchmark comparison and quarterly report cards are built
+// from.
+// ============================================================================
+
+model VaultAsset {
+  id                String               @id @default(cuid())
+  symbol            String               @unique // Ticker as we display it, e.g. "VT", "BTC"
+  name              String               // e.g. "Vanguard Total World Stock ETF"
+  assetClass        String
+  assetClassRef     VaultAssetClassDef   @relation(fields: [assetClass], references: [key], onDelete: Restrict)
+  role              VaultAssetRole       @default(PORTFOLIO)
+
+  // Provider wiring
+  provider          PriceProvider        // Which feed owns this symbol
+  providerSymbol    String               // Vendor's identifier, e.g. CoinGecko "ripple" for XRP
+  fallbackProvider  PriceProvider?       // Optional secondary feed
+  fallbackSymbol    String?              // Vendor identifier on the fallback feed
+
+  // Weight of this asset inside its own asset-class sleeve (sums to 1.0 per
+  // class). The asset-class percentages themselves live with the risk profile,
+  // not here — this only splits a sleeve across its instruments, e.g. the 5%
+  // crypto sleeve across BTC / ETH / XRP.
+  sleeveWeight      Float                @default(1)
+
+  // Latest known price — denormalised for fast reads, mirrors HoldingToken
+  currentPrice      Float                @default(0)
+  previousClose     Float                @default(0)
+  priceChange24h    Float                @default(0) // Percentage
+  lastSyncedAt      DateTime?
+  lastSyncError     String?              @db.Text
+  consecutiveFailures Int                @default(0) // Trips a stale-data warning in admin
+
+  // Presentation
+  logo              String?
+  displayOrder      Int                  @default(0)
+  isActive          Boolean              @default(true)
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  snapshots         AssetPriceSnapshot[]
+  vaultHoldings     VaultHolding[]
+
+  @@index([assetClass])
+  @@index([role])
+  @@index([isActive])
+  @@map("vault_assets")
+}
+
+model AssetPriceSnapshot {
+  id            String        @id @default(cuid())
+  assetId       String
+  priceDate     DateTime      @db.Date // Trading day this close belongs to (UTC)
+
+  open          Float?
+  high          Float?
+  low           Float?
+  close         Float         // The value all vault maths uses
+  volume        Float?
+  changePercent Float?        // Versus prior trading day
+
+  source        PriceProvider // Which feed actually answered
+  createdAt     DateTime      @default(now())
+
+  asset         VaultAsset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  // Makes the sync idempotent: re-running a day's sync updates that row
+  // instead of duplicating history.
+  @@unique([assetId, priceDate])
+  @@index([priceDate])
+  @@index([assetId, priceDate])
+  @@map("asset_price_snapshots")
+}
+
+model PriceSyncRun {
+  id               String           @id @default(cuid())
+  trigger          PriceSyncTrigger
+  status           PriceSyncStatus  @default(RUNNING)
+
+  assetsAttempted  Int              @default(0)
+  assetsSucceeded  Int              @default(0)
+  assetsFailed     Int              @default(0)
+  errors           String?          @db.Text // JSON array of { symbol, message }
+
+  startedAt        DateTime         @default(now())
+  completedAt      DateTime?
+  durationMs       Int?
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("price_sync_runs")
+}
+
+/// Asset classes are DATA, not an enum, so an admin can add and remove them.
+/// `key` is the stable identifier stored on every row that references a class;
+/// it never changes once created, because allocations and historical
+/// rebalance records are written against it.
+model VaultAssetClassDef {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  name         String
+  description  String?  @db.Text
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  /// Seeded with the product; kept distinct so the UI can warn before
+  /// removing one the rest of the system was designed around.
+  isSystem     Boolean  @default(false)
+
+  /// Percentage points the admin adds to this class's own close-of-day market
+  /// performance to form the day's rate. Read at the moment a day is computed,
+  /// so it may be changed as often as the admin likes during the day without
+  /// retroactively altering a day already credited.
+  dailyUpliftPercent Float @default(0)
+
+  updatedBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assets             VaultAsset[]
+  profileAllocations VaultProfileAllocation[]
+
+  @@index([isActive, displayOrder])
+  @@map("vault_asset_classes")
+}
+
+enum VaultAssetRole {
+  PORTFOLIO // Held inside member vaults
+  BENCHMARK // Only used to build the traditional-401k comparison line
+  BOTH
+}
+
+enum PriceProvider {
+  TWELVE_DATA // Equities, bonds, commodities, REITs, futures proxies
+  COINGECKO   // Crypto primary — already in production use
+  BINANCE     // Crypto fallback — already in production use
+  MANUAL      // Admin-entered, last resort
+}
+
+enum PriceSyncTrigger {
+  CRON      // Nightly scheduled run
+  ON_DEMAND // Stale-read self-heal from a dashboard load
+  MANUAL    // Admin-triggered from the panel
+}
+
+enum PriceSyncStatus {
+  RUNNING
+  SUCCESS // Every active asset priced
+  PARTIAL // Some assets failed, vault still valuable
+  FAILED  // Nothing priced
+}
+
+// ============================================================================
+// RETIREMENT VAULT — ACCOUNTS, ALLOCATIONS & ACTIVITY
+// ----------------------------------------------------------------------------
+// The vault itself. Prices come from the market data layer above; this cluster
+// records what each member holds, what they intended to hold, and every event
+// that moved one toward the other.
+//
+// Money is Float throughout, matching Account.balance, ChainAccount.balance and
+// every other balance in this schema. Holdings additionally store UNITS, so a
+// vault is valued by multiplying units by a live price rather than by storing a
+// value that silently goes stale.
+// ============================================================================
+
+model RetirementVault {
+  id                    String                  @id @default(cuid())
+  userId                String
+  vaultNumber           String                  @unique // RV-[AUTO-GENERATED]
+
+  // --- Step 1: eligibility & intent --------------------------------------
+  ageAtOnboarding       Int                     // Captured at signup; age alone is not a live field
+  countryOfResidence    String
+  horizon               RetirementHorizon
+  vehicleType           VehicleType             // Primary or supplementary retirement vehicle
+
+  // --- Step 2: risk profile ----------------------------------------------
+  // Denormalised from the latest VaultRiskAssessment so allocation logic does
+  // not have to resolve the assessment history on every read.
+  riskProfile           RiskProfile
+
+  // --- Step 3: allocation mode -------------------------------------------
+  allocationMode        AllocationMode
+  // Set only when allocationMode is FOCUSED: the single class concentrated in.
+  focusedAssetClass     String?
+  // Expert Allocator may be active alongside a user's own overrides, so this
+  // is independent of allocationMode rather than implied by it.
+  expertAllocatorActive Boolean                 @default(false)
+  // Drives the 30-day cooldown on user-initiated mode switches.
+  modeLastChangedAt     DateTime?
+
+  // --- Step 4: contributions ---------------------------------------------
+  initialDeposit        Float
+  monthlyContribution   Float?                  // Null when auto-contribution is off
+  monthlyContributionDay Int?                   // Day of month, 1-28
+  lockInPreference      LockInPreference
+
+  // --- Step 5: review & activate -----------------------------------------
+  signedAt              DateTime?               // Digital sign-off timestamp
+  signatureName         String?                 // Typed full name at sign-off
+  termsVersion          String?                 // Which T&Cs were agreed to
+
+  // --- Balances ----------------------------------------------------------
+  // Vaults operate in USD; member display currency is converted at read time.
+  currency              String                  @default("USD")
+  cashBalance           Float                   @default(0) // Deposited, not yet allocated
+  totalContributed      Float                   @default(0) // Lifetime, for gain/loss
+  totalWithdrawn        Float                   @default(0)
+  lastValuedAt          DateTime?
+
+  // --- Lifecycle ---------------------------------------------------------
+  status                VaultStatus             @default(DRAFT)
+  activatedAt           DateTime?
+  closedAt              DateTime?
+  closureReason         String?                 @db.Text
+
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  riskAssessments       VaultRiskAssessment[]
+  allocations           VaultAllocation[]
+  holdings              VaultHolding[]
+  contributions         VaultContribution[]
+  withdrawals           VaultWithdrawalRequest[]
+  rebalanceEvents       VaultRebalanceEvent[]
+  valuations            VaultValuation[]
+  classAccruals         VaultClassAccrual[]
+  reportCards           VaultReportCard[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([vaultNumber])
+  @@map("retirement_vaults")
+}
+
+model VaultRiskAssessment {
+  id              String          @id @default(cuid())
+  vaultId         String
+
+  // Full answer set, stored as JSON so the questionnaire can evolve without a
+  // migration. Scoring lives in code; this is the evidence for the outcome.
+  answers         String          @db.Text
+  score           Int             // Raw total across questions
+  assignedProfile RiskProfile
+
+  // True when the member overrode the quiz result. Kept because a self-selected
+  // profile that differs from the assessed one is exactly what a dispute or a
+  // suitability review would turn on.
+  wasOverridden   Boolean         @default(false)
+  overrideReason  String?         @db.Text
+
+  createdAt       DateTime        @default(now())
+
+  vault           RetirementVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@index([vaultId])
+  @@map("vault_risk_assessments")
+}
+
+model VaultAllocation {
+  id             String          @id @default(cuid())
+  vaultId        String
+  assetClass     String
+
+  // Target share of the vault for this class, 0-100. Enforced in code to total
+  // 100 across classes, with CRYPTO never above its hard cap.
+  targetPercent  Float
+
+  // Set when the member has pinned this class themselves. The Expert Allocator
+  // must respect a pinned class and rebalance around it, which is what lets a
+  // member override one allocation without leaving Expert mode.
+  isUserOverride Boolean         @default(false)
+  overriddenAt   DateTime?
+
+  // Cumulative performance the daily engine has credited to this class, in
+  // currency. Kept as a running total so a valuation costs one row per class
+  // instead of replaying every accrual ever written. May be negative.
+  accruedPerformance Float     @default(0)
+  // The last day already credited. The engine's idempotency guard: a day on or
+  // before this is never applied twice, however often the job runs.
+  lastAccruedDate    DateTime? @db.Date
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  vault          RetirementVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  // One target per class per vault.
+  @@unique([vaultId, assetClass])
+  @@index([vaultId])
+  @@map("vault_allocations")
+}
+
+/// The day's rate for one asset class, and the arithmetic that produced it.
+///
+/// Global, not per member: the rate depends only on how the class's
+/// instruments closed and on the admin's uplift, so every vault holding that
+/// class grows by the same figure. Stored rather than recomputed because the
+/// uplift is editable at will -- recomputing last Tuesday after the admin
+/// moved the number would silently rewrite history members have already seen.
+///
+/// `assetClass` is a bare string, like VaultAllocation's, so a day survives
+/// the class it describes being removed.
+model VaultClassPerformanceDay {
+  id              String   @id @default(cuid())
+  assetClass      String
+  performanceDate DateTime @db.Date
+
+  /// Sum of every priced instrument's close-of-day change in this class.
+  assetSumPercent Float
+  /// The admin's uplift as it stood when this day was computed.
+  upliftPercent   Float
+  /// assetSumPercent + upliftPercent, after the safety clamp.
+  totalPercent    Float
+  /// True when the clamp bit, so an admin can see the rate was limited.
+  wasClamped      Boolean  @default(false)
+
+  /// Instruments that contributed. A class whose prices all failed to sync
+  /// records zero assets and is skipped rather than credited on no data.
+  assetCount      Int      @default(0)
+  /// JSON [{ symbol, changePercent }], for showing the member the workings.
+  breakdown       String?  @db.Text
+
+  computedAt      DateTime @default(now())
+
+  /// One rate per class per day. Re-running a day corrects it in place.
+  @@unique([assetClass, performanceDate])
+  @@index([performanceDate])
+  @@map("vault_class_performance_days")
+}
+
+/// One day's credit to one member's holding of one asset class.
+///
+/// The audit trail behind `VaultAllocation.accruedPerformance`: a member can
+/// be shown exactly which day moved their balance and by how much, and a
+/// mistaken day can be found and reversed without recomputing everything.
+model VaultClassAccrual {
+  id           String   @id @default(cuid())
+  vaultId      String
+  assetClass   String
+  accrualDate  DateTime @db.Date
+
+  /// The class's allocated value before the credit.
+  openingValue Float
+  /// The rate applied, copied from the day so the row stands on its own.
+  ratePercent  Float
+  /// openingValue x ratePercent / 100. Negative on a losing day.
+  amount       Float
+  closingValue Float
+
+  createdAt    DateTime @default(now())
+
+  vault        RetirementVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  /// The idempotency guard that matters: a vault cannot be credited twice for
+  /// the same class on the same day, whatever retries the job makes.
+  @@unique([vaultId, assetClass, accrualDate])
+  @@index([vaultId, accrualDate])
+  @@index([accrualDate])
+  @@map("vault_class_accruals")
+}
+
+model VaultHolding {
+  id             String          @id @default(cuid())
+  vaultId        String
+  assetId        String
+
+  // Units are the source of truth. Value is always units x live price, never a
+  // stored figure that can drift away from the market.
+  units          Float           @default(0)
+  // Total cash spent acquiring the current units, for realised/unrealised P&L.
+  costBasis      Float           @default(0)
+  averageCost    Float           @default(0) // costBasis / units, cached for display
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  vault          RetirementVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  asset          VaultAsset      @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([vaultId, assetId])
+  @@index([vaultId])
+  @@index([assetId])
+  @@map("vault_holdings")
+}
+
+model VaultContribution {
+  id            String             @id @default(cuid())
+  vaultId       String
+
+  type          ContributionType
+  amount        Float
+  currency      String             @default("USD")
+  // What the member actually sent, before conversion, when not USD.
+  sourceAmount  Float?
+  sourceCurrency String?
+  exchangeRate  Float?
+
+  status        ContributionStatus @default(PENDING)
+  failureReason String?            @db.Text
+
+  // Set once the cash has been invested into holdings, which may lag receipt.
+  allocatedAt   DateTime?
+
+  scheduledFor  DateTime?          // Auto-contributions only
+  processedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  vault         RetirementVault    @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@index([vaultId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@map("vault_contributions")
+}
+
+model VaultWithdrawalRequest {
+  id              String                @id @default(cuid())
+  vaultId         String
+
+  amount          Float
+  currency        String                @default("USD")
+
+  // 401k-style friction, to discourage short-termism. The notice period is
+  // served before funds move; the penalty is computed at request time so the
+  // member sees the real cost before confirming, and is stored rather than
+  // recalculated so a later rule change cannot alter an agreed figure.
+  requestedAt     DateTime              @default(now())
+  noticePeriodDays Int                  @default(14)
+  noticeEndsAt    DateTime
+  penaltyPercent  Float                 @default(0)
+  penaltyAmount   Float                 @default(0)
+  penaltyWaived   Boolean               @default(false)
+  waiverReason    String?               @db.Text
+  netAmount       Float                 // amount - penaltyAmount
+
+  isEarlyWithdrawal Boolean             @default(true) // False once the horizon is reached
+  reason          String?               @db.Text
+
+  status          VaultWithdrawalStatus @default(PENDING_NOTICE)
+  processedBy     String?               // Admin user id
+  processedAt     DateTime?
+  adminNotes      String?               @db.Text
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  vault           RetirementVault       @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@index([vaultId])
+  @@index([status])
+  @@index([noticeEndsAt])
+  @@map("vault_withdrawal_requests")
+}
+
+model VaultRebalanceEvent {
+  id              String                 @id @default(cuid())
+  vaultId         String
+
+  trigger         RebalanceTrigger
+  status          RebalanceStatus        @default(PROPOSED)
+
+  // Plain-English rationale shown to the member, e.g. "Gold allocation
+  // increased from 18% to 22% this quarter due to elevated inflation signals".
+  // Required by the product: a rebalance the member cannot understand is
+  // indistinguishable from one they cannot trust.
+  explanation     String                 @db.Text
+  // Machine-readable signals behind the decision, as JSON, for audit.
+  signals         String?                @db.Text
+
+  // Largest absolute class drift that prompted this, when drift-triggered.
+  maxDriftPercent Float?
+
+  // Portfolio value at execution, so performance attribution is possible later.
+  valueAtExecution Float?
+
+  proposedAt      DateTime               @default(now())
+  executedAt      DateTime?
+  failureReason   String?                @db.Text
+
+  createdAt       DateTime               @default(now())
+
+  vault           RetirementVault        @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+  changes         VaultRebalanceChange[]
+
+  @@index([vaultId])
+  @@index([status])
+  @@index([proposedAt])
+  @@map("vault_rebalance_events")
+}
+
+model VaultRebalanceChange {
+  id           String              @id @default(cuid())
+  eventId      String
+  assetClass   String
+
+  fromPercent  Float
+  toPercent    Float
+  // Cash moved into (+) or out of (-) this class.
+  valueDelta   Float?
+
+  event        VaultRebalanceEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("vault_rebalance_changes")
+}
+
+model VaultValuation {
+  id                  String          @id @default(cuid())
+  vaultId             String
+  valuationDate       DateTime        @db.Date
+
+  totalValue          Float           // Holdings at market + cash
+  cashBalance         Float           @default(0)
+  contributedToDate   Float           // For time-weighted gain/loss
+  unrealisedGainLoss  Float
+
+  // The traditional-401k comparator for the same date, computed from the
+  // 60/40 benchmark blend. Stored alongside rather than recomputed, so the
+  // comparison line stays stable even if the blend definition changes later.
+  benchmarkValue      Float?
+
+  createdAt           DateTime        @default(now())
+
+  vault               RetirementVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  // One valuation per vault per day; re-running a day corrects it.
+  @@unique([vaultId, valuationDate])
+  @@index([vaultId, valuationDate])
+  @@map("vault_valuations")
+}
+
+model VaultReportCard {
+  id                  String          @id @default(cuid())
+  vaultId             String
+
+  periodStart         DateTime
+  periodEnd           DateTime
+  quarterLabel        String          // e.g. "2026 Q4"
+
+  openingBalance      Float
+  closingBalance      Float
+  contributionsInPeriod Float         @default(0)
+  withdrawalsInPeriod Float           @default(0)
+  returnPercent       Float
+  benchmarkReturnPercent Float?
+  outperformancePercent Float?
+
+  // Auto-generated narrative shown to the member.
+  summary             String          @db.Text
+  rebalanceCount      Int             @default(0)
+
+  generatedAt         DateTime        @default(now())
+
+  vault               RetirementVault @relation(fields: [vaultId], references: [id], onDelete: Cascade)
+
+  @@unique([vaultId, quarterLabel])
+  @@index([vaultId])
+  @@map("vault_report_cards")
+}
+
+enum VaultStatus {
+  DRAFT              // Onboarding started, not yet signed
+  PENDING_ACTIVATION // Signed, awaiting initial deposit clearing
+  ACTIVE
+  SUSPENDED          // Admin hold
+  CLOSING            // Withdrawal of full balance in progress
+  CLOSED
+}
+
+enum RiskProfile {
+  CONSERVATIVE // Capital preservation priority
+  BALANCED     // Moderate growth with downside protection
+  GROWTH       // Higher return tolerance, longer horizon
+}
+
+enum AllocationMode {
+  DIVERSIFIED      // Spread across all classes per risk profile
+  FOCUSED          // Concentrated in one chosen asset class
+  EXPERT_ALLOCATOR // Acredis-managed, dynamically rebalanced
+}
+
+enum RetirementHorizon {
+  YEARS_10
+  YEARS_15
+  YEARS_20
+  YEARS_25_PLUS
+}
+
+enum VehicleType {
+  PRIMARY
+  SUPPLEMENTARY
+}
+
+enum LockInPreference {
+  SOFT_LOCK // Better targeted returns in exchange for withdrawal friction
+  FLEXIBLE
+}
+
+enum ContributionType {
+  INITIAL
+  AUTO_MONTHLY
+  MANUAL
+  REFERRAL_MATCH // Optional "employer match" equivalent on referred deposits
+}
+
+enum ContributionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RebalanceTrigger {
+  QUARTERLY       // Scheduled Expert Allocator run
+  DRIFT_THRESHOLD // A class moved beyond the allowed band
+  MODE_CHANGE     // Member switched allocation mode
+  PROFILE_CHANGE  // Member's risk profile was reassessed
+  USER_OVERRIDE   // Member pinned or changed a single class
+}
+
+enum RebalanceStatus {
+  PROPOSED
+  APPLIED
+  REJECTED
+  FAILED
+}
+
+enum VaultWithdrawalStatus {
+  PENDING_NOTICE // Notice period running
+  NOTICE_SERVED  // Notice elapsed, awaiting admin
+  PENDING_ADMIN
+  APPROVED
+  PAID
+  REJECTED
+  CANCELLED      // Withdrawn by the member during notice
+}
+
+// ============================================================================
+// RETIREMENT VAULT — ADMIN-CONFIGURABLE POLICY
+// ----------------------------------------------------------------------------
+// The numbers that decide how vaults behave, moved out of code so an admin can
+// tune them without a deploy. Code constants remain the DEFAULTS and the
+// fallback: if a row is missing or unreadable, the policy falls back to the
+// value it shipped with rather than to zero, because a crypto cap that
+// silently became 0 -- or worse, unbounded -- would be a serious failure.
+//
+// Changing policy does NOT retroactively rewrite existing vaults. New targets
+// apply when a vault is created, rebalanced, or deliberately re-aligned, so a
+// member's allocation never shifts under them without an event recording why.
+// ============================================================================
+
+model VaultPolicySetting {
+  id           String   @id @default(cuid())
+  key          String   @unique // e.g. "cryptoCapPercent"
+  numericValue Float
+
+  // Shown in the admin UI so the meaning of a setting is not folded knowledge.
+  label        String
+  description  String?  @db.Text
+  minValue     Float?
+  maxValue     Float?
+
+  updatedBy    String?  // Admin user id
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("vault_policy_settings")
+}
+
+model VaultProfileAllocation {
+  id            String          @id @default(cuid())
+  riskProfile   RiskProfile
+  assetClass    String
+  assetClassRef VaultAssetClassDef @relation(fields: [assetClass], references: [key], onDelete: Cascade)
+  targetPercent Float
+
+  updatedBy     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // One target per class per profile.
+  @@unique([riskProfile, assetClass])
+  @@index([riskProfile])
+  @@map("vault_profile_allocations")
+}
+
+// ============================================================================
+// RETIREMENT VAULT — ADMIN-MANAGED RISK QUESTIONNAIRE
+// ----------------------------------------------------------------------------
+// The questionnaire an admin can add to, edit and reorder. Code constants
+// remain the seed and the fallback: if no active questions are stored, scoring
+// falls back to the shipped set rather than assigning everyone the lowest
+// profile, which is what an empty questionnaire would otherwise do.
+//
+// Questions are DEACTIVATED, never deleted, once used. A stored assessment
+// records the question text it was answered against, but the question row is
+// what a later suitability review would be read alongside.
+// ============================================================================
+
+model VaultRiskQuestion {
+  id          String                    @id @default(cuid())
+  /** Stable key stored on assessments; must not change once live. */
+  key         String                    @unique
+  question    String                    @db.Text
+  helpText    String?                   @db.Text
+  /** What the question measures: willingness, capacity or experience. */
+  measures    String                    @default("willingness")
+  displayOrder Int                      @default(0)
+  isActive    Boolean                   @default(true)
+
+  updatedBy   String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  options     VaultRiskQuestionOption[]
+
+  @@index([isActive, displayOrder])
+  @@map("vault_risk_questions")
+}
+
+model VaultRiskQuestionOption {
+  id          String            @id @default(cuid())
+  questionId  String
+  /** Stable value stored on assessments. */
+  value       String
+  label       String            @db.Text
+  /** 1 (most cautious) to 4 (most risk-tolerant). */
+  score       Int
+  displayOrder Int              @default(0)
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  question    VaultRiskQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, value])
+  @@index([questionId, displayOrder])
+  @@map("vault_risk_question_options")
+}
+
+// ============================================================================
+// RETIREMENT VAULT — ADMIN-EDITABLE ONBOARDING COPY
+// ----------------------------------------------------------------------------
+// Member-facing text an admin can reword without a deploy. Only OVERRIDES are
+// stored: anything absent falls back to the shipped string in
+// onboarding-copy.ts, so a missing row can never leave a blank screen, and
+// clearing a field restores the default rather than emptying the page.
+// ============================================================================
+
+model VaultContentString {
+  id        String   @id @default(cuid())
+  /** Stable key from the copy registry, e.g. "step1.age.label". */
+  key       String   @unique
+  value     String   @db.Text
+
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vault_content_strings")
 }

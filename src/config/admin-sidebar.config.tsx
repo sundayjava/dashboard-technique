@@ -181,6 +181,34 @@ export const adminSidebarItems: AdminSidebarItem[] = [
         label: "Trade Keys",
         href: "/admin/trade-keys",
       },
+      {
+        label: "Member Vaults",
+        href: "/admin/vault-members",
+      },
+      {
+        label: "Vault Asset Classes",
+        href: "/admin/vault-asset-classes",
+      },
+      {
+        label: "Vault Instruments",
+        href: "/admin/vault-instruments",
+      },
+      {
+        label: "Retirement Vault Policy",
+        href: "/admin/vault-policy",
+      },
+      {
+        label: "Vault Withdrawals",
+        href: "/admin/vault-withdrawals",
+      },
+      {
+        label: "Vault Questionnaire",
+        href: "/admin/vault-questionnaire",
+      },
+      {
+        label: "Vault Onboarding Copy",
+        href: "/admin/vault-content",
+      },
     ],
   },
   {
