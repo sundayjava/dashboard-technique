@@ -2,22 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { getOpenVaultForUser } from '@/lib/vault/vault-utils';
-import { generateReportCards } from '@/lib/vault/report-card';
 import {
   buildPerformanceStatement,
   StatementPeriod,
 } from '@/lib/vault/performance-statement';
+import { withDbRetry } from '@/lib/vault/db-retry';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-/** Windows the member can switch between, in days. null = since inception. */
-const RANGES: Record<string, number | null> = {
-  '1M': 30,
-  '3M': 90,
-  '1Y': 365,
-  ALL: null,
-};
 
 /**
  * The performance series and quarterly report cards.
@@ -45,46 +37,29 @@ export async function GET(request: NextRequest) {
       periodParam === 'QUARTER' || periodParam === 'YEAR' || periodParam === 'MONTH'
         ? periodParam
         : 'MONTH';
-    const statement = await buildPerformanceStatement(vault.id, period);
+    // Retried once: this database drops idle connections, and a blip here
+    // was reaching the member as a 500 on a page that otherwise works.
+    const statement = await withDbRetry(() => buildPerformanceStatement(vault.id, period));
 
-    const rangeKey = params.get('range') ?? 'ALL';
-    const days = RANGES[rangeKey] ?? null;
-
-    const since =
-      days === null ? undefined : new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
-    const valuations = await prisma.vaultValuation.findMany({
-      where: { vaultId: vault.id, ...(since ? { valuationDate: { gte: since } } : {}) },
-      orderBy: { valuationDate: 'asc' },
-      select: {
-        valuationDate: true,
-        totalValue: true,
-        contributedToDate: true,
-        benchmarkValue: true,
-      },
-    });
-
-    // Refresh cards before reading them, so a member who has not visited in a
-    // while still sees the latest quarter.
-    await generateReportCards(vault.id).catch((e) =>
-      console.error('[Vault Performance] report cards failed:', e),
+    /*
+     * Report cards are READ here, not generated.
+     *
+     * generateReportCards() walks every quarter the vault has existed in and
+     * cost 464ms on every single page view, for data that changes once a
+     * quarter. It now runs in the nightly job, beside the valuations it
+     * depends on.
+     *
+     * The separate range query that used to live here fetched the same
+     * valuations the statement already had, and fed a `series`/`summary` block
+     * no client reads -- the chart takes statement.series.
+     */
+    const reportCards = await withDbRetry(() =>
+      prisma.vaultReportCard.findMany({
+        where: { vaultId: vault.id },
+        orderBy: { periodStart: 'desc' },
+        take: 8,
+      }),
     );
-
-    const reportCards = await prisma.vaultReportCard.findMany({
-      where: { vaultId: vault.id },
-      orderBy: { periodStart: 'desc' },
-      take: 8,
-    });
-
-    const series = valuations.map((v) => ({
-      date: v.valuationDate.toISOString().slice(0, 10),
-      vault: Number(v.totalValue.toFixed(2)),
-      benchmark: v.benchmarkValue === null ? null : Number(v.benchmarkValue.toFixed(2)),
-      contributed: Number(v.contributedToDate.toFixed(2)),
-    }));
-
-    const first = series[0];
-    const last = series[series.length - 1];
 
     return NextResponse.json({
       success: true,
@@ -92,26 +67,6 @@ export async function GET(request: NextRequest) {
       periods: ['MONTH', 'QUARTER', 'YEAR'],
       profile: vault.riskProfile,
       vaultNumber: vault.vaultNumber,
-      range: rangeKey,
-      ranges: Object.keys(RANGES),
-      // One point cannot describe a trend. The UI uses this to show an honest
-      // empty state instead of a chart with a single dot on it.
-      hasTrend: series.length >= 2,
-      pointCount: series.length,
-      series,
-      summary:
-        first === undefined || last === undefined
-          ? null
-          : {
-              startValue: first.vault,
-              endValue: last.vault,
-              changeValue: last.vault - first.vault,
-              changePercent:
-                first.vault > 0 ? ((last.vault - first.vault) / first.vault) * 100 : 0,
-              benchmarkEnd: last.benchmark,
-              outperformanceValue:
-                last.benchmark === null ? null : last.vault - last.benchmark,
-            },
       reportCards: reportCards.map((c) => ({
         quarterLabel: c.quarterLabel,
         periodStart: c.periodStart,

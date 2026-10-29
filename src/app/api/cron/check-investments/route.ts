@@ -6,6 +6,7 @@ import { syncAssetPrices } from '@/lib/vault/price-sync';
 import { runDailyClassPerformance } from '@/lib/vault/class-performance';
 import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import { valueAllActiveVaults } from '@/lib/vault/valuation';
+import { generateReportCards } from '@/lib/vault/report-card';
 import { serveElapsedNotices } from '@/lib/vault/withdrawal-engine';
 import { runScheduledRebalances } from '@/lib/vault/rebalance-engine';
 import { processAutoContributions } from '@/lib/vault/auto-contribution';
@@ -75,6 +76,12 @@ export async function GET(request: NextRequest) {
   const vaultValuations =
     vaultPriceSync.succeeded > 0 ? await runVaultValuations() : null;
 
+  // Report cards come straight after the valuations they are built from.
+  // They used to be regenerated on every visit to the performance tab, which
+  // walked every quarter the vault had existed in and cost ~460ms a page view
+  // for figures that change once a quarter.
+  const vaultReportCards = vaultValuations !== null ? await runReportCards() : null;
+
   // Monthly auto-contributions. Runs BEFORE rebalancing so new money is
   // invested at today's prices and then included in the same allocation pass,
   // rather than sitting until tomorrow.
@@ -141,6 +148,7 @@ export async function GET(request: NextRequest) {
       vaultPriceSync,
       vaultClassPerformance,
       vaultValuations,
+      vaultReportCards,
       vaultAutoContributions,
       vaultRebalances,
       withdrawalNoticesServed,
@@ -194,6 +202,28 @@ async function runClassPerformance() {
     };
   } catch (error) {
     console.error('❌ Class performance threw:', error);
+    return null;
+  }
+}
+
+/** Refresh every active vault's quarterly cards, once a night. */
+async function runReportCards() {
+  try {
+    const vaults = await prisma.retirementVault.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    let generated = 0;
+    for (const vault of vaults) {
+      // One vault's cards failing must not stop the rest.
+      generated += await generateReportCards(vault.id).catch(() => 0);
+    }
+
+    console.log(`🧾 Vault report cards: ${generated} card(s) across ${vaults.length} vault(s)`);
+    return { vaults: vaults.length, generated };
+  } catch (error) {
+    console.error('❌ Vault report cards threw:', error);
     return null;
   }
 }

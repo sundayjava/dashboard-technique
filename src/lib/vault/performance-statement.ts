@@ -1,7 +1,7 @@
 import { ContributionStatus, VaultAssetRole, VaultWithdrawalStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getQuarter } from './report-card';
-import { valueVault } from './valuation';
+
 
 /**
  * The performance statement: one period's figures, whole.
@@ -94,6 +94,30 @@ export interface PerformanceStatement {
   outperformancePoints: number | null;
 }
 
+/**
+ * Sleeve weights, cached briefly.
+ *
+ * Identical for every member and changed only by an admin, but it was a
+ * round-trip on every statement build -- and this database multiplexes
+ * through a proxy, so each one is real latency rather than something that
+ * overlaps with its neighbours. The TTL is short enough that an admin edit
+ * shows up while they are still looking at the screen.
+ */
+const SLEEVE_TTL_MS = 30_000;
+let sleeveCache: Array<{ symbol: string; assetClass: string; sleeveWeight: number }> | null = null;
+let sleeveFetchedAt = 0;
+
+async function getSleeveAssets() {
+  if (sleeveCache !== null && Date.now() - sleeveFetchedAt < SLEEVE_TTL_MS) return sleeveCache;
+  sleeveCache = await prisma.vaultAsset.findMany({
+    where: { isActive: true, role: { not: VaultAssetRole.BENCHMARK } },
+    orderBy: { sleeveWeight: 'desc' },
+    select: { symbol: true, assetClass: true, sleeveWeight: true },
+  });
+  sleeveFetchedAt = Date.now();
+  return sleeveCache;
+}
+
 /** Modified Dietz: strips cashflow, then divides by the capital actually at work. */
 function periodReturn(opening: number, closing: number, netFlow: number): number | null {
   const averageCapital = opening + netFlow / 2;
@@ -108,7 +132,7 @@ export async function buildPerformanceStatement(
 ): Promise<PerformanceStatement> {
   const bounds = getPeriodBounds(period, asOf);
 
-  const [valuationsInPeriod, openingRow, contributions, withdrawals, accruals, assets, valuation] =
+  const [valuationsInPeriod, openingRow, contributions, withdrawals, accruals, assets, vaultRows] =
     await Promise.all([
       prisma.vaultValuation.findMany({
         where: { vaultId, valuationDate: { gte: bounds.start, lte: bounds.end } },
@@ -149,19 +173,67 @@ export async function buildPerformanceStatement(
         where: { vaultId, accrualDate: { gte: bounds.start, lte: bounds.end } },
         select: { assetClass: true, amount: true },
       }),
-      prisma.vaultAsset.findMany({
-        where: { isActive: true, role: { not: VaultAssetRole.BENCHMARK } },
-        orderBy: { sleeveWeight: 'desc' },
-        select: { symbol: true, assetClass: true, sleeveWeight: true },
+      getSleeveAssets(),
+      /*
+       * The vault's own rows, NOT valueVault().
+       *
+       * valueVault was costing 829ms of a 2.2s build for three figures this
+       * statement actually uses, because it also prices the 401k benchmark --
+       * an index lookup per distinct contribution date -- which nothing here
+       * reads. A class is worth its principal plus the performance credited
+       * to it, and both are columns, so one query answers it.
+       */
+      prisma.retirementVault.findUnique({
+        where: { id: vaultId },
+        select: {
+          cashBalance: true,
+          totalContributed: true,
+          totalWithdrawn: true,
+          holdings: {
+            where: { units: { not: 0 } },
+            select: { costBasis: true, asset: { select: { assetClass: true } } },
+          },
+          allocations: { select: { assetClass: true, accruedPerformance: true } },
+        },
       }),
-      valueVault(vaultId, asOf),
     ]);
+
+  // Rebuild what valueVault would have handed back, from the rows above.
+  const principalByClass = new Map<string, number>();
+  for (const holding of vaultRows?.holdings ?? []) {
+    principalByClass.set(
+      holding.asset.assetClass,
+      (principalByClass.get(holding.asset.assetClass) ?? 0) + holding.costBasis,
+    );
+  }
+
+  const classValues: Record<string, { principal: number; accrued: number; value: number }> = {};
+  for (const allocation of vaultRows?.allocations ?? []) {
+    const principal = principalByClass.get(allocation.assetClass) ?? 0;
+    classValues[allocation.assetClass] = {
+      principal,
+      accrued: allocation.accruedPerformance,
+      value: principal + allocation.accruedPerformance,
+    };
+  }
+  // A class holding principal with no allocation row still has value.
+  for (const [assetClass, principal] of principalByClass) {
+    if (classValues[assetClass] === undefined) {
+      classValues[assetClass] = { principal, accrued: 0, value: principal };
+    }
+  }
+
+  const holdingsValue = Object.values(classValues).reduce((s, c) => s + c.value, 0);
+  const cashBalance = vaultRows?.cashBalance ?? 0;
+  const totalValue = holdingsValue + cashBalance;
+  const totalContributedNow = vaultRows?.totalContributed ?? 0;
+  const allTimeGainNow = totalValue - totalContributedNow + (vaultRows?.totalWithdrawn ?? 0);
 
   const contributionsInPeriod = contributions.reduce((s, c) => s + c.amount, 0);
   const withdrawalsInPeriod = withdrawals.reduce((s, w) => s + w.amount, 0);
 
   const latest = valuationsInPeriod[valuationsInPeriod.length - 1];
-  const closing = latest?.totalValue ?? valuation?.totalValue ?? 0;
+  const closing = latest?.totalValue ?? totalValue;
   const opening = openingRow?.totalValue ?? valuationsInPeriod[0]?.totalValue ?? closing;
 
   /*
@@ -204,8 +276,6 @@ export async function buildPerformanceStatement(
   }
 
   /* ------------------------------------------------------------ per class */
-
-  const classValues = valuation?.classValues ?? {};
 
   const gainByClass = new Map<string, number>();
   for (const accrual of accruals) {
@@ -287,8 +357,8 @@ export async function buildPerformanceStatement(
         `distributed pro-rata across asset classes`
       : null;
 
-  const totalContributed = valuation?.contributedToDate ?? 0;
-  const allTimeGain = valuation?.unrealisedGainLoss ?? 0;
+  const totalContributed = totalContributedNow;
+  const allTimeGain = allTimeGainNow;
 
   return {
     period,
@@ -300,7 +370,7 @@ export async function buildPerformanceStatement(
           valuationsInPeriod.length === 1 ? '' : 's'
         } in ${bounds.label}. A period needs an opening and a closing figure before a return means anything.`,
     tiles: {
-      balance: valuation?.totalValue ?? closing,
+      balance: totalValue,
       balanceChange: available ? closing - opening : 0,
       returnPercent,
       benchmarkReturnPercent,
