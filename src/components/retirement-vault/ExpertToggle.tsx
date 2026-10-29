@@ -95,23 +95,12 @@ export default function ExpertToggle({
   const on = state.expertAllocatorActive;
   const locked = !state.canSwitch;
 
-  // The track carries the state. Locked is amber rather than faded, so a
-  // member reads "not yet" instead of "broken".
-  const track = locked
-    ? on
-      ? 'bg-[#c1ff72] ring-2 ring-amber-300'
-      : 'bg-amber-200 ring-1 ring-amber-300'
-    : on
-      ? 'bg-[#c1ff72] hover:brightness-95'
-      : 'bg-slate-300 hover:bg-slate-400';
-
   const Switch = (
-    <button
+    <AllocatorSwitch
+      on={on}
+      locked={locked}
+      saving={saving}
       onClick={toggle}
-      disabled={saving || locked}
-      role="switch"
-      aria-checked={on}
-      aria-label="Expert Allocator"
       title={
         locked
           ? `You can change mode again in ${state.daysRemaining} day${state.daysRemaining === 1 ? '' : 's'}`
@@ -119,22 +108,7 @@ export default function ExpertToggle({
             ? 'Turn the Expert Allocator off'
             : 'Turn the Expert Allocator on'
       }
-      className={`relative w-12 h-7 rounded-full transition-all shrink-0 ${
-        locked ? 'cursor-not-allowed' : 'cursor-pointer'
-      } ${track}`}
-    >
-      <span
-        className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-          on ? 'translate-x-6' : 'translate-x-1'
-        }`}
-      />
-      {saving && (
-        <Loader2 className="w-3 h-3 animate-spin absolute inset-0 m-auto text-gray-700" />
-      )}
-      {locked && !saving && (
-        <Lock className="w-2.5 h-2.5 absolute top-1/2 -translate-y-1/2 text-amber-700/80 left-2" />
-      )}
-    </button>
+    />
   );
 
   /** One short line naming the state, coloured to match the track. */
@@ -215,5 +189,72 @@ export default function ExpertToggle({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The switch itself, with no data behind it.
+ *
+ * Separated so all four states -- off, on, locked and saving -- can be put on
+ * screen and looked at together. A control with states you can only reach by
+ * arranging the right database is a control nobody checks.
+ *
+ * GEOMETRY. The track is the flex container and its padding is the inset, so
+ * the knob's travel is exactly w-12 less p-1 twice less w-5 = 20px. The
+ * previous version positioned the knob `absolute top-1` with no `left`, which
+ * resolved to its static position inside a button -- centred -- and
+ * translate-x-6 then carried it off the right-hand end.
+ */
+export function AllocatorSwitch({
+  on,
+  locked,
+  saving,
+  onClick,
+  title,
+}: {
+  on: boolean;
+  locked: boolean;
+  saving: boolean;
+  onClick?: () => void;
+  title?: string;
+}) {
+  // The track carries the state. Locked is amber rather than faded, so a
+  // member reads "not yet" instead of "broken".
+  const track = locked
+    ? on
+      ? 'bg-[#c1ff72] ring-1 ring-inset ring-amber-400/60'
+      : 'bg-amber-100 ring-1 ring-inset ring-amber-300'
+    : on
+      ? 'bg-[#c1ff72] ring-1 ring-inset ring-black/[0.06] hover:brightness-[0.97]'
+      : 'bg-slate-200 ring-1 ring-inset ring-black/[0.06] hover:bg-slate-300';
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={saving || locked}
+      role="switch"
+      aria-checked={on}
+      aria-label="Expert Allocator"
+      title={title}
+      className={`inline-flex items-center h-7 w-12 shrink-0 rounded-full p-1
+        transition-colors duration-200 ease-out
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900
+        focus-visible:ring-offset-2 ${locked ? 'cursor-not-allowed' : 'cursor-pointer'} ${track}`}
+    >
+      <span
+        className={`inline-flex items-center justify-center h-5 w-5 rounded-full bg-white
+          shadow-sm ring-1 ring-black/[0.06] transition-transform duration-200 ease-out ${
+            on ? 'translate-x-5' : 'translate-x-0'
+          }`}
+      >
+        {/* The state marker rides in the knob, so nothing floats loose on the
+            track and the switch reads as one object. */}
+        {saving ? (
+          <Loader2 className="w-3 h-3 animate-spin text-gray-500" />
+        ) : locked ? (
+          <Lock className="w-2.5 h-2.5 text-amber-600" />
+        ) : null}
+      </span>
+    </button>
   );
 }
