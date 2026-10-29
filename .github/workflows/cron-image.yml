@@ -44,14 +44,20 @@ jobs:
           # Contabo is x86_64. Building arm64 as well would double the time
           # for an image nothing runs on a Pi.
           platforms: linux/amd64
+          # Same repository as the website, distinct tags.
+          #
+          # NEVER `latest`: that tag is the website, and these two images have
+          # different entrypoints. Pushing both to `latest` in one repository
+          # is how the wrong one ends up deployed. `cron` is the moving tag
+          # Coolify follows; `cron-<sha>` is the one to pin when rolling back.
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/acredis-cron:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/acredis-cron:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/acredisfinance:cron
+            ${{ secrets.DOCKERHUB_USERNAME }}/acredisfinance:cron-${{ github.sha }}
           # Layer cache between runs: npm install is most of the build.
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Summary
         run: |
-          echo "Pushed \`${{ secrets.DOCKERHUB_USERNAME }}/acredis-cron:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "and \`:${{ github.sha }}\` for rollback." >> $GITHUB_STEP_SUMMARY
+          echo "Pushed \`${{ secrets.DOCKERHUB_USERNAME }}/acredisfinance:cron\`" >> $GITHUB_STEP_SUMMARY
+          echo "and \`:cron-${{ github.sha }}\` for rollback." >> $GITHUB_STEP_SUMMARY
