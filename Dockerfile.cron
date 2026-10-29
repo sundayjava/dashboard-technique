@@ -1,0 +1,85 @@
+# Cron-only image: the scheduled vault jobs, nothing else.
+#
+# Separate from the website on purpose. Coolify runs a scheduled task inside a
+# container, and the obvious approach -- one image serving the site AND holding
+# the jobs -- came out at 1.74GB, because the jobs need the TypeScript
+# toolchain and the source tree that a production web image throws away.
+#
+# This image serves no traffic. It carries the two jobs, bundled to plain
+# JavaScript so no TypeScript toolchain is needed at runtime, and only the four
+# packages that survive bundling: Prisma's client and adapter (native engines,
+# cannot be bundled), pg, and dotenv.
+#
+# Debian slim rather than Alpine because Prisma's query engine wants glibc and
+# OpenSSL.
+FROM node:22-slim AS base
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+FROM base AS build
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+COPY scripts ./scripts
+RUN npx prisma generate
+# Bundle each job into one file, following tsconfig's "@/..." paths. Only the
+# packages that must stay real at runtime are external: Prisma ships platform
+# binaries and pg pulls in optional native bits. dotenv is inlined: in a
+# container there is no .env to read, so it finds nothing and the real values
+# come from the environment.
+#
+# CommonJS output, not ESM. Prisma, pg and dotenv are all CommonJS, and
+# bundling them into an ESM file makes esbuild emit a require() shim that
+# cannot load built-ins -- it fails on the first line with
+# 'Dynamic require of "fs" is not supported'.
+RUN npx esbuild scripts/cron_nightly.ts scripts/cron_price_sync.ts \
+      --bundle --platform=node --format=cjs --target=node22 \
+      --outdir=dist --tsconfig=tsconfig.json \
+      --external:@prisma/client --external:@prisma/adapter-pg \
+      --external:pg
+
+FROM base AS runner
+ENV NODE_ENV=production
+# A package.json of its own, so the runtime installs four packages rather than
+# inheriting the application's entire dependency tree.
+COPY --from=build /app/package.json /app/package-lock.json ./
+# EXACT versions, read out of the lockfile, then the lockfile is discarded.
+#
+# Both halves matter. Resolving fresh from caret ranges installs a newer
+# @prisma/client than the one the client in .prisma was generated against,
+# and the skew surfaces as "Cannot read properties of undefined (reading
+# 'graph')" on the first query rather than as an install error. Keeping the
+# application's lockfile instead pins correctly but drags its whole
+# resolution graph in, which is the 1.74GB this image exists to avoid.
+RUN node -e "const p=require('./package.json'); \
+    const lock=require('./package-lock.json'); \
+    const keep=['@prisma/client','@prisma/adapter-pg','pg']; \
+    const deps={}; for (const k of keep) { \
+      const e=lock.packages['node_modules/'+k]; \
+      if (!e) throw new Error('not in lockfile: '+k); deps[k]=e.version; } \
+    require('fs').writeFileSync('package.json', JSON.stringify( \
+      {name:'vault-cron',private:true,dependencies:deps},null,2));" \
+ && rm -f package-lock.json \
+ && npm install --omit=dev --no-audit --no-fund \
+ && npm cache clean --force
+
+# What survives: @prisma and pg with its handful of dependencies, 40MB in
+# total. The TypeScript compiler and the Prisma CLI that the application's
+# own tree drags in are simply never installed here, so there is nothing to
+# prune afterwards.
+
+# The generated client, copied rather than regenerated: the Prisma CLI is a dev
+# dependency and pulling it in here would undo the point of this image.
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/dist ./dist
+
+# Commands Coolify's scheduled tasks call.
+# Prices:  node dist/cron_price_sync.js  (add --force to ignore market hours)
+# Nightly: node dist/cron_nightly.js
+CMD ["node", "dist/cron_price_sync.js"]
