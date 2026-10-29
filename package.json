@@ -34,7 +34,9 @@
     "vault:test-modes": "tsx scripts/test_vault_modes.ts",
     "vault:test-asset-classes": "tsx scripts/test_vault_asset_classes.ts",
     "type-check": "tsc --noEmit",
-    "test:investments": "tsx scripts/test-investment-notifications.ts"
+    "test:investments": "tsx scripts/test-investment-notifications.ts",
+    "vault:cron:nightly": "tsx scripts/cron_nightly.ts",
+    "vault:cron:prices": "tsx scripts/cron_price_sync.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
