@@ -3,6 +3,7 @@ import { PriceProvider } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth-middleware';
 import { fetchPricesForAssets } from '@/lib/vault/price-providers';
+import { isUsSessionOpen } from '@/lib/vault/market-hours';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -100,12 +101,22 @@ export async function GET(request: NextRequest) {
      * "close" if the equity feed were ever upgraded, and it says nothing
      * about whether the number in front of you is actually current.
      *
-     * A row is live when the price we hold belongs to TODAY'S session and was
-     * fetched recently. Crypto satisfies that continuously. An equity
-     * satisfies it only while its market is open AND the plan returns
-     * intraday bars -- on an end-of-day plan the newest bar stays dated
-     * yesterday all day, so the rule keeps saying "close" on its own, with no
-     * flag to remember to flip.
+     * A row is live when the price we hold belongs to TODAY'S session, was
+     * fetched recently, AND that market is currently trading.
+     *
+     * THE LAST CLAUSE IS NOT REDUNDANT, which is where this got away from me.
+     * Date-plus-freshness alone looks sufficient and is not: at 21:40 UTC the
+     * stored bar is dated today and was fetched ten minutes ago, both tests
+     * pass, and the board puts a green dot on a market that shut at 20:00. The
+     * number is real and current -- it is simply the closing price, and that is
+     * exactly what "close" is there to say. The same hole stays open all
+     * weekend, when Friday's fetch is recent relative to nothing.
+     *
+     * Crypto is exempt because crypto genuinely never closes, and gating it on
+     * an equity session would mark the coins shut every Saturday. The exemption
+     * is on the provider being a continuous market, not on it being CoinGecko:
+     * the question asked is "does this market close", and an equity feed that
+     * started returning tick data still answers yes.
      *
      * Deliberately read from stored data. This runs on every page view, and
      * fetching Twelve Data here would spend a credit per symbol per viewer --
@@ -113,12 +124,15 @@ export async function GET(request: NextRequest) {
      * fetching; this only reports how fresh the result is.
      */
     const todayUtc = new Date().toISOString().slice(0, 10);
+    const sessionOpen = isUsSessionOpen();
 
     const rows = assets.map((a) => {
       const live = liveCache.get(a.id);
       const snap = latest.get(a.id);
       const syncedAt = a.lastSyncedAt?.getTime() ?? 0;
+      const continuousMarket = a.provider === PriceProvider.COINGECKO;
       const storedIsLive =
+        (continuousMarket || sessionOpen) &&
         snap?.priceDate.toISOString().slice(0, 10) === todayUtc &&
         Date.now() - syncedAt < STORED_LIVE_WINDOW_MS;
       const price = live?.price ?? a.currentPrice;
