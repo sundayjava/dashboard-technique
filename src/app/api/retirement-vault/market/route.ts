@@ -20,6 +20,14 @@ export const MARKET_ASSET_LIMIT = 15;
  */
 const LIVE_TTL_MS = 30_000;
 
+/**
+ * How recently a stored price must have been fetched to count as live.
+ *
+ * Must comfortably exceed the sync cadence, or a board would flicker between
+ * live and close between runs. Generous enough to survive one missed sync.
+ */
+const STORED_LIVE_WINDOW_MS = 30 * 60 * 1000;
+
 interface LiveQuote {
   price: number;
   changePercent: number | null;
@@ -84,9 +92,35 @@ export async function GET(request: NextRequest) {
 
     await refreshLiveQuotes(assets);
 
+    /*
+     * WHAT "LIVE" MEANS, AND WHY IT IS NOT A LIST OF PROVIDERS.
+     *
+     * It used to be `provider === COINGECKO`, which was a proxy for "has
+     * intraday data" and wrong in both directions: it would keep saying
+     * "close" if the equity feed were ever upgraded, and it says nothing
+     * about whether the number in front of you is actually current.
+     *
+     * A row is live when the price we hold belongs to TODAY'S session and was
+     * fetched recently. Crypto satisfies that continuously. An equity
+     * satisfies it only while its market is open AND the plan returns
+     * intraday bars -- on an end-of-day plan the newest bar stays dated
+     * yesterday all day, so the rule keeps saying "close" on its own, with no
+     * flag to remember to flip.
+     *
+     * Deliberately read from stored data. This runs on every page view, and
+     * fetching Twelve Data here would spend a credit per symbol per viewer --
+     * the 800/day budget would be gone within the hour. The cron does the
+     * fetching; this only reports how fresh the result is.
+     */
+    const todayUtc = new Date().toISOString().slice(0, 10);
+
     const rows = assets.map((a) => {
       const live = liveCache.get(a.id);
       const snap = latest.get(a.id);
+      const syncedAt = a.lastSyncedAt?.getTime() ?? 0;
+      const storedIsLive =
+        snap?.priceDate.toISOString().slice(0, 10) === todayUtc &&
+        Date.now() - syncedAt < STORED_LIVE_WINDOW_MS;
       const price = live?.price ?? a.currentPrice;
       // A stored change of exactly 0 is far more often "never computed" than
       // "unchanged", and showing a confident 0.00% would be a lie.
@@ -102,7 +136,7 @@ export async function GET(request: NextRequest) {
         open: snap?.open ?? null,
         volume: live?.volume ?? snap?.volume ?? null,
         previousClose: a.previousClose > 0 ? a.previousClose : null,
-        live: live !== undefined,
+        live: live !== undefined || storedIsLive,
         asOf: live !== undefined ? new Date(live.at) : a.lastSyncedAt,
       };
     });
