@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PriceSyncTrigger } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { sendInvestmentMaturityNotification } from '@/lib/email';
-import { runVaultNightly } from '@/lib/vault/nightly';
 
 export const dynamic = 'force-dynamic';
 
-// Raised from the 10s default: this route now also drives the Retirement Vault
-// price sync, which pays DNS and TLS per provider on a cold start. 60s is the
-// Vercel Hobby maximum.
+// Raised from the 10s default: a maturity run sends one email per admin per
+// matured investment, and the sends are sequential enough to outlast 10s.
 export const maxDuration = 60;
 
 // This endpoint should be called by a cron job (e.g., Vercel Cron, GitHub Actions, or external cron service)
@@ -27,12 +24,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Investment maturity processing runs FIRST and to completion.
-  //
-  // It moves real money, so it must not be left truncated because a price
-  // vendor was slow. The sync below can consume ~20s of the 60s budget when
-  // feeds time out, and running it first risked the function being killed
-  // mid-loop with investments half-processed.
+  // Isolated behind try/catch rather than allowed to throw: this moves real
+  // money, and a half-processed loop surfacing as a 500 tells the operator
+  // nothing about how far it got.
   let investmentPayload: Record<string, unknown>;
   let httpStatus = 200;
 
@@ -48,26 +42,31 @@ export async function GET(request: NextRequest) {
   }
 
   /*
-   * Retirement Vault, in one call.
+   * THE RETIREMENT VAULT NO LONGER RUNS HERE. Do not add it back.
    *
-   * The ordering lives in runVaultNightly() so a scheduler outside Vercel can
-   * run exactly the same chain; two copies of it would drift, and the
-   * ordering is the fragile part. Fully isolated -- nothing in there throws --
-   * so a vendor outage cannot reach the investment work above.
+   * It used to run at the end of this route, on Vercel's 00:00 UTC cron. That
+   * is the worst possible moment for it. Crediting is frozen the first time a
+   * class is credited for a trading day, so whichever scheduler runs first
+   * fixes the published figure for good -- and at midnight UTC the day it is
+   * crediting has barely started. Crypto for 29 Oct was credited at +0.997%
+   * from its first hour and closed the day at -10.0%; equities had no bar for
+   * the day at all and were credited a day behind.
+   *
+   * The chain now runs once, from Coolify, at 21:30 UTC -- after the US close,
+   * on the day's real numbers. Vercel Hobby cannot do that: two crons, once a
+   * day each, and a 60s function, against a chain that wants to run on a
+   * schedule tied to a market rather than to a clock.
+   *
+   * Running it from both schedulers is not a harmless belt and braces: the
+   * earlier run wins the credit and the later one is reduced to recomputing a
+   * figure it is no longer allowed to publish.
+   *
+   *   chain + ordering : src/lib/vault/nightly.ts
+   *   entry point      : scripts/cron_nightly.ts  (Coolify scheduled task)
    */
-  const vault = await runVaultNightly(PriceSyncTrigger.CRON);
 
   return NextResponse.json(
-    {
-      ...investmentPayload,
-      vaultPriceSync: vault.priceSync,
-      vaultClassPerformance: vault.classPerformance,
-      vaultValuations: vault.valuations,
-      vaultReportCards: vault.reportCards,
-      vaultAutoContributions: vault.autoContributions,
-      vaultRebalances: vault.rebalances,
-      withdrawalNoticesServed: vault.withdrawalNoticesServed,
-    },
+    investmentPayload,
     { status: httpStatus },
   );
 }
