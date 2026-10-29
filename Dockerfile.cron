@@ -79,7 +79,15 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/dist ./dist
 
-# Commands Coolify's scheduled tasks call.
-# Prices:  node dist/cron_price_sync.js  (add --force to ignore market hours)
-# Nightly: node dist/cron_nightly.js
-CMD ["node", "dist/cron_price_sync.js"]
+# THE CONTAINER IDLES. IT DOES NOT RUN A JOB.
+#
+# Coolify's scheduled tasks exec into a running container, so the container
+# has to stay up between them. The obvious default -- running the price sync
+# -- exits in a few seconds, which Coolify reads as a crash and restarts,
+# giving an endless restarting/running flap and a job that fires far more
+# often than its schedule.
+#
+# The jobs are invoked as scheduled tasks:
+#   node dist/cron_price_sync.js     (--force ignores market hours)
+#   node dist/cron_nightly.js
+CMD ["sh", "-c", "echo 'vault-cron ready; jobs run as scheduled tasks'; exec sleep infinity"]
