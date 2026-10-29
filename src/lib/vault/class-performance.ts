@@ -208,12 +208,31 @@ export async function persistClassRates(rates: ClassRate[]): Promise<void> {
       breakdown: JSON.stringify(rate.breakdown),
     };
 
+    /*
+     * A RATE IS IMMUTABLE ONCE SOMEONE HAS BEEN PAID ON IT.
+     *
+     * This used to update unconditionally, which was fine while the chain ran
+     * once a day and wrong the moment it ran twice. The credit is frozen after
+     * the first write -- one per vault, per class, per trading day -- so a
+     * later run that revised the rate left the member's statement showing a
+     * figure they were never paid. It happened: crypto was credited at
+     * +0.9969% at 00:51 and the stored rate was rewritten to -6.6793% at
+     * 10:28, a divergence of 7.68 points on a live statement.
+     *
+     * Before anyone is credited there is nothing to contradict, so the rate is
+     * still refreshed -- that covers a first run against half-synced prices
+     * being improved by a later one.
+     */
+    const alreadyCredited = await prisma.vaultClassAccrual.count({
+      where: { assetClass: rate.assetClass, accrualDate: performanceDate },
+    });
+
     await prisma.vaultClassPerformanceDay.upsert({
       where: {
         assetClass_performanceDate: { assetClass: rate.assetClass, performanceDate },
       },
       create: { assetClass: rate.assetClass, performanceDate, ...data },
-      update: data,
+      update: alreadyCredited > 0 ? {} : data,
     });
   }
 }

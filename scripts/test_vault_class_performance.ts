@@ -11,6 +11,7 @@ import { RISK_QUESTIONS } from '../src/lib/vault/risk-questionnaire';
 import {
   accrueVaults,
   computeClassRates,
+  persistClassRates,
   getLatestClassRates,
   runDailyClassPerformance,
 } from '../src/lib/vault/class-performance';
@@ -261,6 +262,38 @@ async function main() {
   check('the balance is untouched',
     Math.abs((afterNextDay.classValues[CLASS_KEY]?.value ?? 0) - 210) < 0.01,
     String(afterNextDay.classValues[CLASS_KEY]?.value));
+
+  console.log('\n=== 4c. A credited day\'s RATE is frozen, not just its credit ===');
+  // The chain running twice in a day used to revise the published rate while
+  // the credit stayed put, so a member saw a figure they were never paid:
+  // crypto credited at +0.9969% and displayed at -6.6793% on the same day.
+  const beforeRate = await prisma.vaultClassPerformanceDay.findFirstOrThrow({
+    where: { assetClass: CLASS_KEY, performanceDate: DAY },
+  });
+
+  await prisma.vaultAssetClassDef.update({
+    where: { key: CLASS_KEY },
+    data: { dailyUpliftPercent: 9 },
+  });
+  await persistClassRates(await computeClassRates(DAY));
+
+  const afterRate = await prisma.vaultClassPerformanceDay.findFirstOrThrow({
+    where: { assetClass: CLASS_KEY, performanceDate: DAY },
+  });
+  check('the stored rate did not move', afterRate.totalPercent === beforeRate.totalPercent,
+    `${beforeRate.totalPercent} -> ${afterRate.totalPercent}`);
+
+  const creditedAt = await prisma.vaultClassAccrual.findFirstOrThrow({
+    where: { vaultId, assetClass: CLASS_KEY, accrualDate: DAY },
+  });
+  check('and still matches what the member was paid',
+    Math.abs(afterRate.totalPercent - creditedAt.ratePercent) < 1e-9,
+    `rate ${afterRate.totalPercent} vs credited ${creditedAt.ratePercent}`);
+
+  await prisma.vaultAssetClassDef.update({
+    where: { key: CLASS_KEY },
+    data: { dailyUpliftPercent: 5.79 },
+  });
 
   console.log('\n=== 5. A day already credited keeps its stored rate ===');
   // The admin moves the uplift AFTER the day was closed. Members have already
