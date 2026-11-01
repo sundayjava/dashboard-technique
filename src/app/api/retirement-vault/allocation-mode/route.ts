@@ -7,6 +7,7 @@ import { authenticateRequest } from '@/lib/auth-middleware';
 import { canSwitchMode, getTargetAllocation } from '@/lib/vault/allocation-model';
 import { loadVaultPolicy } from '@/lib/vault/policy-store';
 import { applyRebalance, proposeRebalance } from '@/lib/vault/rebalance-engine';
+import { getStoredHistoryDays, MIN_HISTORY_DAYS } from '@/lib/vault/signals';
 import { getOpenVaultForUser } from '@/lib/vault/vault-utils';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,12 @@ export async function GET(request: NextRequest) {
       policy.modeSwitchCooldownDays,
     );
 
+    // Whether the allocator has enough price history to tilt yet. Reported
+    // beside the toggle that turns it on, because that is where a member asks
+    // the question: an Expert Allocator switched ON and visibly doing nothing
+    // reads as broken unless something says otherwise.
+    const history = await getStoredHistoryDays();
+
     return NextResponse.json({
       success: true,
       allocationMode: vault.allocationMode,
@@ -40,6 +47,9 @@ export async function GET(request: NextRequest) {
       daysRemaining: cooldown.daysRemaining,
       nextAllowedAt: cooldown.nextAllowedAt,
       modeLastChangedAt: vault.modeLastChangedAt,
+      signalsAvailable: history.days >= MIN_HISTORY_DAYS,
+      historyDays: history.days,
+      historyRequired: MIN_HISTORY_DAYS,
     });
   } catch (error) {
     console.error('[Vault Allocation Mode] GET error:', error);

@@ -32,7 +32,37 @@ export interface PolicySettingDefinition {
   defaultValue: number;
   /** How the admin UI should render it. */
   unit: 'percent' | 'days';
+  /**
+   * Which part of the product the setting governs.
+   *
+   * Seven numbers in one flat list gave no clue that the crypto cap and the
+   * withdrawal penalty act on completely different machinery, which is the
+   * thing an admin has to know before changing one.
+   */
+  group: 'allocation' | 'withdrawals' | 'engine';
 }
+
+/** Group headings, and where each group actually bites. */
+export const POLICY_GROUPS: Array<{ id: PolicySettingDefinition['group']; title: string; blurb: string }> = [
+  {
+    id: 'allocation',
+    title: 'How money is allocated',
+    blurb:
+      'Applied when a vault is funded, when it is rebalanced, and to anything the Expert ' +
+      'Allocator proposes.',
+  },
+  {
+    id: 'withdrawals',
+    title: 'Taking money out',
+    blurb:
+      'Quoted to the member before they confirm a withdrawal, and charged when it is paid.',
+  },
+  {
+    id: 'engine',
+    title: 'Daily performance engine',
+    blurb: 'A safety bound on the nightly run that credits every member.',
+  },
+];
 
 export const POLICY_SETTINGS: PolicySettingDefinition[] = [
   {
@@ -45,6 +75,7 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     max: 25,
     defaultValue: DEFAULT_VAULT_POLICY.cryptoCapPercent,
     unit: 'percent',
+    group: 'allocation',
   },
   {
     key: 'driftThresholdPercent',
@@ -56,6 +87,7 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     max: 25,
     defaultValue: DEFAULT_VAULT_POLICY.driftThresholdPercent,
     unit: 'percent',
+    group: 'allocation',
   },
   {
     key: 'modeSwitchCooldownDays',
@@ -67,6 +99,7 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     max: 365,
     defaultValue: DEFAULT_VAULT_POLICY.modeSwitchCooldownDays,
     unit: 'days',
+    group: 'allocation',
   },
   {
     key: 'withdrawalNoticeDays',
@@ -76,6 +109,7 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     max: 90,
     defaultValue: DEFAULT_VAULT_POLICY.withdrawalNoticeDays,
     unit: 'days',
+    group: 'withdrawals',
   },
   {
     key: 'softLockPenaltyPercent',
@@ -87,6 +121,7 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     max: 20,
     defaultValue: DEFAULT_VAULT_POLICY.softLockPenaltyPercent,
     unit: 'percent',
+    group: 'withdrawals',
   },
   {
     key: 'flexiblePenaltyPercent',
@@ -98,6 +133,7 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     max: 20,
     defaultValue: DEFAULT_VAULT_POLICY.flexiblePenaltyPercent,
     unit: 'percent',
+    group: 'withdrawals',
   },
   {
     key: 'dailyRateCapPercent',
@@ -110,6 +146,7 @@ export const POLICY_SETTINGS: PolicySettingDefinition[] = [
     max: 50,
     defaultValue: DEFAULT_VAULT_POLICY.dailyRateCapPercent,
     unit: 'percent',
+    group: 'engine',
   },
 ];
 

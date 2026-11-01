@@ -118,6 +118,11 @@ async function getSleeveAssets() {
   return sleeveCache;
 }
 
+/** Last instant of a valuation's day: when an end-of-day snapshot was taken. */
+function endOfUtcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
+}
+
 /** Modified Dietz: strips cashflow, then divides by the capital actually at work. */
 function periodReturn(opening: number, closing: number, netFlow: number): number | null {
   const averageCapital = opening + netFlow / 2;
@@ -150,7 +155,14 @@ export async function buildPerformanceStatement(
       prisma.vaultValuation.findFirst({
         where: { vaultId, valuationDate: { lt: bounds.start } },
         orderBy: { valuationDate: 'desc' },
-        select: { totalValue: true, benchmarkValue: true },
+        // Date and contributions come back too so this row can also be the
+        // chart's first point -- see the series below.
+        select: {
+          valuationDate: true,
+          totalValue: true,
+          benchmarkValue: true,
+          contributedToDate: true,
+        },
       }),
       prisma.vaultContribution.findMany({
         where: {
@@ -247,11 +259,27 @@ export async function buildPerformanceStatement(
    * -65% return on a month it actually gained.
    *
    * So the flow window starts where the opening balance was measured.
+   *
+   * MEASURED AT THE END OF ITS DAY, not at midnight. A valuation is stamped
+   * with a date only, but it is an end-of-day snapshot -- the nightly job
+   * writes it after the US close. Comparing a contribution's real timestamp
+   * against that midnight label counts anything paid in earlier the same day
+   * as a fresh inflow, even though the opening balance already contains it.
+   * That is the same double-count as above wearing a different hat, and it
+   * was live: RV-2026-00001 opened with $2,000 at 00:37 and was first valued
+   * at $1,989.18 the same day, which reported -68.57% for a month that lost
+   * 2.49%.
+   *
+   * The residual case -- money paid in late in the day, after the valuation
+   * ran -- is excluded for one day when it should not be. A date-only stamp
+   * cannot resolve intra-day ordering at all, and erring towards "the opening
+   * balance already includes today" is right far more often, because that is
+   * what an end-of-day snapshot means.
    */
   const openingDate =
     openingRow !== null
       ? bounds.start
-      : (valuationsInPeriod[0]?.valuationDate ?? bounds.start);
+      : endOfUtcDay(valuationsInPeriod[0]?.valuationDate ?? bounds.start);
 
   const flowContributions =
     openingRow !== null
@@ -393,7 +421,21 @@ export async function buildPerformanceStatement(
           : null,
     },
     contributionNote,
-    series: valuationsInPeriod.map((v) => ({
+    /*
+     * THE LINE STARTS AT THE OPENING BALANCE, not at the period's first
+     * reading.
+     *
+     * The tiles already work this way -- a period opens where the last one
+     * closed -- and plotting only in-period rows left the chart needing two
+     * readings while the tiles needed one. On the 1st of a month that showed
+     * a populated return above an "not enough history yet" chart, which looks
+     * broken and is really just two different ideas of where a period begins.
+     *
+     * Carrying the previous close in also makes the first day's movement
+     * visible: without it the line's first point is already a day's gain into
+     * the month, and that gain is invisible.
+     */
+    series: [...(openingRow === null ? [] : [openingRow]), ...valuationsInPeriod].map((v) => ({
       date: v.valuationDate.toISOString().slice(0, 10),
       vault: Number(v.totalValue.toFixed(2)),
       benchmark: v.benchmarkValue === null ? null : Number(v.benchmarkValue.toFixed(2)),

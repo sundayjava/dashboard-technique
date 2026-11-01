@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth-middleware';
 import {
+  POLICY_GROUPS,
   POLICY_SETTINGS,
   loadVaultPolicyDetailed,
   seedVaultPolicy,
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
       success: true,
       seeded,
       warnings,
+      groups: POLICY_GROUPS,
       settings: POLICY_SETTINGS.map((definition) => ({
         key: definition.key,
         label: definition.label,
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
         min: definition.min,
         max: definition.max,
         unit: definition.unit,
+        group: definition.group,
         defaultValue: definition.defaultValue,
         value: policy[definition.key],
       })),

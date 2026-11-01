@@ -190,6 +190,16 @@ export default function AdminAssetClassesPage() {
 
   const active = rows.filter((r) => r.isActive);
 
+  /*
+   * The worked example above quotes the live figure rather than a hardcoded
+   * one. An admin who has already changed Balanced should not be shown the
+   * default and left to wonder which of the two is real.
+   */
+  const balancedShare = (key: string) => {
+    const pct = rows.find((r) => r.key === key)?.targets?.BALANCED;
+    return pct === undefined ? 'its share' : `$${((2000 * pct) / 100).toLocaleString()} (${pct}%)`;
+  };
+
   return (
     <div className="space-y-6 pb-10">
       <div>
@@ -207,6 +217,15 @@ export default function AdminAssetClassesPage() {
           moves plus its uplift, and every member&apos;s money in that class grows by the
           result. Change it as often as you like &mdash; a day already closed keeps the figure
           it was credited with.
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
+          <span className="font-medium text-gray-700">Conservative, Balanced and Growth</span>{' '}
+          are the three risk profiles. Every member is placed on one by the onboarding
+          questionnaire, and that column is the recipe for splitting their money: a Balanced
+          member with $2,000 gets {balancedShare('GLOBAL_EQUITIES')} of it in Global Equities.
+          Each column must total 100%, which is why a whole profile saves at once rather than
+          one box at a time. Uplift decides how fast money in a class grows; these decide how
+          much money is in it to begin with.
         </p>
       </div>
 
