@@ -415,13 +415,25 @@ export default function PerformanceStatement() {
             {statement.series.length >= 2 ? (
               <PerformanceChart series={statement.series} dark />
             ) : (
+              /*
+               * Two different empty states, because they mean different
+               * things to the member. One point means the period has opened
+               * and its first reading has not landed; none means the vault has
+               * never been valued. The old copy covered both with a count and
+               * "the line starts once there are two", which on the 1st of a
+               * month sat under a populated return and read as a fault.
+               */
               <div className="h-[200px] flex flex-col items-center justify-center text-center px-6">
                 <TrendingUp className="w-8 h-8 text-slate-700 mb-2" />
-                <p className="text-sm text-slate-200 font-medium">Not enough history yet</p>
+                <p className="text-sm text-slate-200 font-medium">
+                  {statement.series.length === 1
+                    ? `${statement.periodLabel} has only just opened`
+                    : 'Not enough history yet'}
+                </p>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                  Your vault is valued once a day. {statement.series.length} valuation
-                  {statement.series.length === 1 ? '' : 's'} so far in {statement.periodLabel};
-                  the line starts once there are two.
+                  {statement.series.length === 1
+                    ? 'Your opening balance is carried over from last period. The line appears with tonight\u2019s valuation, taken after the US market closes.'
+                    : 'Your vault is valued once a day, after the US market closes. The line appears from the first valuation.'}
                 </p>
               </div>
             )}
