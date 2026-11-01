@@ -13,8 +13,15 @@ interface PolicySetting {
   min: number;
   max: number;
   unit: 'percent' | 'days';
+  group: string;
   defaultValue: number;
   value: number;
+}
+
+interface PolicyGroup {
+  id: string;
+  title: string;
+  blurb: string;
 }
 
 interface SleeveAsset {
@@ -27,6 +34,7 @@ interface SleeveAsset {
 }
 
 interface PolicyData {
+  groups?: PolicyGroup[];
   warnings: string[];
   settings: PolicySetting[];
   sleeveAssets: SleeveAsset[];
@@ -145,10 +153,25 @@ export default function AdminVaultPolicyPage() {
       )}
 
       {/* Scalar settings */}
-      <section className="bg-white rounded-lg shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">Policy settings</h2>
+      {/*
+        Grouped, not one flat list.
+        
+        Every one of these seven is live -- each was traced to the code that
+        reads it before this page was touched -- but presented as a single
+        column they read as interchangeable knobs. They are not: the crypto cap
+        reshapes allocations, the penalties take money off a member at payout,
+        and the rate cap bounds the nightly engine. Knowing which machinery a
+        number drives is the thing to know before changing it.
+      */}
+      {(data.groups ?? [{ id: '', title: 'Policy settings', blurb: '' }]).map((group) => {
+        const inGroup = data.settings.filter((s) => group.id === '' || s.group === group.id);
+        if (inGroup.length === 0) return null;
+        return (
+      <section key={group.id} className="bg-white rounded-lg shadow-sm p-5">
+        <h2 className="text-sm font-semibold text-gray-900">{group.title}</h2>
+        {group.blurb && <p className="text-xs text-gray-500 mt-0.5 mb-4">{group.blurb}</p>}
         <div className="space-y-4">
-          {data.settings.map((setting) => {
+          {inGroup.map((setting) => {
             const changed = settingDrafts[setting.key] !== String(setting.value);
             return (
               <div
@@ -204,6 +227,8 @@ export default function AdminVaultPolicyPage() {
           })}
         </div>
       </section>
+        );
+      })}
 
       {/*
         The per-profile allocation matrix used to live here as well. It has
