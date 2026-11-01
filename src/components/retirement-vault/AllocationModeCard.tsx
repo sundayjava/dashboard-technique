@@ -12,6 +12,9 @@ interface ModeState {
   cooldownDays: number;
   canSwitch: boolean;
   daysRemaining: number;
+  signalsAvailable: boolean;
+  historyDays: number;
+  historyRequired: number;
 }
 
 const MODES = [
@@ -49,6 +52,13 @@ const ASSET_CLASSES = [
  *
  * The cooldown is shown rather than hidden: a member who cannot switch should
  * know why and when they can, not find a button that silently does nothing.
+ *
+ * The thin-history notice sits here for the same reason, and moved here from
+ * the rebalance history panel on the overview. Under a heading called
+ * "Rebalance history" it was the only thing rendering, for what will be months
+ * -- a panel promising a list and delivering a disclaimer. The sentence is
+ * about why the allocator is not tilting, so it belongs against the control
+ * that turns the allocator on.
  */
 export default function AllocationModeCard({ onChanged }: { onChanged: () => void }) {
   const [state, setState] = useState<ModeState | null>(null);
@@ -147,6 +157,18 @@ export default function AllocationModeCard({ onChanged }: { onChanged: () => voi
               {ASSET_CLASSES.find((c) => c.value === state.focusedAssetClass)?.label ??
                 state.focusedAssetClass}
             </p>
+          )}
+
+          {state.expertAllocatorActive && !state.signalsAvailable && (
+            <div className="flex items-start gap-2 mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
+              <Clock className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-900">
+                Market tilts need {state.historyRequired} days of price history and we hold{' '}
+                <span className="font-medium">{state.historyDays}</span>. Until then your
+                vault is kept at its plain profile target and rebalanced back to it, rather
+                than tilted on data too thin to trust.
+              </p>
+            </div>
           )}
 
           {!state.canSwitch && (
