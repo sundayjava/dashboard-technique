@@ -125,7 +125,7 @@ export default function AdminVaultPolicyPage() {
   return (
     <div className="space-y-6 pb-10">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Retirement Vault policy</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Retirement Vault policy</h1>
         <p className="text-sm text-gray-600 mt-1">
           These values apply to vaults created or rebalanced from now on. Existing members&apos;
           allocations are not rewritten — they change at their next rebalance, so nothing shifts
@@ -138,13 +138,15 @@ export default function AdminVaultPolicyPage() {
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-900">
                 Some stored values are being ignored
               </p>
               <ul className="text-xs text-amber-800 mt-1 space-y-0.5 list-disc list-inside">
                 {data.warnings.map((w) => (
-                  <li key={w}>{w}</li>
+                  <li key={w} className="break-words">
+                    {w}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -167,7 +169,7 @@ export default function AdminVaultPolicyPage() {
         const inGroup = data.settings.filter((s) => group.id === '' || s.group === group.id);
         if (inGroup.length === 0) return null;
         return (
-      <section key={group.id} className="bg-white rounded-lg shadow-sm p-5">
+      <section key={group.id} className="bg-white rounded-lg shadow-sm p-4 sm:p-5">
         <h2 className="text-sm font-semibold text-gray-900">{group.title}</h2>
         {group.blurb && <p className="text-xs text-gray-500 mt-0.5 mb-4">{group.blurb}</p>}
         <div className="space-y-4">
@@ -178,14 +180,20 @@ export default function AdminVaultPolicyPage() {
                 key={setting.key}
                 className="flex flex-col md:flex-row md:items-center gap-3 border-b border-gray-100 pb-4 last:border-0 last:pb-0"
               >
-                <div className="flex-1">
+                {/*
+                  min-w-0 is load-bearing. A flex child defaults to
+                  min-width:auto, so once this row goes horizontal the
+                  description refuses to wrap below its longest word and
+                  pushes the whole row wider than the card.
+                */}
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{setting.label}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{setting.description}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 break-words">{setting.description}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     Allowed {setting.min}–{setting.max} · default {setting.defaultValue}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <input
                     type="number"
                     value={settingDrafts[setting.key] ?? ''}
@@ -195,9 +203,9 @@ export default function AdminVaultPolicyPage() {
                     min={setting.min}
                     max={setting.max}
                     step="0.5"
-                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg text-base sm:text-sm"
                   />
-                  <span className="text-xs text-gray-500 w-10">
+                  <span className="text-xs text-gray-500 w-8 sm:w-10 shrink-0">
                     {setting.unit === 'percent' ? '%' : 'days'}
                   </span>
                   <button
@@ -239,7 +247,7 @@ export default function AdminVaultPolicyPage() {
         member on that profile.
       */}
       {/* Sleeve weights */}
-      <section className="bg-white rounded-lg shadow-sm p-5">
+      <section className="bg-white rounded-lg shadow-sm p-4 sm:p-5">
         <h2 className="text-sm font-semibold text-gray-900 mb-1">
           Instrument split within each class
         </h2>
@@ -263,7 +271,9 @@ export default function AdminVaultPolicyPage() {
                   {assets.map((asset) => (
                     <div key={asset.id} className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900">{asset.symbol}</p>
+                        <p className="text-xs font-medium text-gray-900 truncate">
+                          {asset.symbol}
+                        </p>
                         <p className="text-xs text-gray-500 truncate">{asset.name}</p>
                       </div>
                       <input
@@ -275,9 +285,9 @@ export default function AdminVaultPolicyPage() {
                         min={0}
                         max={100}
                         step="1"
-                        className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm text-right"
+                        className="w-16 sm:w-20 shrink-0 px-2 py-1.5 border border-gray-300 rounded text-base sm:text-sm text-right"
                       />
-                      <span className="text-xs text-gray-400 w-4">%</span>
+                      <span className="text-xs text-gray-400 w-4 shrink-0">%</span>
                     </div>
                   ))}
                 </div>
