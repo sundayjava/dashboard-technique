@@ -4,55 +4,8 @@ import { useState, useEffect } from 'react';
 import { SessionManager } from '@/lib/session';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Users, UserX, Settings, XCircle, Loader2, CheckCircle, AlertCircle, FileEdit } from 'lucide-react';
+import { XCircle, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-interface RemovalRequest {
-  id: string;
-  reason: string;
-  reference: string;
-  createdAt: string;
-  chainAccount: {
-    accountNumber: string;
-    accountName: string;
-  };
-  initiator: {
-    user: {
-      name: string;
-      email: string;
-    };
-  };
-  target: {
-    user: {
-      name: string;
-      email: string;
-    };
-  };
-}
-
-interface ModificationRequest {
-  id: string;
-  modificationType: string;
-  proposedChanges: any;
-  reason: string;
-  reference: string;
-  createdAt: string;
-  chainAccount: {
-    accountNumber: string;
-    accountName: string;
-    authorizationModel: string;
-    thresholdAmount: number | null;
-    thresholdCurrency: string;
-    primaryPurpose: string;
-    purposeDescription: string;
-  };
-  initiator: {
-    user: {
-      name: string;
-      email: string;
-    };
-  };
-}
 
 interface ClosureRequest {
   id: string;
@@ -77,10 +30,6 @@ export default function AdminChainAccountRequestsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'removals' | 'modifications' | 'closures'>('removals');
-
-  const [removalRequests, setRemovalRequests] = useState<RemovalRequest[]>([]);
-  const [modificationRequests, setModificationRequests] = useState<ModificationRequest[]>([]);
   const [closureRequests, setClosureRequests] = useState<ClosureRequest[]>([]);
 
   const [processing, setProcessing] = useState<string | null>(null);
@@ -97,62 +46,17 @@ export default function AdminChainAccountRequestsPage() {
 
   const fetchAllRequests = async () => {
     try {
-      const [removals, modifications, closures] = await Promise.all([
-        axios.get('/api/admin/chain-accounts/removal-requests'),
-        axios.get('/api/admin/chain-accounts/modification-requests'),
-        axios.get('/api/admin/chain-accounts/closure-requests'),
-      ]);
+      // Closure is the only lifecycle request that still waits on an admin.
+      // Member removals and account modifications are settled by the account's
+      // own parties and never reach this page.
+      const closures = await axios.get('/api/admin/chain-accounts/closure-requests');
 
-      if (removals.data.success) setRemovalRequests(removals.data.requests);
-      if (modifications.data.success) setModificationRequests(modifications.data.requests);
       if (closures.data.success) setClosureRequests(closures.data.requests);
     } catch (error) {
       console.error('Error fetching requests:', error);
       toast.error('Failed to load requests');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRemovalAction = async (requestId: string, action: 'approve' | 'reject', notes: string) => {
-    setProcessing(requestId);
-    try {
-      const response = await axios.post('/api/admin/chain-accounts/removal-requests', {
-        requestId,
-        action,
-        adminNotes: notes,
-        adminId: user.id,
-      });
-
-      if (response.data.success) {
-        toast.success(response.data.message);
-        fetchAllRequests();
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to process request');
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const handleModificationAction = async (requestId: string, action: 'approve' | 'reject', notes: string) => {
-    setProcessing(requestId);
-    try {
-      const response = await axios.post('/api/admin/chain-accounts/modification-requests', {
-        requestId,
-        action,
-        adminNotes: notes,
-        adminId: user.id,
-      });
-
-      if (response.data.success) {
-        toast.success(response.data.message);
-        fetchAllRequests();
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to process request');
-    } finally {
-      setProcessing(null);
     }
   };
 
@@ -189,171 +93,61 @@ export default function AdminChainAccountRequestsPage() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Chain Account Lifecycle Requests</h1>
-          <p className="text-gray-600">Review and approve pending member removals, modifications, and closures</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Chain Account Closure Requests</h1>
+          <p className="text-gray-600">
+            Give final approval to accounts whose members have all agreed to close them. Member
+            removals and account changes are settled by the account&apos;s own parties and do not
+            appear here.
+          </p>
         </div>
 
-        {/* Tabs */}
         <div className="bg-white rounded-lg shadow mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
-              {[
-                { id: 'removals', label: 'Member Removals', icon: UserX, count: removalRequests.length },
-                { id: 'modifications', label: 'Account Modifications', icon: Settings, count: modificationRequests.length },
-                { id: 'closures', label: 'Account Closures', icon: XCircle, count: closureRequests.length },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                      isActive
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4 mr-2" />
-                    {tab.label}
-                    {tab.count > 0 && (
-                      <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                        {tab.count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
+          <div className="flex items-center px-6 py-4 border-b border-gray-200">
+            <XCircle className="w-4 h-4 mr-2 text-red-600" />
+            <span className="font-medium text-sm text-gray-900">Account Closures</span>
+            {closureRequests.length > 0 && (
+              <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {closureRequests.length}
+              </span>
+            )}
           </div>
 
           <div className="p-6">
-            {/* Removal Requests */}
-            {activeTab === 'removals' && (
-              <div className="space-y-4">
-                {removalRequests.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <UserX className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No pending removal requests</p>
-                  </div>
-                ) : (
-                  removalRequests.map((request) => (
-                    <RequestCard
-                      key={request.id}
-                      icon={UserX}
-                      iconColor="text-orange-600"
-                      title={`Remove ${request.target.user.name || request.target.user.email}`}
-                      subtitle={`From ${request.chainAccount.accountName} (${request.chainAccount.accountNumber})`}
-                      initiator={request.initiator.user.name || request.initiator.user.email}
-                      reason={request.reason}
-                      reference={request.reference}
-                      createdAt={request.createdAt}
-                      processing={processing === request.id}
-                      onApprove={(notes) => handleRemovalAction(request.id, 'approve', notes)}
-                      onReject={(notes) => handleRemovalAction(request.id, 'reject', notes)}
-                    >
-                      <div className="bg-gray-50 rounded p-3 text-sm">
-                        <p className="text-gray-600 mb-1"><strong>Target Member:</strong> {request.target.user.name} ({request.target.user.email})</p>
-                      </div>
-                    </RequestCard>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Modification Requests */}
-            {activeTab === 'modifications' && (
-              <div className="space-y-4">
-                {modificationRequests.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Settings className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No pending modification requests</p>
-                  </div>
-                ) : (
-                  modificationRequests.map((request) => (
-                    <RequestCard
-                      key={request.id}
-                      icon={Settings}
-                      iconColor="text-blue-600"
-                      title={`Modify ${request.modificationType.replace('_', ' ')}`}
-                      subtitle={`For ${request.chainAccount.accountName} (${request.chainAccount.accountNumber})`}
-                      initiator={request.initiator.user.name || request.initiator.user.email}
-                      reason={request.reason}
-                      reference={request.reference}
-                      createdAt={request.createdAt}
-                      processing={processing === request.id}
-                      onApprove={(notes) => handleModificationAction(request.id, 'approve', notes)}
-                      onReject={(notes) => handleModificationAction(request.id, 'reject', notes)}
-                    >
-                      <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded p-3 text-sm">
-                        <div>
-                          <p className="text-gray-600 font-semibold mb-2">Current Settings:</p>
-                          {request.modificationType === 'AUTHORIZATION_MODEL' && (
-                            <>
-                              <p className="text-gray-700">Model: {request.chainAccount.authorizationModel}</p>
-                              <p className="text-gray-700">Threshold: {request.chainAccount.thresholdCurrency} {request.chainAccount.thresholdAmount}</p>
-                            </>
-                          )}
-                          {request.modificationType === 'THRESHOLD_AMOUNT' && (
-                            <p className="text-gray-700">Threshold: {request.chainAccount.thresholdCurrency} {request.chainAccount.thresholdAmount}</p>
-                          )}
-                          {request.modificationType === 'ACCOUNT_PURPOSE' && (
-                            <>
-                              <p className="text-gray-700">Purpose: {request.chainAccount.primaryPurpose}</p>
-                              <p className="text-gray-700 text-xs mt-1">{request.chainAccount.purposeDescription}</p>
-                            </>
-                          )}
+            <div className="space-y-4">
+              {closureRequests.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <XCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p>No pending closure requests</p>
+                </div>
+              ) : (
+                closureRequests.map((request) => (
+                  <RequestCard
+                    key={request.id}
+                    icon={XCircle}
+                    iconColor="text-red-600"
+                    title={`Close ${request.chainAccount.accountName}`}
+                    subtitle={request.chainAccount.accountNumber}
+                    initiator={request.initiator.user.name || request.initiator.user.email}
+                    reason={request.reason}
+                    reference={request.reference}
+                    createdAt={request.createdAt}
+                    processing={processing === request.id}
+                    onApprove={(notes) => handleClosureAction(request.id, 'approve', notes)}
+                    onReject={(notes) => handleClosureAction(request.id, 'reject', notes)}
+                  >
+                    <div className="bg-gray-50 rounded p-3 text-sm">
+                      <p className="text-gray-600"><strong>Current Balance:</strong> {request.chainAccount.currency} ${request.chainAccount.balance.toLocaleString()}</p>
+                      {request.chainAccount.balance > 0 && (
+                        <div className="mt-2 flex items-start space-x-2 text-red-600">
+                          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                          <p className="text-xs">Warning: Account has remaining balance. Cannot be closed until balance is $0.</p>
                         </div>
-                        <div>
-                          <p className="text-blue-600 font-semibold mb-2">Proposed Changes:</p>
-                          <pre className="text-xs text-gray-700 whitespace-pre-wrap">{JSON.stringify(request.proposedChanges, null, 2)}</pre>
-                        </div>
-                      </div>
-                    </RequestCard>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Closure Requests */}
-            {activeTab === 'closures' && (
-              <div className="space-y-4">
-                {closureRequests.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <XCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p>No pending closure requests</p>
-                  </div>
-                ) : (
-                  closureRequests.map((request) => (
-                    <RequestCard
-                      key={request.id}
-                      icon={XCircle}
-                      iconColor="text-red-600"
-                      title={`Close ${request.chainAccount.accountName}`}
-                      subtitle={request.chainAccount.accountNumber}
-                      initiator={request.initiator.user.name || request.initiator.user.email}
-                      reason={request.reason}
-                      reference={request.reference}
-                      createdAt={request.createdAt}
-                      processing={processing === request.id}
-                      onApprove={(notes) => handleClosureAction(request.id, 'approve', notes)}
-                      onReject={(notes) => handleClosureAction(request.id, 'reject', notes)}
-                    >
-                      <div className="bg-gray-50 rounded p-3 text-sm">
-                        <p className="text-gray-600"><strong>Current Balance:</strong> {request.chainAccount.currency} ${request.chainAccount.balance.toLocaleString()}</p>
-                        {request.chainAccount.balance > 0 && (
-                          <div className="mt-2 flex items-start space-x-2 text-red-600">
-                            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                            <p className="text-xs">Warning: Account has remaining balance. Cannot be closed until balance is $0.</p>
-                          </div>
-                        )}
-                      </div>
-                    </RequestCard>
-                  ))
-                )}
-              </div>
-            )}
+                      )}
+                    </div>
+                  </RequestCard>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

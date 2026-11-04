@@ -123,7 +123,7 @@ export default function CloseAccountModal({
           {/* Closure Process */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <p className="text-sm text-gray-700">
-              Every member gets an email to confirm or reject the closure. Once all confirm, an admin gives final approval — a single rejection cancels it.
+              The closure appears in every member's Approvals panel to confirm or reject. Once all confirm, an admin gives final approval — a single rejection cancels it.
             </p>
           </div>
 

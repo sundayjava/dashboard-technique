@@ -40,7 +40,6 @@ export default function WithdrawalModal({
   const [step, setStep] = useState<'amounts' | 'confirm'>('amounts');
   const [memberDistributions, setMemberDistributions] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [requiresApproval, setRequiresApproval] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,27 +52,20 @@ export default function WithdrawalModal({
     }
   }, [isOpen, members]);
 
-  useEffect(() => {
-    checkApprovalRequirement();
-  }, [memberDistributions, authorizationModel, thresholdAmount]);
-
   const getTotalAmount = () => {
     return Object.values(memberDistributions).reduce((sum, amount) => {
       return sum + (parseFloat(amount) || 0);
     }, 0);
   };
 
-  const checkApprovalRequirement = () => {
-    const totalAmount = getTotalAmount();
-    
-    if (authorizationModel === 'INDEPENDENT') {
-      setRequiresApproval(false);
-    } else if (authorizationModel === 'THRESHOLD') {
-      setRequiresApproval(thresholdAmount !== null && totalAmount >= thresholdAmount);
-    } else if (authorizationModel === 'MAJORITY') {
-      setRequiresApproval(true);
-    }
-  };
+  // Mirrors approvalRequirementFor() on the server: the account's own
+  // authorization model and threshold decide whether the other parties have to
+  // approve. Shown here only so the member knows before submitting — the server
+  // is what enforces it.
+  const overThreshold = thresholdAmount === null || getTotalAmount() >= thresholdAmount;
+  const requiresApproval =
+    members.length > 1 && authorizationModel !== 'INDEPENDENT' && overThreshold;
+  const needsMajorityOnly = requiresApproval && authorizationModel === 'MAJORITY';
 
   const handleDistributionChange = (memberId: string, value: string) => {
     setMemberDistributions(prev => ({
@@ -173,7 +165,6 @@ export default function WithdrawalModal({
   const handleClose = () => {
     setStep('amounts');
     setMemberDistributions({});
-    setRequiresApproval(false);
     onClose();
   };
 
@@ -316,13 +307,10 @@ export default function WithdrawalModal({
                         Approval Required
                       </h4>
                       <p className="text-xs text-yellow-700">
-                        {authorizationModel === 'THRESHOLD' && 
-                          `This withdrawal exceeds the threshold of $${thresholdAmount?.toLocaleString()}. `
-                        }
-                        {authorizationModel === 'MAJORITY' && 
-                          'All withdrawals require majority approval. '
-                        }
-                        Other members will be notified to approve this withdrawal before it's processed.
+                        {needsMajorityOnly
+                          ? 'This account approves withdrawals by majority, so most of the members must agree — not necessarily all of them. '
+                          : 'Every other member of this account must approve this withdrawal, and a single rejection cancels it and returns the funds to the account. '}
+                        They each get an approval request in their Chain Account dashboard and can approve or reject it at any time. Once there are enough approvals, Acredis gives final sign-off and the funds are credited to each member&apos;s wallet.
                       </p>
                     </div>
                   </div>

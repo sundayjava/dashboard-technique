@@ -102,10 +102,10 @@ export default function RemoveMemberModal({
               <div className="text-sm text-orange-800">
                 <p className="font-semibold mb-1">Removal Process:</p>
                 <ol className="list-decimal list-inside space-y-1">
-                  <li>The selected member must approve their removal</li>
-                  <li>All remaining members must vote to approve</li>
-                  <li>Admin must give final approval</li>
-                  <li>If any step is rejected, the removal is cancelled</li>
+                  <li>The selected member approves their removal from their own dashboard</li>
+                  <li>Every remaining member then approves it in their Approvals panel</li>
+                  <li>The removal takes effect as soon as they all have — no admin step</li>
+                  <li>If anyone rejects, the removal is cancelled</li>
                 </ol>
               </div>
             </div>

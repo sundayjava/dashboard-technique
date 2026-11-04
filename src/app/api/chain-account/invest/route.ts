@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyChainAccountToken } from '@/lib/chain-account-session';
-import { requiresApproval as checkApprovalNeeded } from '@/lib/chain-account-utils';
+import { approvalRequirementFor } from '@/lib/chain-account-authorization';
 
 export async function POST(request: NextRequest) {
   try {
@@ -99,12 +99,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if approval is required
-    const needsApproval = await checkApprovalNeeded(
-      chainAccountId,
-      amount
-    );
-
     // Generate investment reference
     const investmentReference = `INV-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
 
@@ -121,6 +115,9 @@ export async function POST(request: NextRequest) {
       where: {
         chainAccountId,
         userId: session.userId
+      },
+      include: {
+        user: { select: { name: true, email: true } }
       }
     });
 
@@ -130,6 +127,19 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+
+    // Whether the other parties have to approve is set by the account's own
+    // authorization model and threshold, through the same shared rule the
+    // decision side uses. Until it is satisfied the money stays in the account
+    // balance — nothing is debited for a pending investment.
+    const otherMembers = chainAccount.members.filter((m: { id: string }) => m.id !== member.id);
+    const requirement = approvalRequirementFor({
+      authorizationModel: chainAccount.authorizationModel,
+      thresholdAmount: chainAccount.thresholdAmount,
+      amount,
+      memberCount: chainAccount.members.length,
+    });
+    const needsApproval = requirement.required;
 
     // Create investment record
     const investment = await prisma.chainAccountInvestment.create({
@@ -149,8 +159,6 @@ export async function POST(request: NextRequest) {
 
     // If approval needed, create approval records
     if (needsApproval) {
-      const otherMembers = chainAccount.members.filter(m => m.id !== member.id);
-      
       for (const m of otherMembers) {
         await prisma.chainAccountApproval.create({
           data: {
@@ -163,20 +171,24 @@ export async function POST(request: NextRequest) {
       }
 
       // Notify other members
-      for (const member of otherMembers) {
+      const initiatorName = member.user?.name || member.user?.email || 'A member';
+
+      for (const m of otherMembers) {
         await prisma.chainAccountNotification.create({
           data: {
             chainAccountId,
-            userId: member.userId,
+            userId: m.userId,
             type: 'APPROVAL_REQUEST',
             title: 'Investment Approval Required',
-            message: `A new investment of $${amount.toLocaleString()} in ${investmentPlan.planName} requires your approval.`,
+            message: `${initiatorName} wants to invest $${amount.toLocaleString()} in ${investmentPlan.planName}. ${requirement.reason}. Open the Approvals panel in your Chain Account dashboard to approve or reject it.`,
             isRead: false,
+            actionType: 'INVESTMENT',
+            actionId: investment.id,
           },
         });
       }
     } else {
-      // No approval needed - deduct from balance immediately
+      // Sole remaining member: nobody else to ask, so deduct immediately.
       await prisma.chainAccount.update({
         where: { id: chainAccountId },
         data: {
@@ -226,6 +238,8 @@ export async function POST(request: NextRequest) {
         expectedReturn,
         status: investment.status,
         requiresApproval: needsApproval,
+        approvalRule: requirement.mode,
+        approvalsNeeded: requirement.approvalsNeeded,
       },
     });
 

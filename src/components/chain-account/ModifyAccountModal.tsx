@@ -139,7 +139,7 @@ export default function ModifyAccountModal({
               <AlertCircle className="w-5 h-5 text-blue-600 mr-3 shrink-0 mt-0.5" />
               <div className="text-sm text-blue-800">
                 <p className="font-semibold mb-1">Modification Process:</p>
-                <p>Changes take effect immediately. All other members will be notified by email.</p>
+                <p>Every other member must approve this change in their Chain Account dashboard. It is applied the moment the last of them agrees — nothing changes before that, and a single rejection cancels it.</p>
               </div>
             </div>
           </div>
