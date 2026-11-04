@@ -10,6 +10,7 @@ import RemoveMemberModal from '@/components/chain-account/RemoveMemberModal';
 import ModifyAccountModal from '@/components/chain-account/ModifyAccountModal';
 import CloseAccountModal from '@/components/chain-account/CloseAccountModal';
 import ChainHoldingsModal from '@/components/chain-account/ChainHoldingsModal';
+import PendingApprovalsPanel, { type PendingApproval } from '@/components/chain-account/PendingApprovalsPanel';
 import axios from 'axios';
 import {
   LogOut, Users, DollarSign, TrendingUp, ArrowDownCircle,
@@ -64,6 +65,7 @@ interface DashboardData {
     description: string;
     createdAt: string;
   }>;
+  pendingApprovals: PendingApproval[];
   notifications: Array<{
     id: string;
     type: string;
@@ -237,6 +239,8 @@ export default function ChainAccountDashboardPage() {
     return null;
   }
 
+  const pendingApprovals = data.pendingApprovals ?? [];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Distinct Header - Blue Theme */}
@@ -340,7 +344,12 @@ export default function ChainAccountDashboardPage() {
               { id: 'deposits', label: 'Deposits', icon: ArrowDownCircle },
               { id: 'investments', label: 'Investments', icon: TrendingUp },
               { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpCircle },
-              { id: 'notifications', label: 'Notifications', icon: Bell, badge: data.notifications.filter(n => !n.isRead).length },
+              {
+                id: 'notifications',
+                label: 'Notifications',
+                icon: Bell,
+                badge: data.notifications.filter(n => !n.isRead).length + pendingApprovals.length,
+              },
               { id: 'settings', label: 'Settings', icon: Settings },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -372,6 +381,14 @@ export default function ChainAccountDashboardPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
+        {/* Approvals are decided here rather than through emailed links, so the
+            queue sits above every tab for as long as anything is waiting. */}
+        <PendingApprovalsPanel
+          chainAccountId={data.chainAccount.id}
+          approvals={pendingApprovals}
+          onDecided={handleRefresh}
+        />
+
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Stats Grid */}
@@ -417,7 +434,7 @@ export default function ChainAccountDashboardPage() {
                   <div className="min-w-0">
                     <p className="text-gray-600 text-xs sm:text-sm">Pending Approvals</p>
                     <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1">
-                      {data.stats.pendingApprovals}
+                      {pendingApprovals.length}
                     </p>
                   </div>
                   <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-500 shrink-0" />
@@ -832,7 +849,7 @@ export default function ChainAccountDashboardPage() {
                       </p>
                       <div className="flex items-start space-x-2 text-xs text-gray-500">
                         <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                        <p>Requires approval from all members and final admin approval</p>
+                        <p>Requires approval from every member — the parties settle this between themselves, with no admin step</p>
                       </div>
                     </div>
                     <button
@@ -858,7 +875,7 @@ export default function ChainAccountDashboardPage() {
                       </p>
                       <div className="flex items-start space-x-2 text-xs text-gray-500">
                         <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                        <p>Target member must approve, then all remaining members vote, followed by admin approval</p>
+                        <p>The member must approve, then every remaining party — the parties settle this between themselves, with no admin step</p>
                       </div>
                     </div>
                     <button
@@ -965,6 +982,7 @@ export default function ChainAccountDashboardPage() {
             }}
             chainAccountId={data.chainAccount.id}
             accountBalance={data.chainAccount.balance}
+            memberCount={data.members.length}
             authorizationModel={data.chainAccount.authorizationModel}
             thresholdAmount={data.chainAccount.thresholdAmount}
             onSuccess={handleModalSuccess}

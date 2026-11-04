@@ -24,6 +24,7 @@ interface InvestmentModalProps {
   onClose: () => void;
   chainAccountId: string;
   accountBalance: number;
+  memberCount: number;
   authorizationModel: string;
   thresholdAmount: number | null;
   onSuccess: () => void;
@@ -35,6 +36,7 @@ export default function InvestmentModal({
   onClose,
   chainAccountId,
   accountBalance,
+  memberCount,
   authorizationModel,
   thresholdAmount,
   onSuccess,
@@ -46,7 +48,15 @@ export default function InvestmentModal({
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [requiresApproval, setRequiresApproval] = useState(false);
+
+  // Mirrors approvalRequirementFor() on the server: the account's own
+  // authorization model and threshold decide whether the other parties have to
+  // approve. Shown here only so the member knows before submitting.
+  const investAmount = parseFloat(amount) || 0;
+  const overThreshold = thresholdAmount === null || investAmount >= thresholdAmount;
+  const requiresApproval =
+    memberCount > 1 && authorizationModel !== 'INDEPENDENT' && overThreshold;
+  const needsMajorityOnly = requiresApproval && authorizationModel === 'MAJORITY';
 
   useEffect(() => {
     if (isOpen && step === 'plans') {
@@ -64,12 +74,6 @@ export default function InvestmentModal({
     }
   }, [isOpen, initialPlanId, plans]);
 
-  useEffect(() => {
-    if (amount && selectedPlan) {
-      checkApprovalRequirement();
-    }
-  }, [amount, selectedPlan, authorizationModel, thresholdAmount]);
-
   const fetchInvestmentPlans = async () => {
     setLoading(true);
     try {
@@ -82,18 +86,6 @@ export default function InvestmentModal({
       toast.error('Failed to load investment plans');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const checkApprovalRequirement = () => {
-    const investAmount = parseFloat(amount);
-    
-    if (authorizationModel === 'INDEPENDENT') {
-      setRequiresApproval(false);
-    } else if (authorizationModel === 'THRESHOLD') {
-      setRequiresApproval(thresholdAmount !== null && investAmount >= thresholdAmount);
-    } else if (authorizationModel === 'MAJORITY') {
-      setRequiresApproval(true);
     }
   };
 
@@ -167,7 +159,6 @@ export default function InvestmentModal({
     setStep('plans');
     setSelectedPlan(null);
     setAmount('');
-    setRequiresApproval(false);
     onClose();
   };
 
@@ -398,13 +389,10 @@ export default function InvestmentModal({
                         Approval Required
                       </h4>
                       <p className="text-xs text-yellow-700">
-                        {authorizationModel === 'THRESHOLD' && 
-                          `This investment exceeds the threshold of $${thresholdAmount?.toLocaleString()}. `
-                        }
-                        {authorizationModel === 'MAJORITY' && 
-                          'All investments require majority approval. '
-                        }
-                        Other members will be notified to approve this investment before it's activated.
+                        {needsMajorityOnly
+                          ? 'This account approves investments by majority, so most of the members must agree — not necessarily all of them. '
+                          : 'Every other member of this account must approve this investment, and a single rejection cancels it. '}
+                        They each get an approval request in their Chain Account dashboard and can approve or reject it at any time. The money stays in the account balance until there are enough approvals.
                       </p>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyChainAccountToken } from '@/lib/chain-account-session';
+import { listPendingApprovals } from '@/lib/chain-account-approvals';
 
 export async function GET(request: NextRequest) {
   try {
@@ -131,13 +132,10 @@ export async function GET(request: NextRequest) {
       .filter(w => w.status === 'COMPLETED')
       .reduce((sum, w) => sum + w.totalAmount, 0);
 
-    // Fetch pending approvals (for this member)
-    const pendingApprovals = await prisma.chainAccountApproval.findMany({
-      where: {
-        memberId: currentMember.id,
-        status: 'PENDING',
-      },
-    });
+    // Everything waiting on this member, across every request type. Approvals
+    // are decided here in the dashboard rather than through emailed links, so
+    // the dashboard has to carry the full queue, not just a count.
+    const pendingApprovals = await listPendingApprovals(chainAccountId, currentMember.id);
 
     // Fetch recent transactions
     const transactions = await prisma.chainAccountTransaction.findMany({
@@ -206,6 +204,7 @@ export async function GET(request: NextRequest) {
           description: tx.description,
           createdAt: tx.createdAt.toISOString(),
         })),
+        pendingApprovals,
         notifications: notifications.map(n => ({
           id: n.id,
           type: n.type,

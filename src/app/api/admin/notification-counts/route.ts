@@ -15,8 +15,6 @@ export async function GET(request: NextRequest) {
       pendingCardsCount,
       pendingWithdrawalsCount,
       pendingTransactionsCount,
-      pendingChainRemovalCount,
-      pendingChainModificationCount,
       pendingChainClosureCount
     ] = await Promise.all([
       // New users (registered in last 24 hours)
@@ -92,20 +90,6 @@ export async function GET(request: NextRequest) {
         }
       }).catch(() => 0),
 
-      // Chain Account member removal requests awaiting admin sign-off
-      prisma.chainAccountRemovalRequest.count({
-        where: {
-          status: 'PENDING_ADMIN'
-        }
-      }).catch(() => 0),
-
-      // Chain Account modification requests awaiting admin sign-off
-      prisma.chainAccountModificationRequest.count({
-        where: {
-          status: 'PENDING_ADMIN'
-        }
-      }).catch(() => 0),
-
       // Chain Account closure requests awaiting admin sign-off
       prisma.chainAccountClosureRequest.count({
         where: {
@@ -131,7 +115,9 @@ export async function GET(request: NextRequest) {
         // Total management items (loans + cards)
         management: pendingLoansCount + pendingCardsCount,
         // Chain Account requests awaiting final admin approval
-        chainAccountRequests: pendingChainRemovalCount + pendingChainModificationCount + pendingChainClosureCount
+        // Member removals and account changes are settled by the account's own
+        // parties, so closure is the only one that ever waits on an admin.
+        chainAccountRequests: pendingChainClosureCount
       }
     });
   } catch (error) {

@@ -217,25 +217,17 @@ async function handleWalletDeposit(params: any) {
       return deposit;
     });
 
-    // 5. Send email notifications to all members
+    // 5. Tell every member the money arrived.
+    //
+    // A deposit never waits on anyone's approval, and it must not fail because
+    // of the mail server either: the funds have already moved by this point, so
+    // the in-app notification is written first and the courtesy email is
+    // best-effort. A dead or throttled SMTP host can no longer turn a
+    // successful deposit into an error for the depositor.
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const depositorName = member.user.name || member.user.email;
 
     for (const m of chainAccount.members) {
-      await sendDepositNotificationEmail({
-        to: m.user.email,
-        recipientName: m.user.name || m.user.email,
-        depositorName,
-        accountName: chainAccount.accountName,
-        accountNumber: chainAccount.accountNumber,
-        amount: amountInUSDT,
-        originalAmount: amount,
-        originalCurrency: currency,
-        reference: depositReference,
-        newBalance: chainAccount.balance + amountInUSDT,
-        baseUrl,
-      });
-
       // Create in-app notification
       await prisma.chainAccountNotification.create({
         data: {
@@ -247,6 +239,24 @@ async function handleWalletDeposit(params: any) {
           isRead: false,
         },
       });
+
+      try {
+        await sendDepositNotificationEmail({
+          to: m.user.email,
+          recipientName: m.user.name || m.user.email,
+          depositorName,
+          accountName: chainAccount.accountName,
+          accountNumber: chainAccount.accountNumber,
+          amount: amountInUSDT,
+          originalAmount: amount,
+          originalCurrency: currency,
+          reference: depositReference,
+          newBalance: chainAccount.balance + amountInUSDT,
+          baseUrl,
+        });
+      } catch (emailError) {
+        console.error('Failed to send deposit notification email:', emailError);
+      }
     }
 
     return NextResponse.json({

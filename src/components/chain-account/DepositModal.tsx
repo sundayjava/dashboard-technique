@@ -281,7 +281,7 @@ export default function DepositModal({ isOpen, onClose, chainAccountId, chainAcc
                   <div>
                     <h4 className="text-sm font-semibold text-blue-900 mb-1">Instant Wallet Transfer</h4>
                     <p className="text-xs text-blue-700">
-                      Funds will be instantly transferred to the Chain Account. All members will be notified via email.
+                      Funds will be instantly transferred to the Chain Account — a deposit never waits on another member's approval. All members will be notified.
                       {walletCurrency !== 'USDT' && (
                         <span className="block mt-1">Your {walletCurrency} will be automatically converted to USDT.</span>
                       )}

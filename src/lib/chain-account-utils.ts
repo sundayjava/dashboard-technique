@@ -268,38 +268,3 @@ export async function isApprovalThresholdMet(
   }
 }
 
-/**
- * Check if a transaction requires approval based on amount and threshold
- */
-export async function requiresApproval(
-  chainAccountId: string,
-  amount: number
-): Promise<boolean> {
-  const chainAccount = await prisma.chainAccount.findUnique({
-    where: { id: chainAccountId },
-    select: {
-      authorizationModel: true,
-      thresholdAmount: true
-    }
-  });
-
-  if (!chainAccount) {
-    throw new Error('Chain account not found');
-  }
-
-  // Independent model never requires approval
-  if (chainAccount.authorizationModel === 'INDEPENDENT') {
-    return false;
-  }
-
-  // Threshold and Majority models require approval if amount >= threshold
-  if (chainAccount.authorizationModel === 'THRESHOLD' || chainAccount.authorizationModel === 'MAJORITY') {
-    if (chainAccount.thresholdAmount === null) {
-      // No threshold set, all transactions require approval
-      return true;
-    }
-    return amount >= chainAccount.thresholdAmount;
-  }
-
-  return false;
-}
